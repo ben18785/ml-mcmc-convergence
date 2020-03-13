@@ -1,13 +1,93 @@
 ---
-title: "R Notebook"
+title: "Fake data"
 output: html_notebook
 ---
 
-This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
-
-Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
 
 ```{r}
-plot(cars)
+rm(list=ls())
+library(tidyverse)
+```
+
+# AR1 examples
+```{r}
+f_ar1 <- function(rho, sigma, L){
+  x <- vector(length = L)
+  x[1] <- rnorm(1, 0, sd=sigma)
+  for(i in 2:L)
+    x[i] = rho * x[i - 1] + rnorm(1, 0, sd=sigma)
+  return(x)
+}
+plot(f_ar1(1.0, 1, 100), type='l')
+
+f_generate_lower_var_four <- function(var_ratio, rho, sigma, L){
+  x <- matrix(nrow = L, ncol = 4)
+  for(i in 1:3)
+    x[, i] <- f_ar1(rho, sigma, L)
+  z <- f_ar1(rho, sigma * sqrt(var_ratio), L)
+  x[, 4] <- z
+  return(x)
+}
+
+f_generate_lower_var_four(1/10, 0.3, 1, 1000) %>% 
+  melt() %>% 
+  rename(iter=Var1,
+         chain=Var2) %>% 
+  ggplot(aes(x=value, fill=as.factor(chain))) +
+  geom_histogram(position="identity", alpha=0.3)
+```
+
+Test LDA on classifying chains
+```{r}
+full_data <- f_generate_lower_var_four(1/3, 0.3, 1, 1000) %>% 
+  melt() %>% 
+  rename(iter=Var1,
+         chain=Var2) %>% 
+  dplyr::select(-iter)
+rand_samples <- sample(1:nrow(full_data), 0.7 * nrow(full_data))
+training_data <- full_data[rand_samples, ]
+testing_data <- full_data[-rand_samples, ]
+require(MASS)
+fitter <- lda(formula = chain ~ ., 
+         data = training_data, 
+         prior = c(1,1,1,1)/4)
+plda <- predict(object=fitter, newdata=testing_data)
+tibble(predicted=plda$class, actual=testing_data$chain) %>% 
+  mutate(correct=if_else(predicted==actual, 1, 0)) %>% 
+  summarise(mean(correct))
+```
+
+Try Caret
+```{r}
+library(caret)
+library(gbm)
+# add in extra column of nonsense values since the 
+full_data <- full_data %>% 
+  mutate(chain=as.factor(chain)) %>% 
+  mutate(ones=rnorm(nrow(full_data)))
+training_data <- full_data[rand_samples, ]
+testing_data <- full_data[-rand_samples, ]
+
+
+caretGrid <- expand.grid(interaction.depth=c(3), n.trees = 50,
+                   shrinkage=c(0.1),
+                   n.minobsinnode=10)
+gbmFit1 <- train(chain ~ ., data = training_data, 
+                 method = "gbm",
+                 trControl = trainControl(method = 'none'), 
+                    tuneGrid = caretGrid)
+# plot(gbmFit1)
+plda <- predict(object=gbmFit1, newdata=testing_data)
+tibble(predicted=plda, actual=testing_data$chain) %>% 
+  mutate(correct=if_else(predicted==actual, 1, 0)) %>% 
+  summarise(mean(correct))
+varImp(gbmFit1)
+
+# plot predictions as fn of value
+testing_data %>% 
+  arrange(value) %>% 
+  mutate(predictions=predict(object=gbmFit1, .)) %>% 
+  ggplot(aes(x=value, y=predictions)) +
+  geom_jitter()
 ```
 

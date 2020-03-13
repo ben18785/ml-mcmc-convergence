@@ -1,0 +1,143 @@
+\documentclass{article}
+
+% if you need to pass options to natbib, use, e.g.:
+%     \PassOptionsToPackage{numbers, compress}{natbib}
+% before loading neurips_2018
+
+% ready for submission
+% \usepackage{neurips_2018}
+
+% to compile a preprint version, e.g., for submission to arXiv, add add the
+% [preprint] option:
+%     \usepackage[preprint]{neurips_2018}
+
+% to compile a camera-ready version, add the [final] option, e.g.:
+\usepackage[final]{nips_2018}
+
+% to avoid loading the natbib package, add option nonatbib:
+%     \usepackage[nonatbib]{neurips_2018}
+
+\usepackage[utf8]{inputenc} % allow utf-8 input
+\usepackage[T1]{fontenc}    % use 8-bit T1 fonts
+\usepackage{hyperref}       % hyperlinks
+\usepackage{url}            % simple URL typesetting
+\usepackage{booktabs}       % professional-quality tables
+\usepackage{amsfonts}       % blackboard math symbols
+\usepackage{nicefrac}       % compact symbols for 1/2, etc.
+\usepackage{microtype}      % microtypography
+\usepackage{amsmath}
+\usepackage{algorithm,algorithmic}
+\usepackage{graphicx}
+
+
+\newcommand{\fracpartial}[2]{\frac{\partial #1}{\partial  #2}}
+\newcommand{\Dir}[0]{\textrm{Dirichlet}}
+\newcommand{\Ray}[0]{\textrm{Rayleigh}}
+\newcommand{\gam}[0]{\textrm{Gamma}}
+\newcommand{\dgamma}[0]{\textrm{Gamma}}
+\newcommand{\dpoisson}[0]{\textrm{Poisson}}
+\newcommand{\dbeta}[0]{\textrm{Beta}}
+\newcommand{\dbern}[0]{\textrm{Bernoulli}}
+\newcommand{\dunif}[0]{\mathrm{Uniform}}
+\newcommand{\dgig}[0]{\textrm{GIG}}
+\newcommand{\dnormal}[0]{\mathrm{Normal}}
+\newcommand{\dt}[0]{\mathrm{t}}
+\newcommand{\igamma}[0]{\textrm{Gamma}^{-1}}
+\newcommand{\rayl}[0]{\textrm{Rayleigh}}
+\newcommand{\Exp}[0]{\textrm{Exponential}}
+\newcommand{\Bet}[0]{\textrm{Beta}}
+\newcommand{\GEM}[0]{\textrm{GEM}}
+\newcommand{\DP}[0]{\textrm{DP}}
+\newcommand{\ESS}[0]{\mathrm{ESS}}
+\newcommand{\bm}[1]{\boldsymbol{#1}}
+\newcommand{\bbeta}{\bm{\beta}}
+\newcommand{\bpi}{\bm{\pi}}
+\newcommand{\bomega}{\bm{\omega}}
+\newcommand{\bgamma}{\bm{\gamma}}
+\newcommand{\blambda}{\bm{\lambda}}
+\newcommand{\bphi}{\bm{\phi}}
+\newcommand{\btheta}{\bm{\theta}}
+\newcommand{\bmu}{\bm{\mu}}
+\newcommand{\bb}{\bm{b}}
+\newcommand{\bk}{\bm{k}}
+\newcommand{\bl}{\bm{l}}
+\newcommand{\bn}{\bm{n}}
+\newcommand{\bw}{\bm{w}}
+\newcommand{\bz}{\bm{z}}
+\newcommand{\bx}{\bm{x}}
+\newcommand{\bX}{\bm{X}}
+\newcommand{\by}{\bm{y}}
+\newcommand{\bZ}{\bm{Z}}
+\newcommand{\bW}{\bm{W}}
+\newcommand{\bS}{\bm{S}}
+\newcommand{\bH}{\bm{H}}
+\newcommand{\Mult}{\textrm{Multinomial}}
+\newcommand{\N}{\mathcal{N}}
+\newcommand{\NEW}{\textrm{\tiny new}}
+\newcommand{\OLD}{\textrm{\tiny old}}
+\newcommand{\sigmat}{\sigma^2}
+\newcommand{\IBP}{\textrm{IBP}}
+\newcommand{\E}{\mathbb{E}}
+\newcommand{\V}{\mathbb{V}}
+\newcommand{\Eq}{\mathbb{E}_q}
+\newcommand{\cL}{\mathcal{L}}
+\newcommand{\cB}{\mathcal{B}}
+\newcommand{\cC}{\mathcal{C}}
+\newcommand{\cV}{\mathcal{V}}
+\newcommand{\cHq}{\mathcal{H}_q}
+\newcommand{\test}[1]{\mbox{$#1$}^{\small \mbox{test}}}
+\newcommand{\alphaW}{\alpha^{(W)}}
+\newcommand{\alphaH}{\alpha^{(H)}}
+\newcommand{\betaW}{\beta^{(W)}}
+\newcommand{\betaH}{\beta^{(H)}}
+\newcommand{\gammaW}{\gamma^{(W)}}
+\newcommand{\gammaH}{\gamma^{(H)}}
+\newcommand{\gammaT}{\gamma^{(\theta)}}
+\newcommand{\rhoW}{\rho^{(W)}}
+\newcommand{\rhoH}{\rho^{(H)}}
+\newcommand{\rhoT}{\rho^{(\theta)}}
+\newcommand{\tauW}{\tau^{(W)}}
+\newcommand{\tauH}{\tau^{(H)}}
+\newcommand{\tauT}{\tau^{(\theta)}}
+\newcommand{\muW}{\hat{W}}
+\newcommand{\muH}{\hat{H}}
+\newcommand{\Var}{\textrm{Var}}
+\newcommand{\LF}{\mathrm{Leapfrog}}
+
+\title{A single MCMC convergence diagnostic across all parameters using machine learning}
+
+% The \author macro works with any number of authors. There are two commands
+% used to separate the names and addresses of multiple authors: \And and \AND.
+%
+% Using \And between authors leaves it to LaTeX to determine where to break the
+% lines. Using \AND forces a line break at that point. So, if LaTeX puts 3 of 4
+% authors names on the first line, and the last on the second line, try using
+% \AND instead of \And before the third author name.
+
+\author{%
+	 Ben Lambert\\
+	 MRC Centre for Global Infectious Disease Analysis\\
+	 School of Public Health\\
+	 Imperial College London\\
+	 W2 1PG, United Kingdom\\
+	 \texttt{ben.c.lambert@gmail.com} \\
+}
+
+\begin{document}
+% \nipsfinalcopy is no longer used
+
+\maketitle
+
+\begin{abstract}
+	Markov chain Monte Carlo (MCMC) has transformed inference of Bayesian models over the past three decades: taking the theory from theoretical fancy to a workhorse of applied scientists. Despite its importance, MCMC is a notoriously subtle beast. Indeed, the words of statisticians working in this area often echo that MCMC "should be used with caution, almost as a last resort". The problem is that we are often at the "last resort for interesting models".
+\end{abstract}
+
+\section{Introduction}
+
+Chris Holmes quoate
+
+	
+\bibliographystyle{unsrt}
+\bibliography{bibliography} 
+	
+\end{document}
