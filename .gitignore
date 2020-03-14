@@ -6,4 +6,4 @@
 *.gz
 *.log
 *.html
-
+*.DS_Store

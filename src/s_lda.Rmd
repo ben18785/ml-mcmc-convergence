@@ -7,6 +7,13 @@ output: html_notebook
 ```{r}
 rm(list=ls())
 library(tidyverse)
+library(reshape2)
+library(rstan)
+library(latex2exp)
+library(caret)
+library(gbm)
+options(mc.cores=4)
+rstan_options(auto_write = TRUE)
 ```
 
 # AR1 examples
@@ -89,5 +96,618 @@ testing_data %>%
   mutate(predictions=predict(object=gbmFit1, .)) %>% 
   ggplot(aes(x=value, y=predictions)) +
   geom_jitter()
+```
+
+Perform 1000 replicates
+```{r}
+f_replicate <- function(){
+  full_data <- f_generate_lower_var_four(1/3, 0.3, 1, 1000) %>% 
+  melt() %>% 
+  rename(iter=Var1,
+         chain=Var2) %>% 
+  dplyr::select(-iter)
+  rand_samples <- sample(1:nrow(full_data), 0.7 * nrow(full_data))
+  training_data <- full_data[rand_samples, ]
+  testing_data <- full_data[-rand_samples, ]
+  
+  # add in extra column of nonsense values since the method needs at least 2 vars 
+  full_data <- full_data %>% 
+    mutate(chain=as.factor(chain)) %>% 
+    mutate(ones=rnorm(nrow(full_data)))
+  training_data <- full_data[rand_samples, ]
+  testing_data <- full_data[-rand_samples, ]
+
+  gbmFit1 <- train(chain ~ ., data = training_data, 
+                 method = "gbm",
+                 trControl = trainControl(method = 'none'), 
+                    tuneGrid = caretGrid, verbose=FALSE)
+  plda <- predict(object=gbmFit1, newdata=testing_data)
+  a_accuracy <- 
+    tibble(predicted=plda, actual=testing_data$chain) %>%
+    mutate(correct=if_else(predicted==actual, 1, 0)) %>% 
+    summarise(mean(correct)) %>% 
+    pull()
+  return(a_accuracy)
+}
+
+nreplicates <- 1000
+accuracies <- vector(length = nreplicates)
+for(i in 1:nreplicates){
+  if(i%%100==0)
+    print(i)
+  accuracies[i] <- f_replicate()
+}
+```
+
+Plot results
+```{r}
+multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
+  library(grid)
+
+  # Make a list from the ... arguments and plotlist
+  plots <- c(list(...), plotlist)
+
+  numPlots = length(plots)
+
+  # If layout is NULL, then use 'cols' to determine layout
+  if (is.null(layout)) {
+    # Make the panel
+    # ncol: Number of columns of plots
+    # nrow: Number of rows needed, calculated from # of cols
+    layout <- matrix(seq(1, cols * ceiling(numPlots/cols)),
+                    ncol = cols, nrow = ceiling(numPlots/cols))
+  }
+
+ if (numPlots==1) {
+    print(plots[[1]])
+
+  } else {
+    # Set up the page
+    grid.newpage()
+    pushViewport(viewport(layout = grid.layout(nrow(layout), ncol(layout))))
+
+    # Make each plot, in the correct location
+    for (i in 1:numPlots) {
+      # Get the i,j matrix positions of the regions that contain this subplot
+      matchidx <- as.data.frame(which(layout == i, arr.ind = TRUE))
+
+      print(plots[[i]], vp = viewport(layout.pos.row = matchidx$row,
+                                      layout.pos.col = matchidx$col))
+    }
+  }
+}
+
+g1 <- tibble(accuracy=accuracies/0.25, iteration=seq(1, nreplicates, 1)) %>% 
+  ggplot(aes(x=accuracy)) +
+  geom_histogram() +
+  xlab(TeX("$R*$")) +
+  ylab("Count") +
+  ggtitle("A.") +
+  theme(text = element_text(size=14, colour="black")) +
+  xlim(1, NA)
+
+g2 <- testing_data %>% 
+  arrange(value) %>% 
+  mutate(predictions=predict(object=gbmFit1, .)) %>% 
+  ggplot(aes(x=value, y=predictions)) +
+  geom_jitter(height = 0.3) +
+  xlab("Value") +
+  ylab("Chain classification") +
+  theme(text = element_text(size=14, colour="black")) +
+  coord_flip() +
+  ggtitle("B.")
+```
+
+Trying probabilistic prediction
+```{r}
+full_data <- f_generate_lower_var_four(1/3, 0.3, 1, 1000) %>% 
+  melt() %>% 
+  rename(iter=Var1,
+         chain=Var2) %>% 
+  dplyr::select(-iter)
+rand_samples <- sample(1:nrow(full_data), 0.7 * nrow(full_data))
+full_data <- full_data %>% 
+    mutate(chain=as.factor(chain)) %>% 
+    mutate(ones=rnorm(nrow(full_data)))
+training_data <- full_data[rand_samples, ]
+testing_data <- full_data[-rand_samples, ]
+
+gbmFit1 <- train(chain ~ ., data = training_data, 
+                 method = "gbm",
+                 trControl = trainControl(method = 'none'), 
+                    tuneGrid = caretGrid, verbose=FALSE)
+
+plda <- predict(object=gbmFit1, newdata=testing_data, type = "prob")
+
+
+nsim <- 1000
+mAccuracy <- matrix(nrow = nrow(plda),
+                    ncol = nsim)
+for(i in 1:nsim){
+  for(j in 1:nrow(plda)){
+    mAccuracy[j, i] <- if_else(which(rmultinom(1, 1, prob = plda[j, ])==1)==testing_data$chain[j], 1, 0)
+  }
+}
+hist(colMeans(mAccuracy)/0.25)
+
+f_generate_all_same_var_four <- function(var_ratio, rho, sigma, L){
+  x <- matrix(nrow = L, ncol = 4)
+  for(i in 1:4)
+    x[, i] <- f_ar1(rho, sigma, L)
+  return(x)
+}
+
+full_data <- f_generate_all_same_var_four(1/3, 0.3, 1, 1000) %>% 
+  melt() %>% 
+  rename(iter=Var1,
+         chain=Var2) %>% 
+  dplyr::select(-iter)
+rand_samples <- sample(1:nrow(full_data), 0.7 * nrow(full_data))
+full_data <- full_data %>% 
+    mutate(chain=as.factor(chain)) %>% 
+    mutate(ones=rnorm(nrow(full_data)))
+training_data <- full_data[rand_samples, ]
+testing_data <- full_data[-rand_samples, ]
+
+gbmFit1 <- train(chain ~ ., data = training_data, 
+                 method = "gbm",
+                 trControl = trainControl(method = 'none'), 
+                    tuneGrid = caretGrid, verbose=FALSE)
+plda <- predict(object=gbmFit1, newdata=testing_data, type = "prob")
+
+mAccuracy1 <- matrix(nrow = nrow(plda),
+                    ncol = nsim)
+for(i in 1:nsim){
+  for(j in 1:nrow(plda)){
+    mAccuracy1[j, i] <- if_else(which(rmultinom(1, 1, prob = plda[j, ])==1)==testing_data$chain[j], 1, 0)
+  }
+}
+hist(colMeans(mAccuracy1)/0.25)
+
+# saveRDS(tibble(unconverged=colMeans(mAccuracy)/0.25,
+#        converged=colMeans(mAccuracy1)/0.25),
+#        "../output/ar1_two_replicates.rds")
+mAR1 <- readRDS("../output/ar1_two_replicates.rds")
+g3 <- 
+  mAR1 %>% 
+  melt() %>% 
+  ggplot(aes(x=value, fill=as.factor(variable))) +
+  geom_histogram(position="identity", alpha=0.8) +
+  scale_fill_grey("Series") +
+  xlab(TeX("$R*$")) +
+  ylab("Count") +
+  geom_vline(xintercept = 1, linetype=2) +
+  ggtitle("C.") +
+  theme(text = element_text(size=14, colour="black"),
+        legend.position = c(0.8, 0.8))
+
+pdf("../output/ar1.pdf", width = 12, height = 6)
+multiplot(g1, g2, g3, cols = 3)
+dev.off()
+```
+
+# Eight schools
+```{r}
+source("eight_schools.data.R")
+eight_schools <- list(J=J, y=y, sigma=sigma)
+model_cp <- stan_model("eight_schools_cp.stan")
+model_ncp <- stan_model("eight_schools_ncp.stan")
+```
+
+Run model
+```{r}
+fit_cp <- sampling(
+  model_cp, data = eight_schools,
+  iter = 2000, chains = 4, seed = 483892929, refresh = 0,
+  control = list(adapt_delta = 0.95)
+)
+
+fit_ncp <- sampling(
+  model_ncp, data = eight_schools,
+  iter = 2000, chains = 4, seed = 483892929, refresh = 0,
+  control = list(adapt_delta = 0.95)
+)
+```
+
+# Break each chain into two then make flattened data
+## Centered
+```{r}
+full_data_all <- rstan::extract(fit_cp, permuted=F)
+full_data <- array(dim=c(500, 8, 11))
+k <- 1
+for(i in 1:4){
+  first_half <- full_data_all[1:500, i, ]
+  second_half <- full_data_all[501:1000, i, ]
+  full_data[, k, ] <- first_half
+  k <- k + 1
+  full_data[, k, ] <- second_half
+  k <- k + 1
+}
+  
+
+m_flattened <- matrix(nrow = nrow(full_data) * 8, ncol = 12)
+k <- 1
+for(i in 1:8){
+  for(j in 1:nrow(full_data)){
+    m_flattened[k, 1:11] <- full_data[j, i, ]
+    m_flattened[k, 12] <- i
+    k <- k + 1
+  }
+}
+m_flattened <- m_flattened %>% 
+  as.data.frame() %>% 
+  rename(chain=V12) %>% 
+  mutate(chain=as.factor(chain))
+
+full_data <- m_flattened
+rand_samples <- sample(1:nrow(full_data), 0.7 * nrow(full_data))
+training_data <- full_data[rand_samples, ]
+testing_data <- full_data[-rand_samples, ]
+gbmFit1 <- train(chain ~ ., data = training_data, 
+                 method = "gbm",
+                 trControl = trainControl(method = 'none'), 
+                    tuneGrid = caretGrid, verbose=FALSE)
+
+plda <- predict(object=gbmFit1, newdata=testing_data)
+tibble(predicted=plda, actual=testing_data$chain) %>% 
+  mutate(correct=if_else(predicted==actual, 1, 0)) %>% 
+  summarise(mean(correct))
+varImp(gbmFit1)
+
+plda <- predict(object=gbmFit1, newdata=testing_data, type = "prob")
+
+nsim <- 1000
+mAccuracy <- matrix(nrow = nrow(plda),
+                    ncol = nsim)
+for(i in 1:nsim){
+  for(j in 1:nrow(plda)){
+    mAccuracy[j, i] <- if_else(which(rmultinom(1, 1, prob = plda[j, ])==1)==testing_data$chain[j], 1, 0)
+  }
+}
+hist(colMeans(mAccuracy)/0.125)
+mAccuracy_centered <- mAccuracy
+```
+
+```{r}
+full_data_all <- rstan::extract(fit_ncp, permuted=F)
+nparams <- 19
+full_data <- array(dim=c(500, 8, nparams))
+k <- 1
+for(i in 1:4){
+  first_half <- full_data_all[1:500, i, ]
+  second_half <- full_data_all[501:1000, i, ]
+  full_data[, k, ] <- first_half
+  k <- k + 1
+  full_data[, k, ] <- second_half
+  k <- k + 1
+}
+  
+
+m_flattened <- matrix(nrow = nrow(full_data) * 8, ncol = (nparams+1))
+k <- 1
+for(i in 1:8){
+  for(j in 1:nrow(full_data)){
+    m_flattened[k, 1:nparams] <- full_data[j, i, ]
+    m_flattened[k, (nparams+1)] <- i
+    k <- k + 1
+  }
+}
+m_flattened <- m_flattened %>% 
+  as.data.frame() %>% 
+  rename(chain=V20) %>% 
+  mutate(chain=as.factor(chain))
+
+full_data <- m_flattened
+rand_samples <- sample(1:nrow(full_data), 0.7 * nrow(full_data))
+training_data <- full_data[rand_samples, ]
+testing_data <- full_data[-rand_samples, ]
+gbmFit1 <- train(chain ~ ., data = training_data, 
+                 method = "gbm",
+                 trControl = trainControl(method = 'none'), 
+                    tuneGrid = caretGrid, verbose=FALSE)
+
+plda <- predict(object=gbmFit1, newdata=testing_data)
+tibble(predicted=plda, actual=testing_data$chain) %>% 
+  mutate(correct=if_else(predicted==actual, 1, 0)) %>% 
+  summarise(mean(correct))
+varImp(gbmFit1)
+
+plda <- predict(object=gbmFit1, newdata=testing_data, type = "prob")
+
+mAccuracy <- matrix(nrow = nrow(plda),
+                    ncol = nsim)
+for(i in 1:nsim){
+  for(j in 1:nrow(plda)){
+    mAccuracy[j, i] <- if_else(which(rmultinom(1, 1, prob = plda[j, ])==1)==testing_data$chain[j], 1, 0)
+  }
+}
+hist(colMeans(mAccuracy)/0.125)
+mAccuracy_noncentered <- mAccuracy
+```
+
+```{r}
+# saveRDS(tibble(centered=colMeans(mAccuracy_centered)/0.125,
+#        non_centered=colMeans(mAccuracy_noncentered)/0.125),
+#        "../output/eight_schools_replicates.rds")
+tibble(centered=colMeans(mAccuracy_centered)/0.125,
+       non_centered=colMeans(mAccuracy_noncentered)/0.125) %>% 
+  melt() %>% 
+  ggplot(aes(x=value, fill=as.factor(variable))) +
+  geom_histogram(position="identity", alpha=0.8) +
+  scale_fill_grey("Series", labels=c("centered", "non-centered")) +
+  xlab(TeX("$R*$")) +
+  ylab("Count") +
+  geom_vline(xintercept = 1, linetype=2) +
+  ggtitle("C.") +
+  theme(text = element_text(size=14, colour="black"),
+        legend.position = c(0.8, 0.8))
+```
+
+## Trying with original data (i.e. 4 chains)
+```{r}
+full_data <- rstan::extract(fit_cp, permuted=F)
+m_flattened <- matrix(nrow = nrow(full_data) * 4, ncol = 12)
+k <- 1
+for(i in 1:4){
+  for(j in 1:nrow(full_data)){
+    m_flattened[k, 1:11] <- full_data[j, i, ]
+    m_flattened[k, 12] <- i
+    k <- k + 1
+  }
+}
+m_flattened <- m_flattened %>% 
+  as.data.frame() %>% 
+  rename(chain=V12) %>% 
+  mutate(chain=as.factor(chain))
+
+full_data <- m_flattened
+rand_samples <- sample(1:nrow(full_data), 0.7 * nrow(full_data))
+training_data <- full_data[rand_samples, ]
+testing_data <- full_data[-rand_samples, ]
+gbmFit1 <- train(chain ~ ., data = training_data, 
+                 method = "gbm",
+                 trControl = trainControl(method = 'none'), 
+                    tuneGrid = caretGrid, verbose=FALSE)
+
+plda <- predict(object=gbmFit1, newdata=testing_data)
+tibble(predicted=plda, actual=testing_data$chain) %>% 
+  mutate(correct=if_else(predicted==actual, 1, 0)) %>% 
+  summarise(mean(correct))
+varImp(gbmFit1)
+
+plda <- predict(object=gbmFit1, newdata=testing_data, type = "prob")
+
+nsim <- 1000
+mAccuracy <- matrix(nrow = nrow(plda),
+                    ncol = nsim)
+for(i in 1:nsim){
+  for(j in 1:nrow(plda)){
+    mAccuracy[j, i] <- if_else(which(rmultinom(1, 1, prob = plda[j, ])==1)==testing_data$chain[j], 1, 0)
+  }
+}
+hist(colMeans(mAccuracy)/(1/n_distinct(training_data$chain)))
+mAccuracy_centered <- mAccuracy
+
+full_data <- rstan::extract(fit_ncp, permuted=F)
+k <- 1
+m_flattened <- matrix(nrow = nrow(full_data) * 4, ncol = (nparams+1))
+k <- 1
+for(i in 1:4){
+  for(j in 1:nrow(full_data)){
+    m_flattened[k, 1:nparams] <- full_data[j, i, ]
+    m_flattened[k, (nparams+1)] <- i
+    k <- k + 1
+  }
+}
+m_flattened <- m_flattened %>% 
+  as.data.frame() %>% 
+  rename(chain=V20) %>% 
+  mutate(chain=as.factor(chain))
+
+full_data <- m_flattened
+rand_samples <- sample(1:nrow(full_data), 0.7 * nrow(full_data))
+training_data <- full_data[rand_samples, ]
+testing_data <- full_data[-rand_samples, ]
+gbmFit1 <- train(chain ~ ., data = training_data, 
+                 method = "gbm",
+                 trControl = trainControl(method = 'none'), 
+                    tuneGrid = caretGrid, verbose=FALSE)
+
+plda <- predict(object=gbmFit1, newdata=testing_data)
+tibble(predicted=plda, actual=testing_data$chain) %>% 
+  mutate(correct=if_else(predicted==actual, 1, 0)) %>% 
+  summarise(mean(correct))
+varImp(gbmFit1)
+
+plda <- predict(object=gbmFit1, newdata=testing_data, type = "prob")
+
+mAccuracy <- matrix(nrow = nrow(plda),
+                    ncol = nsim)
+for(i in 1:nsim){
+  for(j in 1:nrow(plda)){
+    mAccuracy[j, i] <- if_else(which(rmultinom(1, 1, prob = plda[j, ])==1)==testing_data$chain[j], 1, 0)
+  }
+}
+hist(colMeans(mAccuracy)/(1/n_distinct(training_data$chain)))
+mAccuracy_noncentered <- mAccuracy
+```
+
+```{r}
+a_df <- tibble(centered=colMeans(mAccuracy_centered)/(1/n_distinct(training_data$chain)),
+       non_centered=colMeans(mAccuracy_noncentered)/(1/n_distinct(training_data$chain)))
+saveRDS(a_df, "../output/eight_schools_replicates_4.rds")
+a_df %>% 
+  melt() %>% 
+  ggplot(aes(x=value, fill=as.factor(variable))) +
+  geom_histogram(position="identity", alpha=0.8) +
+  scale_fill_grey("Series", labels=c("centered", "non-centered")) +
+  xlab(TeX("$R*$")) +
+  ylab("Count") +
+  geom_vline(xintercept = 1, linetype=2) +
+  ggtitle("C.") +
+  theme(text = element_text(size=14, colour="black"),
+        legend.position = c(0.8, 0.8))
+```
+
+Trying original data with index variables
+```{r}
+full_data <- rstan::extract(fit_cp, permuted=F)
+m_flattened <- matrix(nrow = nrow(full_data) * 4, ncol = 13)
+k <- 1
+for(i in 1:4){
+  for(j in 1:nrow(full_data)){
+    m_flattened[k, 1:11] <- full_data[j, i, ]
+    if(j < (nrow(full_data)/2))
+      m_flattened[k, 12] <- 0
+    else
+      m_flattened[k, 12] <- 1
+    m_flattened[k, 13] <- i
+    k <- k + 1
+  }
+}
+m_flattened <- m_flattened %>% 
+  as.data.frame() %>% 
+  rename(chain=V13) %>% 
+  mutate(chain=as.factor(chain))
+
+full_data <- m_flattened
+rand_samples <- sample(1:nrow(full_data), 0.7 * nrow(full_data))
+training_data <- full_data[rand_samples, ]
+testing_data <- full_data[-rand_samples, ]
+gbmFit1 <- train(chain ~ ., data = training_data, 
+                 method = "gbm",
+                 trControl = trainControl(method = 'none'), 
+                    tuneGrid = caretGrid, verbose=FALSE)
+
+plda <- predict(object=gbmFit1, newdata=testing_data)
+tibble(predicted=plda, actual=testing_data$chain) %>% 
+  mutate(correct=if_else(predicted==actual, 1, 0)) %>% 
+  summarise(mean(correct))
+varImp(gbmFit1)
+
+plda <- predict(object=gbmFit1, newdata=testing_data, type = "prob")
+
+nsim <- 1000
+mAccuracy <- matrix(nrow = nrow(plda),
+                    ncol = nsim)
+for(i in 1:nsim){
+  for(j in 1:nrow(plda)){
+    mAccuracy[j, i] <- if_else(which(rmultinom(1, 1, prob = plda[j, ])==1)==testing_data$chain[j], 1, 0)
+  }
+}
+hist(colMeans(mAccuracy)/(1/n_distinct(training_data$chain)))
+mAccuracy_centered <- mAccuracy
+
+full_data <- rstan::extract(fit_ncp, permuted=F)
+k <- 1
+m_flattened <- matrix(nrow = nrow(full_data) * 4, ncol = (nparams+2))
+k <- 1
+for(i in 1:4){
+  for(j in 1:nrow(full_data)){
+    m_flattened[k, 1:nparams] <- full_data[j, i, ]
+    if(j < (nrow(full_data)/2))
+      m_flattened[k, (nparams+1)] <- 0
+    else
+      m_flattened[k, (nparams+1)] <- 1
+    m_flattened[k, (nparams+2)] <- i
+    k <- k + 1
+  }
+}
+m_flattened <- m_flattened %>% 
+  as.data.frame() %>% 
+  rename(chain=V21) %>% 
+  mutate(chain=as.factor(chain))
+
+full_data <- m_flattened
+rand_samples <- sample(1:nrow(full_data), 0.7 * nrow(full_data))
+training_data <- full_data[rand_samples, ]
+testing_data <- full_data[-rand_samples, ]
+gbmFit1 <- train(chain ~ ., data = training_data, 
+                 method = "gbm",
+                 trControl = trainControl(method = 'none'), 
+                    tuneGrid = caretGrid, verbose=FALSE)
+
+plda <- predict(object=gbmFit1, newdata=testing_data)
+tibble(predicted=plda, actual=testing_data$chain) %>% 
+  mutate(correct=if_else(predicted==actual, 1, 0)) %>% 
+  summarise(mean(correct))
+varImp(gbmFit1)
+
+plda <- predict(object=gbmFit1, newdata=testing_data, type = "prob")
+
+mAccuracy <- matrix(nrow = nrow(plda),
+                    ncol = nsim)
+for(i in 1:nsim){
+  for(j in 1:nrow(plda)){
+    mAccuracy[j, i] <- if_else(which(rmultinom(1, 1, prob = plda[j, ])==1)==testing_data$chain[j], 1, 0)
+  }
+}
+hist(colMeans(mAccuracy)/(1/n_distinct(training_data$chain)))
+mAccuracy_noncentered <- mAccuracy
+```
+
+```{r}
+a_df <- tibble(centered=colMeans(mAccuracy_centered)/(1/n_distinct(training_data$chain)),
+       non_centered=colMeans(mAccuracy_noncentered)/(1/n_distinct(training_data$chain)))
+saveRDS(a_df, "../output/eight_schools_replicates_4_index.rds")
+a_df %>% 
+  melt() %>% 
+  ggplot(aes(x=value, fill=as.factor(variable))) +
+  geom_histogram(position="identity", alpha=0.8) +
+  scale_fill_grey("Series", labels=c("centered", "non-centered")) +
+  xlab(TeX("$R*$")) +
+  ylab("Count") +
+  geom_vline(xintercept = 1, linetype=2) +
+  ggtitle("C.") +
+  theme(text = element_text(size=14, colour="black"),
+        legend.position = c(0.8, 0.8))
+```
+
+Three uncertainty distributions
+```{r}
+a_df <- readRDS("../output/eight_schools_replicates.rds")
+g1 <- 
+  a_df %>% 
+  melt() %>% 
+  ggplot(aes(x=value, fill=as.factor(variable))) +
+  geom_histogram(position="identity", alpha=0.8) +
+  xlim(0.78, 1.6) +
+  scale_fill_grey("Series", labels=c("centered", "non-centered")) +
+  xlab(TeX("$R*$")) +
+  ylab("Count") +
+  geom_vline(xintercept = 1, linetype=2) +
+  ggtitle("A.") +
+  theme(text = element_text(size=14, colour="black"),
+        legend.position = "none")
+a_df <- readRDS("../output/eight_schools_replicates_4.rds")
+g2 <- 
+  a_df %>% 
+  melt() %>% 
+  ggplot(aes(x=value, fill=as.factor(variable))) +
+  geom_histogram(position="identity", alpha=0.8) +
+  scale_fill_grey("Series", labels=c("centered", "non-centered")) +
+  xlim(0.78, 1.6) +
+  xlab(TeX("$R*$")) +
+  ylab("Count") +
+  geom_vline(xintercept = 1, linetype=2) +
+  ggtitle("B.") +
+  theme(text = element_text(size=14, colour="black"))
+a_df <- readRDS("../output/eight_schools_replicates_4_index.rds")
+g3 <- 
+  a_df %>% 
+  melt() %>% 
+  ggplot(aes(x=value, fill=as.factor(variable))) +
+  geom_histogram(position="identity", alpha=0.8) +
+  scale_fill_grey("Series", labels=c("centered", "non-centered")) +
+  xlab(TeX("$R*$")) +
+  ylab("Count") +
+  geom_vline(xintercept = 1, linetype=2) +
+  ggtitle("C.") +
+  theme(text = element_text(size=14, colour="black"),
+        legend.position = c(0.8, 0.8))
+
+pdf("../output/eight_schools.pdf", width = 12, height = 6)
+multiplot(g1, g2, cols = 2)
+dev.off()
 ```
 
