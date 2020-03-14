@@ -104,7 +104,7 @@
 \newcommand{\Var}{\textrm{Var}}
 \newcommand{\LF}{\mathrm{Leapfrog}}
 
-\title{MCMC convergence diagnostics with uncertainty using gradient-boosted machines}
+\title{$R^*$: A robust MCMC convergence diagnostic with uncertainty via gradient-boosted machines}
 
 % The \author macro works with any number of authors. There are two commands
 % used to separate the names and addresses of multiple authors: \And and \AND.
@@ -129,10 +129,11 @@
 \maketitle
 
 \begin{abstract}
-	Markov chain Monte Carlo (MCMC) has transformed inference of Bayesian models over the past three decades: mainly because of this, Bayesian inference is now a workhorse of applied scientists. Despite its importance, MCMC is a notoriously subtle beast. Indeed, the words of statisticians often echo that MCMC "should be used with caution, almost as a last resort"; the problem is that we are usually at the "last resort" for interesting models. Central to these concerns is the difficulty in determining whether Markov chains have converged to the posterior distribution. Under general conditions, MCMC sampling will converge asymptotically to the posterior distribution, but this makes no guarantees about its finite sample performance. The predominant method for monitoring convergence is to run multiple chains and monitor individual chains' characteristics and compare these to the population of chains as a whole: if the within-chain and between-chain summaries are comparable, then this may indicate that the chains have converged to a stationary distribution. Collectively, these summary statistics aim to determine whether or not it is possible to determine the chain that generated a particular sample: if you can, then the chains have not mixed and convergence has not occurred. Here, we introduce a new method for probing convergence based on training machine learning algorithms to classify samples according to the chain that generated them. A benefit of this approach is that it provides a single statistic across all parameters that captures whether convergence has occurred, although individual variables' importance for this metric can also be determined. Additionally, this measure of convergence is not based on any single characteristic of the sampling distribution (for example, the mean, as for the predominant $\hat{R}$); instead using all the information in the chain. The method is straightforward to implement and could be an additional check on convergence for applied analyses.
+	Markov chain Monte Carlo (MCMC) has transformed Bayesian model inference over the past three decades: mainly because of this, Bayesian inference is now a workhorse of applied scientists. Despite its importance, MCMC is a notoriously subtle beast. Indeed, the words of statisticians often echo that MCMC ``should be used with caution, almost as a last resort''; the problem is that we are usually at the ``last resort'' for interesting models. Central to these concerns is the difficulty in determining whether Markov chains have converged to the posterior distribution. Under general conditions, MCMC sampling converges asymptotically to the posterior distribution, but this provides no guarantees about its finite sample performance. The predominant method for monitoring convergence is to run multiple chains and monitor individual chains' characteristics and compare these to the population as a whole: if within-chain and between-chain summaries are comparable, then this may indicate that the chains have converged to a stationary distribution. Collectively, these summary statistics aim to determine whether it is possible to predict the chain that generated a particular sample: if this predictions are accurate, then the chains have not mixed and convergence has not occurred. Here, we introduce a new method for probing convergence based on training machine learning algorithms to classify samples according to the chain that generated them: we call our convergence measure $R^*$. In contrast to the predominant $\hat{R}$, $R^*$ is a single statistic across all parameters that captures whether convergence has occurred, although individual variables' importance for this metric can also be determined. Additionally, $R^*$ is not based on any single characteristic of the sampling distribution; instead using all the information in the chain. By taking advantage of the uncertainty in chain predictions from the fitted machine learning model, our method also produces a measure of uncertainty in $R^*$. The method is straightforward to implement, robust to machine learning hyperparameter choice, and could be a complimentary additional check on MCMC convergence for applied analyses.
 \end{abstract}
 
 \section{Introduction}
+Markov chain Monte Carlo (MCMC) is the class of exact-approximate methods that has contributed most to applied Bayesian inference in recent years. In particular, MCMC has made Bayesian inference widely available to a wide community of practitioners through its many software packages that use it as an internal inference engine: from Gibbs sampling \cite{geman1984stochastic} that underpinned the popular BUGS \cite{lunn2000winbugs} and JAGS \cite{plummer2003jags}, to the more recent, and also popular, Hamiltonian Monte Carlo (HMC) \cite{neal2011mcmc} and the No U-Turn Sampler (NUTS) \cite{hoffman2014no} that Stan \cite{carpenter2017stan} and PyMC3 \cite{salvatier2016probabilistic} implement.
 
 Chris Holmes quote reference.
 
@@ -164,8 +165,20 @@ Since the gradient-boosted models return a probability simplex for each sample, 
 
 We demonstrate this idea using two datasets: one generated as described above, where one chain (out of four) has a lower variance than the others (we call this the "unconverged data"); and another, where all chains sample from the same distribution (we call this the "converged data"). In Fig. \ref{fig:ar1}C, we show the uncertainty distributions for the accuracy ratio that result from sampling from the underlying fit of a single gradient-boosted model to each dataset. For the unconverged data, the distribution has its bulk of mass away from 1, indicating lack of convergence. For the converged data, the distribution is centred on 1, indicating convergence. 
 
-\subsection{Infinite chain variance}
-Use Cauchy example
+\subsection{Infinite variance: Cauchy example}
+We next explore how $R^*$ can be used to determine convergence for distributions with infinite variance. Like \cite{vehtari2019rank}, we use Stan to sample from independent standard Cauchy distributions for each element of a 50-element vector $x$,
+%
+\begin{equation}
+x_j\sim \text{Cauchy}(0, 1),\; \text{for } j=1,...,50,
+\end{equation}
+%
+and monitor convergence of each $x_j$ separately.
+
+\begin{figure}[h]
+	\centerline{\includegraphics[width=0.6\textwidth]{../output/cauchy.pdf}}
+	\caption{\textbf{Cauchy example.} A shows 1000 samples from the $R^*$ distribution generated under two model parameterisations. See the R markdown file in the SOM for hyperparameters and code for fitting the gradient-boosted model.}
+	\label{fig:cauchy}
+\end{figure}
 
 \subsection{Hierarchical model: Eight schools}
 In this example, we examine a simple classic example used to highlight difficulties in performing sampling for hierarchical models: referred to as the "Eight schools" model (see Section 5.5 in \cite{gelman2013bayesian}), which aimed to determine the effects of coaching on SAT scores in eight schools. 

@@ -309,7 +309,7 @@ fit_ncp <- sampling(
 )
 ```
 
-# Break each chain into two then make flattened data
+## Break each chain into two then make flattened data
 ## Centered
 ```{r}
 full_data_all <- rstan::extract(fit_cp, permuted=F)
@@ -709,5 +709,125 @@ g3 <-
 pdf("../output/eight_schools.pdf", width = 12, height = 6)
 multiplot(g1, g2, cols = 2)
 dev.off()
+```
+
+# Cauchy example
+```{r}
+fit_nom <- stan(file = 'cauchy_nom.stan', seed = 7878, refresh = 0)
+full_data <- rstan::extract(fit_nom, permuted=F)
+nparams <- 52
+m_flattened <- matrix(nrow = nrow(full_data) * 4, ncol = (nparams + 1))
+k <- 1
+for(i in 1:4){
+  for(j in 1:nrow(full_data)){
+    m_flattened[k, 1:nparams] <- full_data[j, i, ]
+    m_flattened[k, (nparams+1)] <- i
+    k <- k + 1
+  }
+}
+m_flattened <- m_flattened %>% 
+  as.data.frame() %>% 
+  rename(chain=V53) %>% 
+  mutate(chain=as.factor(chain))
+n_distinct(m_flattened$chain)
+
+full_data <- m_flattened
+rand_samples <- sample(1:nrow(full_data), 0.7 * nrow(full_data))
+training_data <- full_data[rand_samples, ]
+testing_data <- full_data[-rand_samples, ]
+gbmFit1 <- train(chain ~ ., data = training_data, 
+                 method = "gbm",
+                 trControl = trainControl(method = 'none'), 
+                    tuneGrid = caretGrid, verbose=FALSE)
+
+plda <- predict(object=gbmFit1, newdata=testing_data)
+tibble(predicted=plda, actual=testing_data$chain) %>% 
+  mutate(correct=if_else(predicted==actual, 1, 0)) %>% 
+  summarise(mean(correct))
+varImp(gbmFit1)
+
+plda <- predict(object=gbmFit1, newdata=testing_data, type = "prob")
+
+nsim <- 1000
+mAccuracy <- matrix(nrow = nrow(plda),
+                    ncol = nsim)
+for(i in 1:nsim){
+  for(j in 1:nrow(plda)){
+    mAccuracy[j, i] <- if_else(which(rmultinom(1, 1, prob = plda[j, ])==1)==testing_data$chain[j], 1, 0)
+  }
+}
+hist(colMeans(mAccuracy)/(1/n_distinct(training_data$chain)))
+mAccuracy_nom <- mAccuracy
+```
+
+```{r}
+fit_alt1 <- stan(file = 'cauchy_alt_1.stan', seed = 7878, refresh = 0)
+full_data <- rstan::extract(fit_alt1, permuted=F)
+nparams <- dim(full_data)[3]
+m_flattened <- matrix(nrow = nrow(full_data) * 4, ncol = (nparams + 1))
+k <- 1
+for(i in 1:4){
+  for(j in 1:nrow(full_data)){
+    m_flattened[k, 1:nparams] <- full_data[j, i, ]
+    m_flattened[k, (nparams+1)] <- i
+    k <- k + 1
+  }
+}
+m_flattened <- m_flattened %>% 
+  as.data.frame() %>% 
+  rename(chain=V153) %>% 
+  mutate(chain=as.factor(chain))
+n_distinct(m_flattened$chain)
+
+full_data <- m_flattened
+rand_samples <- sample(1:nrow(full_data), 0.7 * nrow(full_data))
+training_data <- full_data[rand_samples, ]
+testing_data <- full_data[-rand_samples, ]
+gbmFit1 <- train(chain ~ ., data = training_data, 
+                 method = "gbm",
+                 trControl = trainControl(method = 'none'), 
+                    tuneGrid = caretGrid, verbose=FALSE)
+
+plda <- predict(object=gbmFit1, newdata=testing_data)
+tibble(predicted=plda, actual=testing_data$chain) %>% 
+  mutate(correct=if_else(predicted==actual, 1, 0)) %>% 
+  summarise(mean(correct))
+varImp(gbmFit1)
+
+plda <- predict(object=gbmFit1, newdata=testing_data, type = "prob")
+
+mAccuracy <- matrix(nrow = nrow(plda),
+                    ncol = nsim)
+for(i in 1:nsim){
+  for(j in 1:nrow(plda)){
+    mAccuracy[j, i] <- if_else(which(rmultinom(1, 1, prob = plda[j, ])==1)==testing_data$chain[j], 1, 0)
+  }
+}
+hist(colMeans(mAccuracy)/(1/n_distinct(training_data$chain)))
+mAccuracy_alt_1 <- mAccuracy
+```
+
+
+
+```{r}
+a_df <- tibble(nominal=colMeans(mAccuracy_nom)/(1/n_distinct(training_data$chain)),
+               alt=colMeans(mAccuracy_alt_1)/(1/n_distinct(training_data$chain)))
+saveRDS(a_df, "../output/cauchy.rds")
+a_df <- readRDS("../output/cauchy.rds")
+ 
+g <-
+  a_df %>% 
+  melt() %>% 
+  ggplot(aes(x=value, fill=as.factor(variable))) +
+  geom_histogram(position="identity", alpha=0.8) +
+  scale_fill_grey("Parameterisation", labels=c("nominal", "alternative")) +
+  xlab(TeX("$R*$")) +
+  ylab("Count") +
+  geom_vline(xintercept = 1, linetype=2) +
+  theme(text = element_text(size=14, colour="black"),
+        legend.position = "none")
+g
+
+ggsave("../output/cauchy.pdf", g, width = 8, height = 6)
 ```
 
