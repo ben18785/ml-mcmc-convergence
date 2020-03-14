@@ -964,6 +964,9 @@ g2 <-
   ggtitle("B.")
 g2
 
-ggsave("../output/cauchy.pdf", g, width = 8, height = 6)
+
+pdf("../output/cauchy.pdf", width = 12, height = 6)
+multiplot(g1, g2, cols = 2)
+dev.off()
 ```
 
