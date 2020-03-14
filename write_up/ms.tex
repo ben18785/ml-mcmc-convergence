@@ -129,12 +129,14 @@
 \maketitle
 
 \begin{abstract}
-	Markov chain Monte Carlo (MCMC) has transformed inference of Bayesian models over the past three decades: taking the theory from theoretical fancy to a workhorse of applied scientists. Despite its importance, MCMC is a notoriously subtle beast. Indeed, the words of statisticians working in this area often echo that MCMC "should be used with caution, almost as a last resort". The problem is that we are often at the "last resort for interesting models".
+	Markov chain Monte Carlo (MCMC) has transformed inference of Bayesian models over the past three decades: taking the theory from theoretical fancy to a workhorse of applied scientists. Despite its importance, MCMC is a notoriously subtle beast. Indeed, the words of statisticians working in this area often echo that MCMC "should be used with caution, almost as a last resort"; the problem is that we are usually at the "last resort" for interesting models. Central to the concerns about MCMC is the difficulty in determining whether Markov chains have converged to the posterior distribution. Under general conditions, MCMC sampling will asymptotically converge to the posterior distribution but this makes no guarantees about its finite sample performance. The predominant method for monitoring convergence is to run multiple chains and monitor individual chains' characteristics and compare these to the population of chains as a whole: if the within-chain and between-chain summaries are comparable, then this may indicate that the chains have converged to a stationary distribution (although this says nothing of convergence to the posterior). However, collectively, these statistics aim to determine whether or not it is possible to differentiate between the chains on the basis of a particular sample: if you can, then the chains have not mixed and convergence hasn't occurred.
+	
+	Over the past 25 years, there have been changes to the particular statistics calculated but they tend to have one thing in common, that these are calculated per parameter and, increasingly, that there is a zoo of statistics that a researcher must keep track of. 
 \end{abstract}
 
 \section{Introduction}
 
-Chris Holmes quoate
+Chris Holmes quote reference.
 
 	
 \bibliographystyle{unsrt}
