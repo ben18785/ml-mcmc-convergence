@@ -1,0 +1,852 @@
+---
+title: "Examples in R* paper"
+author: "Ben Lambert"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: html_notebook
+---
+
+
+```{r}
+rm(list=ls())
+library(tidyverse)
+library(reshape2)
+library(rstan)
+library(latex2exp)
+library(caret)
+library(gbm)
+options(mc.cores=4)
+rstan_options(auto_write = TRUE)
+```
+
+# AR1 example
+Functions to generate simulated data
+```{r}
+f_ar1 <- function(rho, sigma, L){
+  x <- vector(length = L)
+  x[1] <- rnorm(1, 0, sd=sigma)
+  for(i in 2:L)
+    x[i] = rho * x[i - 1] + rnorm(1, 0, sd=sigma)
+  return(x)
+}
+
+f_generate_lower_var_four <- function(var_ratio, rho, sigma, L){
+  x <- matrix(nrow = L, ncol = 4)
+  for(i in 1:3)
+    x[, i] <- f_ar1(rho, sigma, L)
+  z <- f_ar1(rho, sigma * sqrt(var_ratio), L)
+  x[, 4] <- z
+  return(x)
+}
+
+f_generate_lower_var_four(1/10, 0.3, 1, 1000) %>% 
+  melt() %>% 
+  rename(iter=Var1,
+         chain=Var2) %>% 
+  ggplot(aes(x=value, fill=as.factor(chain))) +
+  geom_histogram(position="identity", alpha=0.3)
+```
+
+
+Use gbm model in Caret to predict chain identity
+```{r}
+library(caret)
+library(gbm)
+
+# generate data
+full_data <- f_generate_lower_var_four(1/3, 0.3, 1, 1000) %>% 
+  melt() %>% 
+  rename(iter=Var1,
+         chain=Var2) %>% 
+  dplyr::select(-iter)
+
+# add in extra column of nonsense values since gbm needs 2+ vars
+full_data <- full_data %>% 
+  mutate(chain=as.factor(chain)) %>% 
+  mutate(ones=rnorm(nrow(full_data)))
+
+# create training/testing data
+rand_samples <- sample(1:nrow(full_data), 0.7 * nrow(full_data))
+training_data <- full_data[rand_samples, ]
+testing_data <- full_data[-rand_samples, ]
+
+
+caretGrid <- expand.grid(interaction.depth=c(3), n.trees = 50,
+                   shrinkage=c(0.1),
+                   n.minobsinnode=10)
+gbmFit1 <- train(chain ~ ., data = training_data, 
+                 method = "gbm",
+                 trControl = trainControl(method = 'none'), 
+                    tuneGrid = caretGrid)
+# plot(gbmFit1)
+plda <- predict(object=gbmFit1, newdata=testing_data)
+tibble(predicted=plda, actual=testing_data$chain) %>% 
+  mutate(correct=if_else(predicted==actual, 1, 0)) %>% 
+  summarise(mean(correct))
+
+# plot predictions as fn of value
+testing_data %>% 
+  arrange(value) %>% 
+  mutate(predictions=predict(object=gbmFit1, .)) %>% 
+  ggplot(aes(x=value, y=predictions)) +
+  geom_jitter() +
+  coord_flip()
+```
+
+Perform 1000 replicates
+```{r}
+f_replicate <- function(){
+  full_data <- f_generate_lower_var_four(1/3, 0.3, 1, 1000) %>% 
+  melt() %>% 
+  rename(iter=Var1,
+         chain=Var2) %>% 
+  dplyr::select(-iter)
+  rand_samples <- sample(1:nrow(full_data), 0.7 * nrow(full_data))
+  training_data <- full_data[rand_samples, ]
+  testing_data <- full_data[-rand_samples, ]
+  
+  # add in extra column of nonsense values since the method needs at least 2 vars 
+  full_data <- full_data %>% 
+    mutate(chain=as.factor(chain)) %>% 
+    mutate(ones=rnorm(nrow(full_data)))
+  training_data <- full_data[rand_samples, ]
+  testing_data <- full_data[-rand_samples, ]
+
+  gbmFit1 <- train(chain ~ ., data = training_data, 
+                 method = "gbm",
+                 trControl = trainControl(method = 'none'), 
+                    tuneGrid = caretGrid, verbose=FALSE)
+  plda <- predict(object=gbmFit1, newdata=testing_data)
+  a_accuracy <- 
+    tibble(predicted=plda, actual=testing_data$chain) %>%
+    mutate(correct=if_else(predicted==actual, 1, 0)) %>% 
+    summarise(mean(correct)) %>% 
+    pull()
+  return(a_accuracy)
+}
+
+nreplicates <- 1000
+accuracies <- vector(length = nreplicates)
+for(i in 1:nreplicates){
+  if(i%%100==0)
+    print(i)
+  accuracies[i] <- f_replicate()
+}
+```
+
+Plot results
+```{r}
+multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
+  library(grid)
+
+  # Make a list from the ... arguments and plotlist
+  plots <- c(list(...), plotlist)
+
+  numPlots = length(plots)
+
+  # If layout is NULL, then use 'cols' to determine layout
+  if (is.null(layout)) {
+    # Make the panel
+    # ncol: Number of columns of plots
+    # nrow: Number of rows needed, calculated from # of cols
+    layout <- matrix(seq(1, cols * ceiling(numPlots/cols)),
+                    ncol = cols, nrow = ceiling(numPlots/cols))
+  }
+
+ if (numPlots==1) {
+    print(plots[[1]])
+
+  } else {
+    # Set up the page
+    grid.newpage()
+    pushViewport(viewport(layout = grid.layout(nrow(layout), ncol(layout))))
+
+    # Make each plot, in the correct location
+    for (i in 1:numPlots) {
+      # Get the i,j matrix positions of the regions that contain this subplot
+      matchidx <- as.data.frame(which(layout == i, arr.ind = TRUE))
+
+      print(plots[[i]], vp = viewport(layout.pos.row = matchidx$row,
+                                      layout.pos.col = matchidx$col))
+    }
+  }
+}
+
+g1 <- tibble(accuracy=accuracies/0.25, iteration=seq(1, nreplicates, 1)) %>% 
+  ggplot(aes(x=accuracy)) +
+  geom_histogram() +
+  xlab(TeX("$R*$")) +
+  ylab("Count") +
+  ggtitle("A.") +
+  theme(text = element_text(size=14, colour="black")) +
+  xlim(1, NA)
+
+g2 <- testing_data %>% 
+  arrange(value) %>% 
+  mutate(predictions=predict(object=gbmFit1, .)) %>% 
+  ggplot(aes(x=value, y=predictions)) +
+  geom_jitter(height = 0.3) +
+  xlab("Value") +
+  ylab("Chain classification") +
+  theme(text = element_text(size=14, colour="black")) +
+  coord_flip() +
+  ggtitle("B.")
+```
+
+Generate R* distribution based on 1000 iterations
+```{r}
+full_data <- f_generate_lower_var_four(1/3, 0.3, 1, 1000) %>% 
+  melt() %>% 
+  rename(iter=Var1,
+         chain=Var2) %>% 
+  dplyr::select(-iter)
+rand_samples <- sample(1:nrow(full_data), 0.7 * nrow(full_data))
+full_data <- full_data %>% 
+    mutate(chain=as.factor(chain)) %>% 
+    mutate(ones=rnorm(nrow(full_data)))
+training_data <- full_data[rand_samples, ]
+testing_data <- full_data[-rand_samples, ]
+
+gbmFit1 <- train(chain ~ ., data = training_data, 
+                 method = "gbm",
+                 trControl = trainControl(method = 'none'), 
+                    tuneGrid = caretGrid, verbose=FALSE)
+
+plda <- predict(object=gbmFit1, newdata=testing_data, type = "prob")
+
+
+nsim <- 10
+mAccuracy <- matrix(nrow = nrow(plda),
+                    ncol = nsim)
+for(i in 1:nsim){
+  for(j in 1:nrow(plda)){
+    mAccuracy[j, i] <- if_else(which(rmultinom(1, 1, prob = plda[j, ])==1)==testing_data$chain[j], 1, 0)
+  }
+}
+
+f_generate_all_same_var_four <- function(var_ratio, rho, sigma, L){
+  x <- matrix(nrow = L, ncol = 4)
+  for(i in 1:4)
+    x[, i] <- f_ar1(rho, sigma, L)
+  return(x)
+}
+
+full_data <- f_generate_all_same_var_four(1/3, 0.3, 1, 1000) %>% 
+  melt() %>% 
+  rename(iter=Var1,
+         chain=Var2) %>% 
+  dplyr::select(-iter)
+rand_samples <- sample(1:nrow(full_data), 0.7 * nrow(full_data))
+full_data <- full_data %>% 
+    mutate(chain=as.factor(chain)) %>% 
+    mutate(ones=rnorm(nrow(full_data)))
+training_data <- full_data[rand_samples, ]
+testing_data <- full_data[-rand_samples, ]
+
+gbmFit1 <- train(chain ~ ., data = training_data, 
+                 method = "gbm",
+                 trControl = trainControl(method = 'none'), 
+                    tuneGrid = caretGrid, verbose=FALSE)
+plda <- predict(object=gbmFit1, newdata=testing_data, type = "prob")
+
+mAccuracy1 <- matrix(nrow = nrow(plda),
+                    ncol = nsim)
+for(i in 1:nsim){
+  for(j in 1:nrow(plda)){
+    mAccuracy1[j, i] <- if_else(which(rmultinom(1, 1, prob = plda[j, ])==1)==testing_data$chain[j], 1, 0)
+  }
+}
+hist(colMeans(mAccuracy1)/0.25)
+
+mAR1 <- tibble(unconverged=colMeans(mAccuracy)/0.25,
+               converged=colMeans(mAccuracy1)/0.25)
+g3 <- 
+  mAR1 %>% 
+  melt() %>% 
+  ggplot(aes(x=value, fill=as.factor(variable))) +
+  geom_histogram(position="identity", alpha=0.8) +
+  scale_fill_grey("Series") +
+  xlab(TeX("$R*$")) +
+  ylab("Count") +
+  geom_vline(xintercept = 1, linetype=2) +
+  ggtitle("C.") +
+  theme(text = element_text(size=14, colour="black"),
+        legend.position = c(0.8, 0.8))
+
+pdf("../output/ar1.pdf", width = 12, height = 6)
+multiplot(g1, g2, g3, cols = 3)
+dev.off()
+```
+
+
+# Multivariate normal
+
+Fit model in Stan
+```{r}
+N <- 250
+A <- rWishart(1, 250, diag(N))[,,1]
+model <- stan_model("mvt_250.stan")
+fit <- sampling(model, data=list(N=N, A=A), iter=200, chains=4)
+print(fit)
+```
+
+```{r}
+full_data <- rstan::extract(fit, permuted=F)
+m_flattened <- matrix(nrow = nrow(full_data) * 4, ncol = 252)
+k <- 1
+for(i in 1:4){
+  for(j in 1:nrow(full_data)){
+    m_flattened[k, 1:251] <- full_data[j, i, ]
+    m_flattened[k, 252] <- i
+    k <- k + 1
+  }
+}
+m_flattened <- m_flattened %>% 
+  as.data.frame() %>% 
+  rename(chain=V252) %>% 
+  mutate(chain=as.factor(chain))
+
+full_data <- m_flattened
+rand_samples <- sample(1:nrow(full_data), 0.7 * nrow(full_data))
+training_data <- full_data[rand_samples, ]
+testing_data <- full_data[-rand_samples, ]
+gbmFit1 <- train(chain ~ ., data = training_data, 
+                 method = "gbm",
+                 trControl = trainControl(method = 'none'), 
+                    tuneGrid = caretGrid, verbose=FALSE)
+
+plda <- predict(object=gbmFit1, newdata=testing_data)
+tibble(predicted=plda, actual=testing_data$chain) %>% 
+  mutate(correct=if_else(predicted==actual, 1, 0)) %>% 
+  summarise(mean(correct))
+varImp(gbmFit1)
+```
+
+
+
+# Cauchy example
+
+Generate R* distribution from nominal Cauchy fit
+```{r}
+nsim <- 1000
+fit_nom <- stan(file = 'cauchy_nom.stan', seed = 7878, refresh = 0)
+full_data <- rstan::extract(fit_nom, permuted=F)
+nparams <- 52
+m_flattened <- matrix(nrow = nrow(full_data) * 4, ncol = (nparams + 1))
+k <- 1
+for(i in 1:4){
+  for(j in 1:nrow(full_data)){
+    m_flattened[k, 1:nparams] <- full_data[j, i, ]
+    m_flattened[k, (nparams+1)] <- i
+    k <- k + 1
+  }
+}
+m_flattened <- m_flattened %>% 
+  as.data.frame() %>% 
+  rename(chain=V53) %>% 
+  mutate(chain=as.factor(chain))
+n_distinct(m_flattened$chain)
+
+full_data <- m_flattened
+rand_samples <- sample(1:nrow(full_data), 0.7 * nrow(full_data))
+training_data <- full_data[rand_samples, ]
+testing_data <- full_data[-rand_samples, ]
+gbmFit1 <- train(chain ~ ., data = training_data, 
+                 method = "gbm",
+                 trControl = trainControl(method = 'none'), 
+                    tuneGrid = caretGrid, verbose=FALSE)
+
+plda <- predict(object=gbmFit1, newdata=testing_data)
+tibble(predicted=plda, actual=testing_data$chain) %>% 
+  mutate(correct=if_else(predicted==actual, 1, 0)) %>% 
+  summarise(mean(correct))
+varImp(gbmFit1)
+
+plda <- predict(object=gbmFit1, newdata=testing_data, type = "prob")
+
+mAccuracy <- matrix(nrow = nrow(plda),
+                    ncol = nsim)
+for(i in 1:nsim){
+  for(j in 1:nrow(plda)){
+    mAccuracy[j, i] <- if_else(which(rmultinom(1, 1, prob = plda[j, ])==1)==testing_data$chain[j], 1, 0)
+  }
+}
+mAccuracy_nom <- mAccuracy
+```
+
+Generate R* distribution from alternative Cauchy parameterisation
+```{r}
+fit_alt1 <- stan(file = 'cauchy_alt_1.stan', seed = 7878, refresh = 0)
+full_data <- rstan::extract(fit_alt1, permuted=F)
+nparams <- dim(full_data)[3]
+m_flattened <- matrix(nrow = nrow(full_data) * 4, ncol = (nparams + 1))
+k <- 1
+for(i in 1:4){
+  for(j in 1:nrow(full_data)){
+    m_flattened[k, 1:nparams] <- full_data[j, i, ]
+    m_flattened[k, (nparams+1)] <- i
+    k <- k + 1
+  }
+}
+m_flattened <- m_flattened %>% 
+  as.data.frame() %>% 
+  rename(chain=V153) %>% 
+  mutate(chain=as.factor(chain))
+n_distinct(m_flattened$chain)
+
+full_data <- m_flattened
+rand_samples <- sample(1:nrow(full_data), 0.7 * nrow(full_data))
+training_data <- full_data[rand_samples, ]
+testing_data <- full_data[-rand_samples, ]
+gbmFit1 <- train(chain ~ ., data = training_data, 
+                 method = "gbm",
+                 trControl = trainControl(method = 'none'), 
+                    tuneGrid = caretGrid, verbose=FALSE)
+
+plda <- predict(object=gbmFit1, newdata=testing_data)
+tibble(predicted=plda, actual=testing_data$chain) %>% 
+  mutate(correct=if_else(predicted==actual, 1, 0)) %>% 
+  summarise(mean(correct))
+varImp(gbmFit1)
+
+plda <- predict(object=gbmFit1, newdata=testing_data, type = "prob")
+
+mAccuracy <- matrix(nrow = nrow(plda),
+                    ncol = nsim)
+for(i in 1:nsim){
+  for(j in 1:nrow(plda)){
+    mAccuracy[j, i] <- if_else(which(rmultinom(1, 1, prob = plda[j, ])==1)==testing_data$chain[j], 1, 0)
+  }
+}
+mAccuracy_alt_1 <- mAccuracy
+```
+
+
+
+```{r}
+a_df <- tibble(nominal=colMeans(mAccuracy_nom)/(1/n_distinct(training_data$chain)),
+               alt=colMeans(mAccuracy_alt_1)/(1/n_distinct(training_data$chain)))
+ 
+g <-
+  a_df %>% 
+  melt() %>% 
+  ggplot(aes(x=value, fill=as.factor(variable))) +
+  geom_histogram(position="identity", alpha=0.8) +
+  scale_fill_grey("Parameterisation", labels=c("nominal", "alternative")) +
+  xlab(TeX("$R*$")) +
+  ylab("Count") +
+  geom_vline(xintercept = 1, linetype=2) +
+  theme(text = element_text(size=14, colour="black"),
+        legend.position = "none")
+g
+
+ggsave("../output/cauchy.pdf", g, width = 8, height = 6)
+```
+
+## More iterations
+Nominal model with 10000 iterations and thinning by 10
+```{r}
+fit_nom <- stan(file = 'cauchy_nom.stan', seed = 7878, refresh = 0, iter = 10000,
+                thin = 5)
+full_data <- rstan::extract(fit_nom, permuted=F)
+nparams <- 52
+m_flattened <- matrix(nrow = nrow(full_data) * 4, ncol = (nparams + 1))
+k <- 1
+for(i in 1:4){
+  for(j in 1:nrow(full_data)){
+    m_flattened[k, 1:nparams] <- full_data[j, i, ]
+    m_flattened[k, (nparams+1)] <- i
+    k <- k + 1
+  }
+}
+m_flattened <- m_flattened %>% 
+  as.data.frame() %>% 
+  rename(chain=V53) %>% 
+  mutate(chain=as.factor(chain))
+n_distinct(m_flattened$chain)
+
+full_data <- m_flattened
+rand_samples <- sample(1:nrow(full_data), 0.7 * nrow(full_data))
+training_data <- full_data[rand_samples, ]
+testing_data <- full_data[-rand_samples, ]
+gbmFit1 <- train(chain ~ ., data = training_data, 
+                 method = "gbm",
+                 trControl = trainControl(method = 'none'), 
+                    tuneGrid = caretGrid, verbose=FALSE)
+
+plda <- predict(object=gbmFit1, newdata=testing_data)
+tibble(predicted=plda, actual=testing_data$chain) %>% 
+  mutate(correct=if_else(predicted==actual, 1, 0)) %>% 
+  summarise(mean(correct))
+varImp(gbmFit1)
+
+plda <- predict(object=gbmFit1, newdata=testing_data, type = "prob")
+
+nsim <- 1000
+mAccuracy <- matrix(nrow = nrow(plda),
+                    ncol = nsim)
+for(i in 1:nsim){
+  for(j in 1:nrow(plda)){
+    mAccuracy[j, i] <- if_else(which(rmultinom(1, 1, prob = plda[j, ])==1)==testing_data$chain[j], 1, 0)
+  }
+}
+hist(colMeans(mAccuracy)/(1/n_distinct(training_data$chain)))
+mAccuracy_nom <- mAccuracy
+```
+
+Alternative model with 10000 iterations and thinning by 10
+```{r}
+fit_alt1 <- stan(file = 'cauchy_alt_1.stan', seed = 7878, refresh = 0, iter = 10000,
+                thin = 5)
+full_data <- rstan::extract(fit_alt1, permuted=F)
+nparams <- dim(full_data)[3]
+m_flattened <- matrix(nrow = nrow(full_data) * 4, ncol = (nparams + 1))
+k <- 1
+for(i in 1:4){
+  for(j in 1:nrow(full_data)){
+    m_flattened[k, 1:nparams] <- full_data[j, i, ]
+    m_flattened[k, (nparams+1)] <- i
+    k <- k + 1
+  }
+}
+m_flattened <- m_flattened %>% 
+  as.data.frame() %>% 
+  rename(chain=V153) %>% 
+  mutate(chain=as.factor(chain))
+n_distinct(m_flattened$chain)
+
+full_data <- m_flattened
+rand_samples <- sample(1:nrow(full_data), 0.7 * nrow(full_data))
+training_data <- full_data[rand_samples, ]
+testing_data <- full_data[-rand_samples, ]
+gbmFit1 <- train(chain ~ ., data = training_data, 
+                 method = "gbm",
+                 trControl = trainControl(method = 'none'), 
+                    tuneGrid = caretGrid, verbose=FALSE)
+
+plda <- predict(object=gbmFit1, newdata=testing_data)
+tibble(predicted=plda, actual=testing_data$chain) %>% 
+  mutate(correct=if_else(predicted==actual, 1, 0)) %>% 
+  summarise(mean(correct))
+varImp(gbmFit1)
+
+plda <- predict(object=gbmFit1, newdata=testing_data, type = "prob")
+
+mAccuracy <- matrix(nrow = nrow(plda),
+                    ncol = nsim)
+for(i in 1:nsim){
+  for(j in 1:nrow(plda)){
+    mAccuracy[j, i] <- if_else(which(rmultinom(1, 1, prob = plda[j, ])==1)==testing_data$chain[j], 1, 0)
+  }
+}
+mAccuracy_alt_1 <- mAccuracy
+```
+
+Plot
+```{r}
+b_df <- tibble(nominal=colMeans(mAccuracy_nom)/(1/n_distinct(training_data$chain)),
+               alt=colMeans(mAccuracy_alt_1)/(1/n_distinct(training_data$chain)))
+ 
+g1 <-
+  a_df %>% 
+  melt() %>% 
+  ggplot(aes(x=value, fill=as.factor(variable))) +
+  geom_histogram(position="identity", alpha=0.8) +
+  scale_fill_grey("Parameterisation", labels=c("nominal", "alternative")) +
+  xlab(TeX("$R*$")) +
+  ylab("Count") +
+  geom_vline(xintercept = 1, linetype=2) +
+  theme(text = element_text(size=14, colour="black"),
+        legend.position = "none") +
+  ggtitle("A.")
+g1
+
+g2 <-
+  b_df %>% 
+  melt() %>% 
+  ggplot(aes(x=value, fill=as.factor(variable))) +
+  geom_histogram(position="identity", alpha=0.8) +
+  scale_fill_grey("Parameterisation", labels=c("nominal", "alternative")) +
+  xlab(TeX("$R*$")) +
+  ylab("Count") +
+  geom_vline(xintercept = 1, linetype=2) +
+  theme(text = element_text(size=14, colour="black")) +
+  ggtitle("B.")
+g2
+
+pdf("../output/cauchy.pdf", width = 12, height = 6)
+multiplot(g1, g2, cols = 2)
+dev.off()
+```
+
+# Eight schools
+```{r}
+source("eight_schools.data.R")
+eight_schools <- list(J=J, y=y, sigma=sigma)
+model_cp <- stan_model("eight_schools_cp.stan")
+model_ncp <- stan_model("eight_schools_ncp.stan")
+```
+
+Run models
+```{r}
+fit_cp <- sampling(
+  model_cp, data = eight_schools,
+  iter = 2000, chains = 4, seed = 483892929, refresh = 0,
+  control = list(adapt_delta = 0.95)
+)
+
+fit_ncp <- sampling(
+  model_ncp, data = eight_schools,
+  iter = 2000, chains = 4, seed = 483892929, refresh = 0,
+  control = list(adapt_delta = 0.95)
+)
+```
+
+## Break each chain into two then make flattened data
+Centered
+```{r}
+full_data_all <- rstan::extract(fit_cp, permuted=F)
+full_data <- array(dim=c(500, 8, 11))
+k <- 1
+for(i in 1:4){
+  first_half <- full_data_all[1:500, i, ]
+  second_half <- full_data_all[501:1000, i, ]
+  full_data[, k, ] <- first_half
+  k <- k + 1
+  full_data[, k, ] <- second_half
+  k <- k + 1
+}
+  
+
+m_flattened <- matrix(nrow = nrow(full_data) * 8, ncol = 12)
+k <- 1
+for(i in 1:8){
+  for(j in 1:nrow(full_data)){
+    m_flattened[k, 1:11] <- full_data[j, i, ]
+    m_flattened[k, 12] <- i
+    k <- k + 1
+  }
+}
+m_flattened <- m_flattened %>% 
+  as.data.frame() %>% 
+  rename(chain=V12) %>% 
+  mutate(chain=as.factor(chain))
+
+full_data <- m_flattened
+rand_samples <- sample(1:nrow(full_data), 0.7 * nrow(full_data))
+training_data <- full_data[rand_samples, ]
+testing_data <- full_data[-rand_samples, ]
+gbmFit1 <- train(chain ~ ., data = training_data, 
+                 method = "gbm",
+                 trControl = trainControl(method = 'none'), 
+                    tuneGrid = caretGrid, verbose=FALSE)
+
+plda <- predict(object=gbmFit1, newdata=testing_data)
+tibble(predicted=plda, actual=testing_data$chain) %>% 
+  mutate(correct=if_else(predicted==actual, 1, 0)) %>% 
+  summarise(mean(correct))
+varImp(gbmFit1)
+
+plda <- predict(object=gbmFit1, newdata=testing_data, type = "prob")
+
+nsim <- 1000
+mAccuracy <- matrix(nrow = nrow(plda),
+                    ncol = nsim)
+for(i in 1:nsim){
+  for(j in 1:nrow(plda)){
+    mAccuracy[j, i] <- if_else(which(rmultinom(1, 1, prob = plda[j, ])==1)==testing_data$chain[j], 1, 0)
+  }
+}
+mAccuracy_centered <- mAccuracy
+```
+
+Noncentered
+```{r}
+full_data_all <- rstan::extract(fit_ncp, permuted=F)
+nparams <- 19
+full_data <- array(dim=c(500, 8, nparams))
+k <- 1
+for(i in 1:4){
+  first_half <- full_data_all[1:500, i, ]
+  second_half <- full_data_all[501:1000, i, ]
+  full_data[, k, ] <- first_half
+  k <- k + 1
+  full_data[, k, ] <- second_half
+  k <- k + 1
+}
+  
+
+m_flattened <- matrix(nrow = nrow(full_data) * 8, ncol = (nparams+1))
+k <- 1
+for(i in 1:8){
+  for(j in 1:nrow(full_data)){
+    m_flattened[k, 1:nparams] <- full_data[j, i, ]
+    m_flattened[k, (nparams+1)] <- i
+    k <- k + 1
+  }
+}
+m_flattened <- m_flattened %>% 
+  as.data.frame() %>% 
+  rename(chain=V20) %>% 
+  mutate(chain=as.factor(chain))
+
+full_data <- m_flattened
+rand_samples <- sample(1:nrow(full_data), 0.7 * nrow(full_data))
+training_data <- full_data[rand_samples, ]
+testing_data <- full_data[-rand_samples, ]
+gbmFit1 <- train(chain ~ ., data = training_data, 
+                 method = "gbm",
+                 trControl = trainControl(method = 'none'), 
+                    tuneGrid = caretGrid, verbose=FALSE)
+
+plda <- predict(object=gbmFit1, newdata=testing_data)
+tibble(predicted=plda, actual=testing_data$chain) %>% 
+  mutate(correct=if_else(predicted==actual, 1, 0)) %>% 
+  summarise(mean(correct))
+varImp(gbmFit1)
+
+plda <- predict(object=gbmFit1, newdata=testing_data, type = "prob")
+
+mAccuracy <- matrix(nrow = nrow(plda),
+                    ncol = nsim)
+for(i in 1:nsim){
+  for(j in 1:nrow(plda)){
+    mAccuracy[j, i] <- if_else(which(rmultinom(1, 1, prob = plda[j, ])==1)==testing_data$chain[j], 1, 0)
+  }
+}
+mAccuracy_noncentered <- mAccuracy
+```
+
+Store both
+```{r}
+c_df <- tibble(centered=colMeans(mAccuracy_centered)/0.125,
+       non_centered=colMeans(mAccuracy_noncentered)/0.125)
+```
+
+## Trying with original data (i.e. 4 chains)
+```{r}
+full_data <- rstan::extract(fit_cp, permuted=F)
+m_flattened <- matrix(nrow = nrow(full_data) * 4, ncol = 12)
+k <- 1
+for(i in 1:4){
+  for(j in 1:nrow(full_data)){
+    m_flattened[k, 1:11] <- full_data[j, i, ]
+    m_flattened[k, 12] <- i
+    k <- k + 1
+  }
+}
+m_flattened <- m_flattened %>% 
+  as.data.frame() %>% 
+  rename(chain=V12) %>% 
+  mutate(chain=as.factor(chain))
+
+full_data <- m_flattened
+rand_samples <- sample(1:nrow(full_data), 0.7 * nrow(full_data))
+training_data <- full_data[rand_samples, ]
+testing_data <- full_data[-rand_samples, ]
+gbmFit1 <- train(chain ~ ., data = training_data, 
+                 method = "gbm",
+                 trControl = trainControl(method = 'none'), 
+                    tuneGrid = caretGrid, verbose=FALSE)
+
+plda <- predict(object=gbmFit1, newdata=testing_data)
+tibble(predicted=plda, actual=testing_data$chain) %>% 
+  mutate(correct=if_else(predicted==actual, 1, 0)) %>% 
+  summarise(mean(correct))
+varImp(gbmFit1)
+
+plda <- predict(object=gbmFit1, newdata=testing_data, type = "prob")
+
+nsim <- 1000
+mAccuracy <- matrix(nrow = nrow(plda),
+                    ncol = nsim)
+for(i in 1:nsim){
+  for(j in 1:nrow(plda)){
+    mAccuracy[j, i] <- if_else(which(rmultinom(1, 1, prob = plda[j, ])==1)==testing_data$chain[j], 1, 0)
+  }
+}
+mAccuracy_centered <- mAccuracy
+
+full_data <- rstan::extract(fit_ncp, permuted=F)
+k <- 1
+m_flattened <- matrix(nrow = nrow(full_data) * 4, ncol = (nparams+1))
+k <- 1
+for(i in 1:4){
+  for(j in 1:nrow(full_data)){
+    m_flattened[k, 1:nparams] <- full_data[j, i, ]
+    m_flattened[k, (nparams+1)] <- i
+    k <- k + 1
+  }
+}
+m_flattened <- m_flattened %>% 
+  as.data.frame() %>% 
+  rename(chain=V20) %>% 
+  mutate(chain=as.factor(chain))
+
+full_data <- m_flattened
+rand_samples <- sample(1:nrow(full_data), 0.7 * nrow(full_data))
+training_data <- full_data[rand_samples, ]
+testing_data <- full_data[-rand_samples, ]
+gbmFit1 <- train(chain ~ ., data = training_data, 
+                 method = "gbm",
+                 trControl = trainControl(method = 'none'), 
+                    tuneGrid = caretGrid, verbose=FALSE)
+
+plda <- predict(object=gbmFit1, newdata=testing_data)
+tibble(predicted=plda, actual=testing_data$chain) %>% 
+  mutate(correct=if_else(predicted==actual, 1, 0)) %>% 
+  summarise(mean(correct))
+varImp(gbmFit1)
+
+plda <- predict(object=gbmFit1, newdata=testing_data, type = "prob")
+
+mAccuracy <- matrix(nrow = nrow(plda),
+                    ncol = nsim)
+for(i in 1:nsim){
+  for(j in 1:nrow(plda)){
+    mAccuracy[j, i] <- if_else(which(rmultinom(1, 1, prob = plda[j, ])==1)==testing_data$chain[j], 1, 0)
+  }
+}
+mAccuracy_noncentered <- mAccuracy
+```
+
+```{r}
+d_df <- tibble(centered=colMeans(mAccuracy_centered)/(1/n_distinct(training_data$chain)),
+       non_centered=colMeans(mAccuracy_noncentered)/(1/n_distinct(training_data$chain)))
+```
+
+Plot two R* distributions
+```{r}
+g1 <- 
+  c_df %>% 
+  melt() %>% 
+  ggplot(aes(x=value, fill=as.factor(variable))) +
+  geom_histogram(position="identity", alpha=0.8) +
+  xlim(0.78, 1.6) +
+  scale_fill_grey("Series", labels=c("centered", "non-centered")) +
+  xlab(TeX("$R*$")) +
+  ylab("Count") +
+  geom_vline(xintercept = 1, linetype=2) +
+  ggtitle("A.") +
+  theme(text = element_text(size=14, colour="black"),
+        legend.position = "none")
+g2 <- 
+  d_df %>% 
+  melt() %>% 
+  ggplot(aes(x=value, fill=as.factor(variable))) +
+  geom_histogram(position="identity", alpha=0.8) +
+  scale_fill_grey("Series", labels=c("centered", "non-centered")) +
+  xlim(0.78, 1.6) +
+  xlab(TeX("$R*$")) +
+  ylab("Count") +
+  geom_vline(xintercept = 1, linetype=2) +
+  ggtitle("B.") +
+  theme(text = element_text(size=14, colour="black"))
+a_df <- readRDS("../output/eight_schools_replicates_4_index.rds")
+
+pdf("../output/eight_schools.pdf", width = 12, height = 6)
+multiplot(g1, g2, cols = 2)
+dev.off()
+```
+
+
+

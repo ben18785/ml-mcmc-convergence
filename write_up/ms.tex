@@ -157,83 +157,68 @@ The structure of this paper is as follows: in \S\ref{sec:method}, we describe in
 \section{Method}\label{sec:method}
 If Markov chains have not mixed, it is possible to determine to which chain a sample belongs from the sample's value. This is possible if there are differences in the sampling distribution for any dimension, $\theta$, in the target distribution (Fig. \ref{fig:marginal}): in this case, if the marginal distributions differ between chains, this information can be used to predict which chain a sample belongs to. It  is also possible to predict the chain that generated a given sample if there are differences in the joint distribution of two (or more) dimensions of the target, even if the marginal distributions are the same (Fig. \ref{fig:joint}).
 
-Add another panel for the joint case
-
 \begin{figure}[h]
-	\centerline{\includegraphics[width=0.6\textwidth]{../output/unmixed_1.pdf}}
-	\caption{\textbf{Chain prediction based on marginal distribution of a single parameter.} A shows the path of two chains that have mixed resulting in similar sampling distributions (to right of panel); B shows two chains that have not mixed.}
+	\centerline{\includegraphics[width=1.0\textwidth]{../output/unmixed_1.pdf}}
+	\caption{\textbf{Chain prediction based on the marginal distribution of a single parameter.} A shows the path of two chains that have mixed resulting in similar sampling distributions (to the right of panel); B shows two chains that have not mixed.}
 	\label{fig:marginal}
 \end{figure}
 
 \begin{figure}[h]
-	\centerline{\includegraphics[width=0.4\textwidth]{../output/unmixed_2.pdf}}
-	\caption{\textbf{Chain prediction based on joint distribution of two parameters.} Here, the marginal distributions of each dimensions are similar but the joint distributions differ.}
+	\centerline{\includegraphics[width=1.0\textwidth]{../output/unmixed_2.pdf}}
+	\caption{\textbf{Chain prediction based on the joint distribution of two parameters where each chain's marginals are the same.} A shows the path of two chains that have mixed resulting in similar sampling distributions (to the right and above each panel); B shows two chains that have not mixed.}
 	\label{fig:joint}
 \end{figure}
 
-These two cases, whilst simple, illustrate the basis of our approach. To determine if a set of Markov chains have converged to the same distribution, we train a supervised machine learning (ML) model to classify the chain to which each sample belongs. By evaluating its performance on an independent test set, we delineate whether chains have mixed based on whether classification accuracy is above the ``null'' case, where accuracy is $1/{N}$ where $N$ is the number of chains. By taking the ratio of ML accuracy to this null accuracy, we obtain a statistic that is interpretable in a similar way to $\hat{R}$ \cite{gelman2013bayesian}. In a nod to this established statistic, we call our statistic $R^*$, and, by design, $R^*\approx 1$ signifies convergence. Algorithm \ref{alg:R_star} gives an explicit recipe for calculating $R^*$.
+These two cases, whilst simple, illustrate the basis of our approach. To determine if a set of Markov chains have converged to the same distribution, we train a supervised machine learning (ML) model to classify the chain to which each sample belongs. By evaluating its performance on an independent test set, we delineate whether chains have mixed based on whether classification accuracy is above the ``null'' case, where accuracy is $1/{N}$, and $N$ is the number of chains. By taking the ratio of ML accuracy to this null accuracy, we obtain a statistic that is interpretable in a similar way to $\hat{R}$ \cite{gelman2013bayesian}. In a nod to this established statistic, we call our statistic $R^*$, and, by design, $R^*\approx 1$ signifies convergence. Algorithm \ref{alg:R_star} gives an explicit recipe for calculating $R^*$.
 
 \begin{algorithm}[tb]
-	\caption{$R^*$ calculation algorithm}
+	\caption{$R^*$ calculation}
 	\label{alg:R_star}
 	\begin{algorithmic}
-		\STATE Given $\theta^0$, $\epsilon$, $L$, $\cL, N$:
+		\STATE Given $\{X^{\{1\}},X^{\{2\}},...,X^{\{N\}}\}, S_\text{test}$:
 		\FOR{$m=1$ to $N$}
-		\STATE Sample $k^0\sim\N(0, M)$.
-		\STATE Set $\theta^m\leftarrow \theta^{m-1}, \tilde\theta\leftarrow \theta^{m-1}, \tilde k\leftarrow k^0$.
-		\FOR{$i=1$ to $L$}
-		\STATE Set $\tilde\theta, \tilde k \leftarrow \LF(\tilde\theta, \tilde k, \epsilon)$.
+		\STATE Partition, $X^{\{m\}}\rightarrow\{X^{\{m\}}_\text{train},X^{\{m\}}_\text{test}\}$
 		\ENDFOR
-		\STATE With probability $\alpha = \min\{1, \exp(H(\theta^{m-1}, k^0)-H(\theta^m,\tilde k))\}$
-		set $\theta^m\leftarrow\tilde \theta$, $k^m\leftarrow -\tilde k$.
+		\STATE $X_\text{train} = \{X^{\{1\}}_\text{train},X^{\{2\}}_\text{train},...,X^{\{N\}}_\text{train}\}$
+		\STATE Train ML model to classify chain id from any sample, $x$: $\text{ML}(x|X_\text{train}) \rightarrow c$
+		\FOR{$s=1$ to $S_\text{test}$}
+		\STATE Predict chain id, $c^\{s\} = \text{ML}(x^\{s\}|X_\text{train})$
+		\STATE Compare with actual id, $c^s$: $a^{\{s\}}=\mathbbm{1}(c^{\{s\}}=c^s)$
 		\ENDFOR
-		\STATE
-		\STATE {\bf function} $\LF(\theta, k, \epsilon)$
-		\STATE Set $\tilde k \leftarrow k +
-		(\epsilon/2)\nabla_\theta\cL(\theta)$.
-		\STATE Set $\tilde \theta \leftarrow \theta +
-		\epsilon M^{-1}k'$.
-		\STATE Set $\tilde k \leftarrow \tilde k +
-		(\epsilon/2)\nabla_\theta\cL(\tilde\theta)$.
-		\RETURN $\tilde \theta, \tilde k$.
+		\STATE Calculate predictive accuracy, $\bar{a} = \frac{1}{S_\text{test}} \sum_{s=1}^{S_\text{test}} a^{\{s\}}$
+		\STATE Calculate ratio to null model, $R^* = \bar{a} / (1 / N) = N/\bar{a}$
+		\RETURN $R^*$
 	\end{algorithmic}
 \end{algorithm}
 
-The ML model we use here is a gradient-boosted regression tree (GBM), which was introduced in \cite{friedman2001greedy}, has been shown to be a highly predictive framework for use in tabular data \cite{chollet2018} like ours. Specifically, we use the GBM implementation in \textbf{\textsf{R}}'s Caret package \cite{kuhn2008building}, which, in turn, uses the ``gbm'' package \cite{greenwell2019package}. The data for each chain has dimensions: $X\in \mathbb{R}^{SK}$, where $S$ is the number of samples taken (here assumed the same for each chain, but this is not a binding constraint) and $K$ is the number of parameters. We split each chain's samples into training and testing tests: here, we use 70\% of samples for training and 30\% for testing. The GBM model we use was found to be rapid to execute training then prediction on the testing set (taking $<1$ second on a desktop computer for models with 1000 samples) and its predictive performance was insensitive to its hyperparameters. In what follows, our hyperparameter settings were: an interaction depth of 3, a shrinkage parameter of 0.1, 10 observations would be the minimum for each node and that 50 trees would be grown (see \url{https://github.com/ben18785/ml-mcmc-convergence} to replicate this functionality).
+The ML model we use here is a gradient-boosted regression tree (GBM), which was introduced in \cite{friedman2001greedy}, has been shown to be a highly predictive framework for use in tabular data \cite{chollet2018} like ours. Specifically, we use the GBM implementation in \textbf{\textsf{R}}'s Caret package \cite{kuhn2008building}, which, in turn, uses the ``gbm'' package \cite{greenwell2019package}. The data for each chain has dimensions: $X\in \mathbb{R}^{SK}$, where $S$ is the number of samples taken (here assumed the same for each chain, but this is not a binding constraint) and $K$ is the number of parameters. We split each chain's samples into randomly sampled training and testing tests: here, we use 70\% of samples for training and 30\% for testing. The GBM model we use was found to be rapid to execute training then prediction on the testing set (taking $<1$ second on a desktop computer for models with 1000 samples) and its predictive performance was insensitive to its hyperparameters. In what follows, our hyperparameter settings were: an interaction depth of 3, a shrinkage parameter of 0.1, 10 observations would be the minimum for each node and that 50 trees would be grown (see \url{https://github.com/ben18785/ml-mcmc-convergence} to replicate this functionality).
 
 A benefit of most ML approaches to classification is that they can output class probabilities, opposed to a single predicted class, which we leverage to produce an uncertainty distribution for $R^*$. Algorithm \ref{alg:R_star_uncertainty} gives a recipe for generating samples from this distribution, which we now elaborate on in words. For each sample, $s$, in our testing set, GBM outputs a simplex of chain probabilities: $\boldsymbol{p}^{\{s\}}=(p_1^{\{s\}},p_2^{\{s\}},...,p_N^{\{s\}})$, which forms a categorical distribution that can be sampled from to yield a unique chain prediction, $c^{\{s\}}$. By comparing this classification to the true classification, $c^s$, we obtain a binary measure, $a^{\{s\}}=\mathbbm{1}(c^{\{s\}}=c^s)$, of whether this prediction was correct. We repeat this process for each sample in the testing set, generating $\boldsymbol{a}=(a^{\{1\}},a^{\{2\}},...,a^{\{N_\text{test}\}})$, whose average yields a single $R^{*\{i\}}=\bar{a}$ estimate for iteration $i$. We then iterate this process, for $i=1,2,...,I$, producing a set of $(R^{*\{1\}},R^{*\{2\}},...,R^{*\{I\}})$, which collectively represent a distribution for $R^*$. 
 
 
 \begin{algorithm}[tb]
-	\caption{Procedure to generate a single $R^*$ sample}
+	\caption{Procedure to generate $I$ samples of $R^*$}
 	\label{alg:R_star_uncertainty}
 	\begin{algorithmic}
-		\STATE Given $\theta^0$, $\epsilon$, $L$, $\cL, N$:
-		\FOR{$m=1$ to $N$}
-		\STATE Sample $k^0\sim\N(0, M)$.
-		\STATE Set $\theta^m\leftarrow \theta^{m-1}, \tilde\theta\leftarrow \theta^{m-1}, \tilde k\leftarrow k^0$.
-		\FOR{$i=1$ to $L$}
-		\STATE Set $\tilde\theta, \tilde k \leftarrow \LF(\tilde\theta, \tilde k, \epsilon)$.
+		\STATE Given test data $X_\text{test}$, number of chains $N$, number of iterations $I$, and fitted
+		\STATE model, $\text{ML}(x^{\{s\}}|X_\text{train})\rightarrow(p_1^{\{s\}},p_2^{\{s\}},...,p_N^{\{s\}})$:
+		\FOR{$i=1$ to $I$}
+		\FOR{$s=1$ to $S_\text{test}$}
+		\STATE Predict chain id probabilities, $(p_1^{\{s\}},p_2^{\{s\}},...,p_N^{\{s\}})= \text{ML}(x^\{s\}|X_\text{train})$
+		\STATE Draw a chain id, $c^{\{s\}} \sim \text{categorical}(p_1^{\{s\}},p_2^{\{s\}},...,p_N^{\{s\}})$
+		\STATE Compare with actual id, $c^s$: $a^{\{s\}}=\mathbbm{1}(c^{\{s\}}=c^s)$
 		\ENDFOR
-		\STATE With probability $\alpha = \min\{1, \exp(H(\theta^{m-1}, k^0)-H(\theta^m,\tilde k))\}$
-		set $\theta^m\leftarrow\tilde \theta$, $k^m\leftarrow -\tilde k$.
+		\STATE Calculate predictive accuracy, $\bar{a} = \frac{1}{S_\text{test}} \sum_{s=1}^{S_\text{test}} a^{\{s\}}$
+		\STATE Calculate ratio to null model, $R^{*i} = \bar{a} / (1 / N) = N/\bar{a}$
 		\ENDFOR
-		\STATE
-		\STATE {\bf function} $\LF(\theta, k, \epsilon)$
-		\STATE Set $\tilde k \leftarrow k +
-		(\epsilon/2)\nabla_\theta\cL(\theta)$.
-		\STATE Set $\tilde \theta \leftarrow \theta +
-		\epsilon M^{-1}k'$.
-		\STATE Set $\tilde k \leftarrow \tilde k +
-		(\epsilon/2)\nabla_\theta\cL(\tilde\theta)$.
-		\RETURN $\tilde \theta, \tilde k$.
+		\RETURN $(R^{*1},R^{*2},...,R^{*I})$
 	\end{algorithmic}
 \end{algorithm}
 
 \section{Results}\label{sec:results}
 To illustrate the utility of our approach, we use examples from \cite{vehtari2019rank} with a few additional cases that further illustrate the utility of $R^*$.
 
-\subsection{Heterogeneity in chain variance}\label{sec:heterogeneity}
+\subsection{Heterogeneity in chain variance: autoregressive example}\label{sec:heterogeneity}
 We generate four Markov chains, where each samples from an autoregressive order 1 (AR1) process of the form,
 %
 \begin{equation}
@@ -254,7 +239,7 @@ Since the gradient-boosted models return a probability simplex for each sample, 
 
 We demonstrate this idea using two datasets: one generated as described above, where one chain (out of four) has a lower variance than the others (we call this the "unconverged data"); and another, where all chains sample from the same distribution (we call this the "converged data"). In Fig. \ref{fig:ar1}C, we show the uncertainty distributions for the accuracy ratio that result from sampling from the underlying fit of a single gradient-boosted model to each dataset. For the unconverged data, the distribution has its bulk of mass away from 1, indicating lack of convergence. For the converged data, the distribution is centred on 1, indicating convergence. 
 
-\subsection{Poor convergence in joint distribution}
+\subsection{Lack of convergence of the joint distribution: multivariate normal model}\label{sec:multivariate_normal}
 Simple AR1 example followed by 250 MVT normal.
 
 \subsection{Infinite variance: Cauchy example}
@@ -284,7 +269,7 @@ In Fig. \ref{fig:cauchy}A, we show the $R^*$ distribution under both parameteris
 %	\label{fig:cauchy}
 %\end{figure}
 
-\subsection{Hierarchical model: Eight schools}
+\subsection{Hierarchical model: Eight schools model}
 In this example, we examine a simple classic example used to highlight difficulties in performing sampling for hierarchical models: referred to as the "Eight schools" model (see Section 5.5 in \cite{gelman2013bayesian}), which aimed to determine the effects of coaching on SAT scores in eight schools. 
 
 The model can be parameterised two ways, as described in \cite{vehtari2019rank}. The simplest way is referred to as the "centered" parameterisation and exactly mirrors the underlying statistical model,
@@ -320,7 +305,16 @@ In addition, to illustrate the power of $R^*$, we also repeat the analysis but, 
 %\end{figure}
 
 \section{Discussion}
+If an MCMC sampler has converged on the target distribution, the chains must be well ``mixed'', that is, given a sample it should be impossible to discern which chain generated that particular observation. Based on this observation, used supervised machine learning (ML) models to quantify the information about the generative chain identity contained in the samples. By taking the ratio of ML model predictive accuracy obtained on an independent test set to the accuracy of a null model (which predicts a chain's identity uniformly at random), this defines our $R^*$ statistic. By extracting the chain identity probabilities from each prediction in the test set, this allowed us to generate an uncertainty distribution for $R^*$. Across a range of previously published examples, $R^*$ was shown to be predictive of whether or not chains had converged.
+
+The predominant methods for diagnosing MCMC convergence rely heavily on looking for differences in the marginal distributions of each dimension between chains. $R^*$ naturally includes this information in building a model capable of predicting the chain which generated each sample. It also naturally includes information about the joint distribution across all dimensions of the target. Since both the marginal and joint distributions will be approximately equal across converged chains, any measure of convergence should account for both of these aspects. Indeed, in \S\ref{sec:multivariate_normal}, we show that more established measures may indicate converge whereas $R^*$ shows otherwise. This is not a slight on existing measures, more that we argue this illustrates the complementarity of $R^*$ to them.
+
+
+
+
 Add in index variable into set of predictors.
+
+
 Relative insensitivity of GBM to settings (in all examples we used the same hyperparameters)
 
 
