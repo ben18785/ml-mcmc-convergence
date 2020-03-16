@@ -2,7 +2,7 @@
 *.aux
 *.blg
 *.out
-*.pdf
+ms.pdf
 *.gz
 *.log
 *.html
