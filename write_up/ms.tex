@@ -28,6 +28,7 @@
 \usepackage{amsmath}
 \usepackage{algorithm,algorithmic}
 \usepackage{graphicx}
+\usepackage{bbm}
 
 
 \newcommand{\fracpartial}[2]{\frac{\partial #1}{\partial  #2}}
@@ -154,10 +155,28 @@ The structure of this paper is as follows: in \S\ref{sec:method}, we describe in
 %$R^*$ calculation is enabled in Pints inference software \cite{Clerx2019Pints}.
 
 \section{Method}\label{sec:method}
-If Markov chains have not mixed, it is possible to determine to which chain a sample belongs from the sample's value (Fig. X).
+If Markov chains have not mixed, it is possible to determine to which chain a sample belongs from the sample's value. This is possible if there are differences in the sampling distribution for any dimension, $\theta$, in the target distribution (Fig. \ref{fig:marginal}): in this case, if the marginal distributions differ between chains, this information can be used to predict which chain a sample belongs to. It  is also possible to predict the chain that generated a given sample if there are differences in the joint distribution of two (or more) dimensions of the target, even if the marginal distributions are the same (Fig. \ref{fig:joint}).
+
+\begin{figure}[h]
+	\centerline{\includegraphics[width=0.6\textwidth]{../output/unmixed_1.pdf}}
+	\caption{\textbf{Chain prediction based on marginal distribution of a single parameter.} A shows the path of two chains that have mixed resulting in similar sampling distributions (to right of panel); B shows two chains that have not mixed.}
+	\label{fig:marginal}
+\end{figure}
+
+\begin{figure}[h]
+	\centerline{\includegraphics[width=0.4\textwidth]{../output/unmixed_2.pdf}}
+	\caption{\textbf{Chain prediction based on joint distribution of two parameters.} Here, the marginal distributions of each dimensions are similar but the joint distributions differ.}
+	\label{fig:joint}
+\end{figure}
+
+These two cases, whilst simple, illustrate the basis of our approach. To determine if a set of Markov chains have converged to the same distribution, we train a supervised machine learning (ML) model to classify the chain to which each sample belongs. By evaluating its performance on an independent test set, we delineate whether chains have mixed based on whether classification accuracy is above the ``null'' case, where accuracy is $1/{N}$ where $N$ is the number of chains. By taking the ratio of ML accuracy to this null accuracy, we obtain a statistic that is interpretable in a similar way to $\hat{R}$ \cite{gelman2013bayesian}. In a nod to this established statistic, we call our statistic $R^*$, and, by design, $R^*\approx 1$ signifies convergence. Algorithm X shows how this statistic is constructed.
+
+The ML model we use here is a gradient-boosted regression tree (GBM), which was introduced in \cite{friedman2001greedy}, has been shown to be a highly predictive framework for use in tabular data \cite{chollet2018} like ours. Specifically, we use the GBM implementation in \textbf{\textsf{R}}'s Caret package \cite{kuhn2008building}, which, in turn, uses the ``gbm'' package \cite{greenwell2019package}. The data for each chain has dimensions: $X\in \mathbb{R}^{SK}$, where $S$ is the number of samples taken (here assumed the same for each chain, but this is not a binding constraint) and $K$ is the number of parameters. We split each chain's samples into training and testing tests: here, we use 70\% of samples for training and 30\% for testing. The GBM model we use was found to be rapid to execute training then prediction on the testing set (taking $<1$ second on a desktop computer for models with 1000 samples) and its predictive performance was insensitive to its hyperparameters. In what follows, our hyperparameter settings were: an interaction depth of 3, a shrinkage parameter of 0.1, 10 observations would be the minimum for each node and that 50 trees would be grown (see \url{https://github.com/ben18785/ml-mcmc-convergence} to replicate this functionality).
+
+A benefit of most ML approaches to classification is that they can output class probabilities, opposed to a single predicted class, which we leverage to produce an uncertainty distribution for $R^*$. For each sample, $s$, in our testing set, our GBM outputs a simplex of chain probabilities: $\boldsymbol{p}^{\{s\}}=(p_1^{\{s\}},p_2^{\{s\}},...,p_N^{\{s\}})$, which forms a categorical distribution that can be sampled from to yield a single chain prediction, $c^{\{s\}}$. By comparing this classification to the true classification, $c^s$, we obtain a binary measure, $a^s=\mathbbm{1}(c^{\{s\}}=c^s)$, of whether this prediction was correct. We repeat this sampling process for each sample in the testing set, generating $\boldsymbol{a}=(a^1,a^2,...,a^{N_\text{test}})$, whose average yields a single $R^{*\{i\}}=\bar{a}$ estimate for iteration $i$. We then iterate this process, for $i=1,2,...,I$, producing a set of $(R^{*\{1\}},R^{*\{2\}},...,R^{*\{I\}})$, which collectively represent a distribution for $R^*$. Algorithm Y shows how to calculate this distribution for a given set of MCMC samples.
 
 \section{Results}\label{sec:results}
-To illustrate the utility of our approach, we use examples taken from \cite{vehtari2019rank}.
+To illustrate the utility of our approach, we use examples from \cite{vehtari2019rank} with a few additional cases that further illustrate the utility of $R^*$.
 
 \subsection{Heterogeneity in chain variance}\label{sec:heterogeneity}
 We generate four Markov chains, where each samples from an autoregressive order 1 (AR1) process of the form,
@@ -179,6 +198,9 @@ In Fig. \ref{fig:ar1}A, we show how an example model fit to training data classi
 Since the gradient-boosted models return a probability simplex for each sample, which indicates the probability it was generated by each chain, we are also able to generate uncertainty in our measure of convergence. For each sample, we randomly sample a chain classification from a multinomial distribution with class probabilities given by the outputs from the machine learning model then check whether this matches the true chain identity. The accuracy is then given by the percentage of samples where the prediction is correct. By repeating this exercise across a number of replicates, we obtain an uncertainty in the accuracy, which we convert to an accuracy ratio as before.
 
 We demonstrate this idea using two datasets: one generated as described above, where one chain (out of four) has a lower variance than the others (we call this the "unconverged data"); and another, where all chains sample from the same distribution (we call this the "converged data"). In Fig. \ref{fig:ar1}C, we show the uncertainty distributions for the accuracy ratio that result from sampling from the underlying fit of a single gradient-boosted model to each dataset. For the unconverged data, the distribution has its bulk of mass away from 1, indicating lack of convergence. For the converged data, the distribution is centred on 1, indicating convergence. 
+
+\subsection{Poor convergence in joint distribution}
+Simple AR1 example followed by 250 MVT normal.
 
 \subsection{Infinite variance: Cauchy example}
 We next explore how $R^*$ can be used to determine convergence for distributions with infinite variance. Like \cite{vehtari2019rank}, we first use Stan to sample from independent standard Cauchy distributions for each element of a 50-element vector $x$,
