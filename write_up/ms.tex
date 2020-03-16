@@ -269,7 +269,7 @@ In Fig. \ref{fig:cauchy}A, we show the $R^*$ distribution under both parameteris
 %	\label{fig:cauchy}
 %\end{figure}
 
-\subsection{Hierarchical model: Eight schools model}
+\subsection{Hierarchical model: Eight schools model}\label{sec:eight_shools}
 In this example, we examine a simple classic example used to highlight difficulties in performing sampling for hierarchical models: referred to as the "Eight schools" model (see Section 5.5 in \cite{gelman2013bayesian}), which aimed to determine the effects of coaching on SAT scores in eight schools. 
 
 The model can be parameterised two ways, as described in \cite{vehtari2019rank}. The simplest way is referred to as the "centered" parameterisation and exactly mirrors the underlying statistical model,
@@ -305,19 +305,15 @@ In addition, to illustrate the power of $R^*$, we also repeat the analysis but, 
 %\end{figure}
 
 \section{Discussion}
-If an MCMC sampler has converged on the target distribution, the chains must be well ``mixed'', that is, given a sample it should be impossible to discern which chain generated that particular observation. Based on this observation, used supervised machine learning (ML) models to quantify the information about the generative chain identity contained in the samples. By taking the ratio of ML model predictive accuracy obtained on an independent test set to the accuracy of a null model (which predicts a chain's identity uniformly at random), this defines our $R^*$ statistic. By extracting the chain identity probabilities from each prediction in the test set, this allowed us to generate an uncertainty distribution for $R^*$. Across a range of previously published examples, $R^*$ was shown to be predictive of whether or not chains had converged.
+If an MCMC sampler has converged on the target distribution, the chains must be well ``mixed'', that is, given a sample it should be impossible to discern which chain generated it. Based on this observation, we used supervised machine learning (ML) models to quantify the information about the generative chain identity contained in the samples. By taking the ratio of ML model predictive accuracy obtained on an independent test set to the accuracy of a null model (which predicts a chain's identity uniformly at random), this defines our $R^*$ statistic. By extracting ML-predicted chain probabilities from each prediction in the test set, we can additionally generate an uncertainty distribution for $R^*$. Across a range of previously published examples, $R^*$ was shown to be predictive of whether or not chains had converged.
 
-The predominant methods for diagnosing MCMC convergence rely heavily on looking for differences in the marginal distributions of each dimension between chains. $R^*$ naturally includes this information in building a model capable of predicting the chain which generated each sample. It also naturally includes information about the joint distribution across all dimensions of the target. Since both the marginal and joint distributions will be approximately equal across converged chains, any measure of convergence should account for both of these aspects. Indeed, in \S\ref{sec:multivariate_normal}, we show that more established measures may indicate converge whereas $R^*$ shows otherwise. This is not a slight on existing measures, more that we argue this illustrates the complementarity of $R^*$ to them.
+The predominant methods for diagnosing MCMC convergence rely heavily on looking for differences in the marginal distributions of each dimension between chains. $R^*$ naturally includes this information in building a model capable of predicting the chain which generated each sample. It also naturally includes information about the joint distribution across all dimensions of the target. Since both the marginal and joint distributions will be approximately equal across converged chains, any measure of convergence should account for both of these aspects. Indeed, in \S\ref{sec:multivariate_normal}, we show that more established measures may indicate converge whereas $R^*$ shows otherwise. This is not a sleight on existing measures, more that we argue this illustrates the complementarity of $R^*$ to them.
 
+When first starting to develop $R^*$, it was unclear to us whether \textit{any} metric aligned with a supervised ML method would be overly sensitive to its hyperparameters. With gradient-boosted regression tree models, we found this not to be the case. Indeed, after a little experimenting, we found that a single set of hyperparameters (which we report in \S\ref{sec:method}) sufficed across all our examples. To ensure maximal predictive capability of any fitted ML model, however, it is prudent to optimise it over choice of hyperparameters, and we recommend that applied users consider including this step in their workflow.
 
+Many implementations of $\hat{R}$ suggest splitting chains in two before calculating it. In the Eight Schools example in \S\ref{sec:eight_shools}, we trial this before calculating $R^*$, and find that this approach leads to more accurate chain prediction. As such, we recommend that this practice be adopted whenever $R^*$ is calculated to ensure that $R^*$ is maximised. Additionally, our ML calculation method for $R^*$ makes it possible to include any covariates which may be useful features for prediction, such as an ``iteration block'' categorical indicator variable taking values $1, 2, ..., K$ in each of $K$ blocks of contiguous iterations. If each chain is thoroughly mixed with itself, including this additional information shouldn't change $R^*$; by contrast, if the chains are random walk-like, this information may boost $R^*$.
 
-
-Add in index variable into set of predictors.
-
-
-Relative insensitivity of GBM to settings (in all examples we used the same hyperparameters)
-
-
+MCMC enables inference across a large range of models encountered across the social, biological and physical sciences. Its ease of implementation, however, masks important underlying fragilities in the method. Namely, that unless the chains have converged to a truly stationary distribution, the samples generated are not faithful depictions of the posterior. In this paper, we introduce a new metric, $R^*$, that is especially good at diagnosing poor convergence in the joint sampling distribution -- an area that we argue has received insufficient attention thus far. $R^*$ can straightforwardly be introduced into existing MCMC libraries and could provide a complementary measure of convergence to existing metrics.
 
 	
 \bibliographystyle{unsrt}
