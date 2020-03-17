@@ -279,17 +279,15 @@ dev.off()
 
 
 # Multivariate normal
-
-Fit model in Stan
+Fit model in Stan with 10000 iterations
 ```{r}
 N <- 250
-A <- rWishart(1, 250, diag(N))[,,1]
+# A <- rWishart(1, 250, diag(N))[,,1]
 model <- stan_model("mvt_250.stan")
-fit <- sampling(model, data=list(N=N, A=A), iter=200, chains=4)
+fit <- sampling(model, data=list(N=N, A=A), iter=10000, chains=4, thin=5)
 print(fit)
-```
+saveRDS(fit, "../output/mvt_fit_10000.rds")
 
-```{r}
 full_data <- rstan::extract(fit, permuted=F)
 m_flattened <- matrix(nrow = nrow(full_data) * 4, ncol = 252)
 k <- 1
@@ -319,8 +317,135 @@ tibble(predicted=plda, actual=testing_data$chain) %>%
   mutate(correct=if_else(predicted==actual, 1, 0)) %>% 
   summarise(mean(correct))
 varImp(gbmFit1)
+
+plda <- predict(object=gbmFit1, newdata=testing_data, type = "prob")
+
+mAccuracy <- matrix(nrow = nrow(plda),
+                    ncol = nsim)
+for(i in 1:nsim){
+  for(j in 1:nrow(plda)){
+    mAccuracy[j, i] <- if_else(which(rmultinom(1, 1, prob = plda[j, ])==1)==testing_data$chain[j], 1, 0)
+  }
+}
+
+a_df <- tibble(samples_5000=colMeans(mAccuracy)/(1/n_distinct(training_data$chain)))
 ```
 
+With 400 iterations
+```{r}
+fit <- sampling(model, data=list(N=N, A=A), iter=400, chains=4)
+print(fit)
+saveRDS(fit, "../output/mvt_fit_400.rds")
+
+full_data <- rstan::extract(fit, permuted=F)
+m_flattened <- matrix(nrow = nrow(full_data) * 4, ncol = 252)
+k <- 1
+for(i in 1:4){
+  for(j in 1:nrow(full_data)){
+    m_flattened[k, 1:251] <- full_data[j, i, ]
+    m_flattened[k, 252] <- i
+    k <- k + 1
+  }
+}
+m_flattened <- m_flattened %>% 
+  as.data.frame() %>% 
+  rename(chain=V252) %>% 
+  mutate(chain=as.factor(chain))
+
+full_data <- m_flattened
+rand_samples <- sample(1:nrow(full_data), 0.7 * nrow(full_data))
+training_data <- full_data[rand_samples, ]
+testing_data <- full_data[-rand_samples, ]
+gbmFit1 <- train(chain ~ ., data = training_data, 
+                 method = "gbm",
+                 trControl = trainControl(method = 'none'), 
+                    tuneGrid = caretGrid, verbose=FALSE)
+
+plda <- predict(object=gbmFit1, newdata=testing_data)
+tibble(predicted=plda, actual=testing_data$chain) %>% 
+  mutate(correct=if_else(predicted==actual, 1, 0)) %>% 
+  summarise(mean(correct))
+varImp(gbmFit1)
+
+plda <- predict(object=gbmFit1, newdata=testing_data, type = "prob")
+
+mAccuracy <- matrix(nrow = nrow(plda),
+                    ncol = nsim)
+for(i in 1:nsim){
+  for(j in 1:nrow(plda)){
+    mAccuracy[j, i] <- if_else(which(rmultinom(1, 1, prob = plda[j, ])==1)==testing_data$chain[j], 1, 0)
+  }
+}
+
+a_df <- a_df %>%
+  mutate(samples_400=colMeans(mAccuracy)/(1/n_distinct(training_data$chain)))
+```
+
+```{r}
+model <- stan_model("mvt_250_ncp.stan")
+fit <- sampling(model, data=list(N=N, A=A), iter=10000, chains=4, thin=5)
+print(fit)
+saveRDS(fit, "../output/mvt_ncp_fit_10000.rds")
+
+full_data <- rstan::extract(fit, permuted=F)
+nparams <- dim(full_data)[3]
+m_flattened <- matrix(nrow = nrow(full_data) * 4, ncol = (nparams + 1))
+k <- 1
+for(i in 1:4){
+  for(j in 1:nrow(full_data)){
+    m_flattened[k, 1:nparams] <- full_data[j, i, ]
+    m_flattened[k, (nparams + 1)] <- i
+    k <- k + 1
+  }
+}
+m_flattened <- m_flattened %>% 
+  as.data.frame() %>% 
+  rename(chain=V502) %>% 
+  mutate(chain=as.factor(chain))
+n_distinct(m_flattened$chain)
+
+full_data <- m_flattened
+rand_samples <- sample(1:nrow(full_data), 0.7 * nrow(full_data))
+training_data <- full_data[rand_samples, ]
+testing_data <- full_data[-rand_samples, ]
+gbmFit1 <- train(chain ~ ., data = training_data, 
+                 method = "gbm",
+                 trControl = trainControl(method = 'none'), 
+                    tuneGrid = caretGrid, verbose=FALSE)
+
+plda <- predict(object=gbmFit1, newdata=testing_data)
+tibble(predicted=plda, actual=testing_data$chain) %>% 
+  mutate(correct=if_else(predicted==actual, 1, 0)) %>% 
+  summarise(mean(correct))
+
+plda <- predict(object=gbmFit1, newdata=testing_data, type = "prob")
+
+mAccuracy <- matrix(nrow = nrow(plda),
+                    ncol = nsim)
+for(i in 1:nsim){
+  for(j in 1:nrow(plda)){
+    mAccuracy[j, i] <- if_else(which(rmultinom(1, 1, prob = plda[j, ])==1)==testing_data$chain[j], 1, 0)
+  }
+}
+
+a_df <- a_df %>%
+  mutate(samples_10000_ncp=colMeans(mAccuracy)/(1/n_distinct(training_data$chain)))
+
+saveRDS(a_df, "../output/mvt_fit_all_accuracy.rds")
+
+g <- 
+  a_df %>% 
+  select(samples_400, samples_10000_ncp) %>% 
+  melt() %>% 
+  ggplot(aes(x=value, fill=as.factor(variable))) +
+  geom_histogram(position="identity", alpha=0.8, bins=20) +
+  scale_fill_grey("# of samples", labels=c("400", "2000", "5000")) +
+  xlab(TeX("$R*$")) +
+  ylab("Count") +
+  geom_vline(xintercept = 1, linetype=2) +
+  theme(text = element_text(size=14, colour="black"))
+# ggsave("../output/mvt_three.pdf", g, width = 8, height = 6)
+```
 
 
 # Cauchy example
@@ -372,6 +497,7 @@ for(i in 1:nsim){
 }
 mAccuracy_nom <- mAccuracy
 ```
+
 
 Generate R* distribution from alternative Cauchy parameterisation
 ```{r}

@@ -7,3 +7,5 @@ ms.pdf
 *.log
 *.html
 *.DS_Store
+*mvt_fit*
+*mvt_ncp_fit*
