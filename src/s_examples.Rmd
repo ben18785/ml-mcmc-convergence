@@ -171,16 +171,16 @@ multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
   }
 }
 
-g1 <- tibble(accuracy=accuracies/0.25, iteration=seq(1, nreplicates, 1)) %>% 
+g2 <- tibble(accuracy=accuracies/0.25, iteration=seq(1, nreplicates, 1)) %>% 
   ggplot(aes(x=accuracy)) +
   geom_histogram() +
   xlab(TeX("$R*$")) +
   ylab("Count") +
-  ggtitle("A.") +
+  ggtitle("B.") +
   theme(text = element_text(size=14, colour="black")) +
   xlim(1, NA)
 
-g2 <- testing_data %>% 
+g1 <- testing_data %>% 
   arrange(value) %>% 
   mutate(predictions=predict(object=gbmFit1, .)) %>% 
   ggplot(aes(x=value, y=predictions)) +
@@ -189,7 +189,7 @@ g2 <- testing_data %>%
   ylab("Chain classification") +
   theme(text = element_text(size=14, colour="black")) +
   coord_flip() +
-  ggtitle("B.")
+  ggtitle("A.")
 ```
 
 Generate R* distribution based on 1000 iterations
@@ -214,7 +214,7 @@ gbmFit1 <- train(chain ~ ., data = training_data,
 plda <- predict(object=gbmFit1, newdata=testing_data, type = "prob")
 
 
-nsim <- 10
+nsim <- 1000
 mAccuracy <- matrix(nrow = nrow(plda),
                     ncol = nsim)
 for(i in 1:nsim){
@@ -248,6 +248,7 @@ gbmFit1 <- train(chain ~ ., data = training_data,
                     tuneGrid = caretGrid, verbose=FALSE)
 plda <- predict(object=gbmFit1, newdata=testing_data, type = "prob")
 
+nsim <- 1000
 mAccuracy1 <- matrix(nrow = nrow(plda),
                     ncol = nsim)
 for(i in 1:nsim){
