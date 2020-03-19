@@ -18,6 +18,10 @@ library(mvtnorm)
 options(mc.cores=4)
 rstan_options(auto_write = TRUE)
 source("monitornew.R")
+
+caretGrid <- expand.grid(interaction.depth=c(3), n.trees = 50,
+                   shrinkage=c(0.1),
+                   n.minobsinnode=10)
 ```
 
 # AR1 example
@@ -51,9 +55,6 @@ f_generate_lower_var_four(1/10, 0.3, 1, 1000) %>%
 
 Use gbm model in Caret to predict chain identity
 ```{r}
-library(caret)
-library(gbm)
-
 # generate data
 full_data <- f_generate_lower_var_four(1/3, 0.3, 1, 1000) %>% 
   melt() %>% 
@@ -71,10 +72,6 @@ rand_samples <- sample(1:nrow(full_data), 0.7 * nrow(full_data))
 training_data <- full_data[rand_samples, ]
 testing_data <- full_data[-rand_samples, ]
 
-
-caretGrid <- expand.grid(interaction.depth=c(3), n.trees = 50,
-                   shrinkage=c(0.1),
-                   n.minobsinnode=10)
 gbmFit1 <- train(chain ~ ., data = training_data, 
                  method = "gbm",
                  trControl = trainControl(method = 'none'), 
@@ -606,6 +603,262 @@ pdf("../output/mvt_three.pdf", width = 12, height = 8)
 multiplot(ga, gb, gc, cols = 3)
 dev.off()
 ```
+
+## Aki Vehtari's suggestion: try measure for similar numbers of iterations to posterior
+Centered
+```{r}
+N <- 250
+A <- readRDS("../output/A_matrix.rds")
+model <- stan_model("mvt_250.stan")
+fit <- sampling(model, data=list(N=N, A=A), iter=500, chains=4, thin=1)
+saveRDS(fit, "../output/mvt_fit_500.rds")
+fit <- readRDS("../output/mvt_fit_500.rds")
+
+full_data <- rstan::extract(fit, permuted=F, inc_warmup=F)
+m_flattened <- matrix(nrow = nrow(full_data) * 4, ncol = 252)
+k <- 1
+for(i in 1:4){
+  for(j in 1:nrow(full_data)){
+    m_flattened[k, 1:251] <- full_data[j, i, ]
+    m_flattened[k, 252] <- i
+    k <- k + 1
+  }
+}
+m_flattened <- m_flattened %>% 
+  as.data.frame() %>% 
+  rename(chain=V252) %>% 
+  mutate(chain=as.factor(chain))
+
+full_data <- m_flattened
+rand_samples <- sample(1:nrow(full_data), 0.7 * nrow(full_data))
+training_data <- full_data[rand_samples, ]
+testing_data <- full_data[-rand_samples, ]
+gbmFit1 <- train(chain ~ ., data = training_data, 
+                 method = "gbm",
+                 trControl = trainControl(method = 'none'), 
+                    tuneGrid = caretGrid, verbose=FALSE)
+
+plda <- predict(object=gbmFit1, newdata=testing_data)
+tibble(predicted=plda, actual=testing_data$chain) %>% 
+  mutate(correct=if_else(predicted==actual, 1, 0)) %>% 
+  summarise(mean(correct))
+varImp(gbmFit1)
+
+plda <- predict(object=gbmFit1, newdata=testing_data, type = "prob")
+
+nsim <- 1000
+mAccuracy <- matrix(nrow = nrow(plda),
+                    ncol = nsim)
+for(i in 1:nsim){
+  for(j in 1:nrow(plda)){
+    mAccuracy[j, i] <- if_else(which(rmultinom(1, 1, prob = plda[j, ])==1)==testing_data$chain[j], 1, 0)
+  }
+}
+
+a_df <- tibble(samples_cp=colMeans(mAccuracy)/(1/n_distinct(training_data$chain)))
+
+mon <- monitor(fit)
+mean(mon$Rhat>1.01)
+mean(mon$Bulk_ESS<400)
+mean(mon$Tail_ESS<400)
+```
+
+Non-centered
+```{r}
+A <- readRDS("../output/A_matrix.rds")
+model <- stan_model("mvt_250_ncp.stan")
+fit <- sampling(model, data=list(N=N, A=A), iter=500, chains=4, thin=1)
+saveRDS(fit, "../output/mvt_ncp_fit_500.rds")
+
+full_data <- rstan::extract(fit, permuted=F, inc_warmup=F)
+nparams <- dim(full_data)[3]
+m_flattened <- matrix(nrow = nrow(full_data) * 4, ncol = (nparams + 1))
+k <- 1
+for(i in 1:4){
+  for(j in 1:nrow(full_data)){
+    m_flattened[k, 1:nparams] <- full_data[j, i, ]
+    m_flattened[k, (nparams + 1)] <- i
+    k <- k + 1
+  }
+}
+m_flattened <- m_flattened %>% 
+  as.data.frame() %>% 
+  rename(chain=V502) %>% 
+  mutate(chain=as.factor(chain))
+n_distinct(m_flattened$chain)
+
+full_data <- m_flattened
+rand_samples <- sample(1:nrow(full_data), 0.7 * nrow(full_data))
+training_data <- full_data[rand_samples, ]
+testing_data <- full_data[-rand_samples, ]
+gbmFit1 <- train(chain ~ ., data = training_data, 
+                 method = "gbm",
+                 trControl = trainControl(method = 'none'), 
+                    tuneGrid = caretGrid, verbose=FALSE)
+
+plda <- predict(object=gbmFit1, newdata=testing_data)
+tibble(predicted=plda, actual=testing_data$chain) %>% 
+  mutate(correct=if_else(predicted==actual, 1, 0)) %>% 
+  summarise(mean(correct))
+
+plda <- predict(object=gbmFit1, newdata=testing_data, type = "prob")
+
+mAccuracy <- matrix(nrow = nrow(plda),
+                    ncol = nsim)
+for(i in 1:nsim){
+  for(j in 1:nrow(plda)){
+    mAccuracy[j, i] <- if_else(which(rmultinom(1, 1, prob = plda[j, ])==1)==testing_data$chain[j], 1, 0)
+  }
+}
+
+a_df <- a_df %>%
+  mutate(samples_ncp=colMeans(mAccuracy)/(1/n_distinct(training_data$chain)))
+saveRDS(a_df, "../output/mvt_500_all.rds")
+g <- 
+  a_df %>% 
+  melt() %>% 
+  ggplot(aes(x=value, fill=as.factor(variable))) +
+  geom_histogram(position="identity", alpha=0.8, bins=20) +
+  scale_fill_grey("Model", labels=c("centered", "noncentered")) +
+  xlab(TeX("$R*$")) +
+  ylab("Count") +
+  geom_vline(xintercept = 1, linetype=2) +
+  theme(text = element_text(size=14, colour="black"),
+        legend.position = c(0.8, 0.8))
+ggsave("../output/wide_data.pdf", g, width = 12, height = 8)
+```
+
+# Wide dataset - standard normal
+```{r}
+N <- 10000
+A <- diag(nrow=N)
+model <- stan_model("mvt_wide.stan")
+fit <- sampling(model, data=list(N=N), iter=400, chains=4)
+saveRDS(fit, "../output/mvt_wide_400.rds")
+
+full_data <- rstan::extract(fit, permuted=F, inc_warmup=F)
+nparams <- dim(full_data)[3]
+m_flattened <- matrix(nrow = nrow(full_data) * 4, ncol = (nparams + 1))
+k <- 1
+for(i in 1:4){
+  for(j in 1:nrow(full_data)){
+    m_flattened[k, 1:nparams] <- full_data[j, i, ]
+    m_flattened[k, (nparams + 1)] <- i
+    k <- k + 1
+  }
+}
+m_flattened <- m_flattened %>% 
+  as.data.frame()
+colnames(m_flattened)[nparams + 1] <- "chain"
+m_flattened <- m_flattened %>% 
+  mutate(chain=as.factor(chain))
+n_distinct(m_flattened$chain)
+
+full_data <- m_flattened
+rand_samples <- sample(1:nrow(full_data), 0.7 * nrow(full_data))
+training_data <- full_data[rand_samples, ]
+testing_data <- full_data[-rand_samples, ]
+gbmFit1 <- train(chain ~ ., data = training_data, 
+                 method = "gbm",
+                 trControl = trainControl(method = 'none'), 
+                    tuneGrid = caretGrid, verbose=FALSE)
+
+plda <- predict(object=gbmFit1, newdata=testing_data)
+tibble(predicted=plda, actual=testing_data$chain) %>% 
+  mutate(correct=if_else(predicted==actual, 1, 0)) %>% 
+  summarise(mean(correct))
+
+plda <- predict(object=gbmFit1, newdata=testing_data, type = "prob")
+
+nsim <- 1000
+mAccuracy <- matrix(nrow = nrow(plda),
+                    ncol = nsim)
+for(i in 1:nsim){
+  for(j in 1:nrow(plda)){
+    mAccuracy[j, i] <- if_else(which(rmultinom(1, 1, prob = plda[j, ])==1)==testing_data$chain[j], 1, 0)
+  }
+}
+
+a_df <- tibble(samples_400=colMeans(mAccuracy)/(1/n_distinct(training_data$chain)))
+saveRDS(a_df, "../output/mvt_wide_400_summary.rds")
+mon <- monitor(fit)
+mean(mon$Rhat>1.01)
+mean(mon$Bulk_ESS<400)
+mean(mon$Tail_ESS<400)
+```
+
+```{r}
+N <- 10000
+A <- diag(nrow=N)
+model <- stan_model("mvt_wide.stan")
+fit <- sampling(model, data=list(N=N), iter=1000, chains=4)
+saveRDS(fit, "../output/mvt_wide_1000.rds")
+
+full_data <- rstan::extract(fit, permuted=F, inc_warmup=F)
+nparams <- dim(full_data)[3]
+m_flattened <- matrix(nrow = nrow(full_data) * 4, ncol = (nparams + 1))
+k <- 1
+for(i in 1:4){
+  for(j in 1:nrow(full_data)){
+    m_flattened[k, 1:nparams] <- full_data[j, i, ]
+    m_flattened[k, (nparams + 1)] <- i
+    k <- k + 1
+  }
+}
+m_flattened <- m_flattened %>% 
+  as.data.frame()
+colnames(m_flattened)[nparams + 1] <- "chain"
+m_flattened <- m_flattened %>% 
+  mutate(chain=as.factor(chain))
+n_distinct(m_flattened$chain)
+
+full_data <- m_flattened
+rand_samples <- sample(1:nrow(full_data), 0.7 * nrow(full_data))
+training_data <- full_data[rand_samples, ]
+testing_data <- full_data[-rand_samples, ]
+gbmFit1 <- train(chain ~ ., data = training_data, 
+                 method = "gbm",
+                 trControl = trainControl(method = 'none'), 
+                    tuneGrid = caretGrid, verbose=FALSE)
+
+plda <- predict(object=gbmFit1, newdata=testing_data)
+tibble(predicted=plda, actual=testing_data$chain) %>% 
+  mutate(correct=if_else(predicted==actual, 1, 0)) %>% 
+  summarise(mean(correct))
+
+plda <- predict(object=gbmFit1, newdata=testing_data, type = "prob")
+
+nsim <- 1000
+mAccuracy <- matrix(nrow = nrow(plda),
+                    ncol = nsim)
+for(i in 1:nsim){
+  for(j in 1:nrow(plda)){
+    mAccuracy[j, i] <- if_else(which(rmultinom(1, 1, prob = plda[j, ])==1)==testing_data$chain[j], 1, 0)
+  }
+}
+
+a_df <- a_df %>%
+  tibble(samples_1000=colMeans(mAccuracy)/(1/n_distinct(training_data$chain)))
+saveRDS(a_df, "../output/mvt_wide_summaries.rds")
+mon <- monitor(fit)
+mean(mon$Rhat>1.01)
+mean(mon$Bulk_ESS<400)
+mean(mon$Tail_ESS<400)
+
+g <- 
+  a_df %>% 
+  melt() %>% 
+  ggplot(aes(x=value, fill=as.factor(variable))) +
+  geom_histogram(position="identity", alpha=0.8, bins=20) +
+  scale_fill_grey("Model", labels=c("400", "1000")) +
+  xlab(TeX("$R*$")) +
+  ylab("Count") +
+  geom_vline(xintercept = 1, linetype=2) +
+  theme(text = element_text(size=14, colour="black"),
+        legend.position = c(0.8, 0.8))
+ggsave("../output/very_wide_data.pdf", g, width = 12, height = 8)
+```
+
 
 
 # Cauchy example
