@@ -1,0 +1,219 @@
+---
+title: "Examining the effect of a trend on R*"
+output: html_notebook
+---
+
+```{r}
+rm(list=ls())
+library(tidyverse)
+library(reshape2)
+library(rstan)
+library(latex2exp)
+library(caret)
+library(gbm)
+library(mvtnorm)
+options(mc.cores=4)
+rstan_options(auto_write = TRUE)
+source("monitornew.R")
+
+caretGrid <- expand.grid(interaction.depth=c(3), n.trees = 50,
+                   shrinkage=c(0.1),
+                   n.minobsinnode=10)
+
+f_fit_gbm_predict <- function(r){
+  rand_samples <- sample(1:nrow(r), 0.7 * nrow(r))
+  training_data <- r[rand_samples, ]
+  testing_data <- r[-rand_samples, ]
+
+  gbmFit1 <- train(chain ~ ., data = training_data, 
+                 method = "gbm",
+                 trControl = trainControl(method = 'none'), 
+                    tuneGrid = caretGrid, verbose=FALSE)
+  plda <- predict(object=gbmFit1, newdata=testing_data)
+  a_accuracy <- 
+    tibble(predicted=plda, actual=testing_data$chain) %>%
+    mutate(correct=if_else(predicted==actual, 1, 0)) %>% 
+    summarise(mean(correct)) %>% 
+    pull()
+  return(a_accuracy)
+}
+```
+
+# Consistent trend across all chains
+Repeating analysis from Vehtari et a. appendix B
+```{r}
+conds <- expand.grid(
+  iters = c(250, 1000, 4000), 
+  trend = c(0, 0.25, 0.5, 0.75, 1),
+  rep = 1:10
+)
+res <- vector("list", nrow(conds))
+chains = 4
+for (i in 1:nrow(conds)) {
+  iters <- conds[i, "iters"]
+  trend <- conds[i, "trend"]
+  rep <- conds[i, "rep"]
+  r <- array(rnorm(iters * chains), c(iters, chains))
+  r <- r + seq(-trend, trend, length.out = iters)
+  rs <- as.data.frame(monitor_extra(r))
+  
+  # R* calculation
+  r1 <- r %>% 
+    as.data.frame() %>% 
+    melt(id.vars = NULL) %>% 
+    mutate(chain=as.factor(variable)) %>% 
+    select(-variable) %>% 
+  mutate(ones=rnorm(length(chain)))
+  a_accuracy <- f_fit_gbm_predict(r1)
+  
+  # Split R* calculation
+  half_rows <- nrow(r) / 2
+  r2 <- cbind(r[1:half_rows, ], r[(half_rows+1):nrow(r), ]) %>% 
+    as.data.frame() %>% 
+    melt(id.vars = NULL) %>% 
+    mutate(chain=as.factor(variable)) %>% 
+    select(-variable) %>% 
+  mutate(ones=rnorm(length(chain)))
+  b_accuracy <- f_fit_gbm_predict(r2)
+  
+  
+  res[[i]] <- cbind(iters, trend, rep, rs, "Rstar"=a_accuracy * n_distinct(r1$chain),
+                    "Rstar_split"=b_accuracy * n_distinct(r2$chain))
+}
+res <- bind_rows(res)
+saveRDS(res, "../output/experiment_trends_all_dim.rds")
+```
+
+```{r}
+res <- readRDS("../output/experiment_trends_all_dim.rds")
+ggplot(data = res, aes(y = Rstar_split, x = trend)) + 
+  geom_point() + 
+  geom_jitter() + 
+  facet_grid(. ~ iters) + 
+  geom_hline(yintercept = 1) + 
+  ggtitle('Split-R*')
+```
+
+
+# Trend in a single dimension
+```{r}
+conds <- expand.grid(
+  iters = c(250, 1000, 4000), 
+  trend = c(0, 0.25, 0.5, 0.75, 1),
+  rep = 1:10,
+  dimension = c(1, 5, 10, 20)
+)
+res <- vector("list", nrow(conds))
+chains = 4
+
+for (i in 1:nrow(conds)) {
+  iters <- conds[i, "iters"]
+  trend <- conds[i, "trend"]
+  rep <- conds[i, "rep"]
+  dimension <- conds[i, "dimension"]
+  r <- array(rnorm(iters * chains * dimension), c(iters, chains, dimension))
+  r[, , 1] <- r[, , 1] + seq(-trend, trend, length.out = iters)
+  rs <- as.data.frame(monitor_extra(r))
+  r_2d <- matrix(nrow = iters * chains, ncol=(dimension + 2))
+  k <- 1
+  for(i in 1:iters){
+    for(j in 1:chains){
+      r_2d[k, ] <- c(i, j, r[i, j, ])
+      k <- k + 1
+    }
+  }
+  r_2d <- r_2d %>%
+    as.data.frame()
+  colnames(r_2d)[1:2] <- c("iter", "chain")
+  
+  # R* calculation
+  r1 <- r_2d %>% 
+    arrange(chain, iter) %>% 
+    select(-iter) %>% 
+    mutate(chain=as.factor(chain))
+  if(dimension==1)
+    r1 <- r1 %>% mutate(ones=rnorm(length(chain)))
+  a_accuracy <- f_fit_gbm_predict(r1)
+  
+  # Split R* calculation
+  half_rows <- iters / 2
+  r_1h <- r_2d %>% 
+    filter(iter<=half_rows)
+  r_2h <- r_2d %>% 
+    filter(iter>half_rows) %>% 
+    mutate(chain=chain + chains)
+  r2 <- bind_rows(r_1h, r_2h) %>% 
+    select(-iter) %>% 
+    mutate(chain=as.factor(chain))
+  if(dimension==1)
+    r2 <- r2 %>% mutate(ones=rnorm(length(chain)))
+  b_accuracy <- f_fit_gbm_predict(r2)
+  
+  res[[i]] <- cbind(iters, trend, rep, dimension, rs, "Rstar"=a_accuracy * n_distinct(r1$chain),
+                    "Rstar_split"=b_accuracy * n_distinct(r2$chain))
+}
+res <- bind_rows(res)
+saveRDS(res, "../output/experiment_trends_one_dim.rds")
+```
+
+
+# Stationary -> non-stationary data
+Vary rho of AR1 process from stationary->non-stationary generating process
+```{r}
+f_ar1 <- function(rho, sigma, L){
+  x <- vector(length = L)
+  x[1] <- rnorm(1, 0, sd=sigma)
+  for(i in 2:L)
+    x[i] = rho * x[i - 1] + rnorm(1, 0, sd=sigma)
+  return(x)
+}
+
+conds <- expand.grid(
+  iters = c(250, 1000, 4000), 
+  trend = c(0, 0.25, 0.5, 0.75, 1),
+  rep = 1:10,
+  rho = c(0, 0.25, 0.5, 0.75, 1)
+)
+res <- vector("list", nrow(conds))
+chains = 4
+sigma <- 1
+
+for (i in 1:nrow(conds)) {
+  iters <- conds[i, "iters"]
+  trend <- conds[i, "trend"]
+  rep <- conds[i, "rep"]
+  rho <- conds[i, "rho"]
+  r <- array(rnorm(iters * chains), c(iters, chains))
+  for(i in 1:chains)
+    r[, i] <- f_ar1(rho, sigma, iters)
+  rs <- as.data.frame(monitor_extra(r))
+  
+  # R* calculation
+  r1 <- r %>% 
+    as.data.frame() %>% 
+    melt(id.vars = NULL) %>% 
+    mutate(chain=as.factor(variable)) %>% 
+    select(-variable)
+  if(dimension==1)
+    r1 <- r1 %>% mutate(ones=rnorm(length(chain)))
+  a_accuracy <- f_fit_gbm_predict(r1)
+  
+  # Split R* calculation
+  half_rows <- nrow(r) / 2
+  r2 <- cbind(r[1:half_rows, ], r[(half_rows+1):nrow(r), ]) %>% 
+    as.data.frame() %>% 
+    melt(id.vars = NULL) %>% 
+    mutate(chain=as.factor(variable)) %>% 
+    select(-variable)
+  if(dimension==1)
+    r2 <- r2 %>% mutate(ones=rnorm(length(chain)))
+  b_accuracy <- f_fit_gbm_predict(r2)
+  
+  res[[i]] <- cbind(iters, trend, rep, rho, rs, "Rstar"=a_accuracy * n_distinct(r1$chain),
+                    "Rstar_split"=b_accuracy * n_distinct(r2$chain))
+}
+res <- bind_rows(res)
+saveRDS(res, "../output/experiment_trends_rho.rds")
+
+```
+
