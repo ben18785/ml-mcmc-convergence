@@ -116,9 +116,9 @@ for (i in 1:nrow(conds)) {
   rs <- as.data.frame(monitor_extra(r))
   r_2d <- matrix(nrow = iters * chains, ncol=(dimension + 2))
   k <- 1
-  for(i in 1:iters){
+  for(ii in 1:iters){
     for(j in 1:chains){
-      r_2d[k, ] <- c(i, j, r[i, j, ])
+      r_2d[k, ] <- c(ii, j, r[ii, j, ])
       k <- k + 1
     }
   }
@@ -156,6 +156,30 @@ res <- bind_rows(res)
 saveRDS(res, "../output/experiment_trends_one_dim.rds")
 ```
 
+```{r}
+res <- readRDS("../output/experiment_trends_one_dim.rds") %>% 
+  select(trend, iters, rep, dimension, Rstar) %>% 
+  unique()
+ggplot(data = res, aes(x = trend, y = Rstar)) + 
+  geom_point() + 
+  geom_jitter() + 
+  facet_grid(vars(iters), vars(dimension)) + 
+  geom_hline(yintercept = 1) + 
+  ggtitle('R* without splitting')
+```
+
+
+```{r}
+res <- readRDS("../output/experiment_trends_one_dim.rds") %>% 
+  select(trend, iters, rep, dimension, Rstar_split) %>% 
+  unique()
+ggplot(data = res, aes(x = trend, y = Rstar_split)) + 
+  geom_point() + 
+  geom_jitter() + 
+  facet_grid(vars(iters), vars(dimension)) + 
+  geom_hline(yintercept = 1) + 
+  ggtitle('Split-R*')
+```
 
 # Stationary -> non-stationary data
 Vary rho of AR1 process from stationary->non-stationary generating process
@@ -172,7 +196,7 @@ conds <- expand.grid(
   iters = c(250, 1000, 4000), 
   trend = c(0, 0.25, 0.5, 0.75, 1),
   rep = 1:10,
-  rho = c(0, 0.25, 0.5, 0.75, 1)
+  rho = c(0.8, 0.85, 0.9, 0.95, 0.975, 1)
 )
 res <- vector("list", nrow(conds))
 chains = 4
@@ -184,8 +208,8 @@ for (i in 1:nrow(conds)) {
   rep <- conds[i, "rep"]
   rho <- conds[i, "rho"]
   r <- array(rnorm(iters * chains), c(iters, chains))
-  for(i in 1:chains)
-    r[, i] <- f_ar1(rho, sigma, iters)
+  for(j in 1:chains)
+    r[, j] <- f_ar1(rho, sigma, iters)
   rs <- as.data.frame(monitor_extra(r))
   
   # R* calculation
@@ -194,7 +218,7 @@ for (i in 1:nrow(conds)) {
     melt(id.vars = NULL) %>% 
     mutate(chain=as.factor(variable)) %>% 
     select(-variable)
-  if(dimension==1)
+  if(ncol(r1)==2)
     r1 <- r1 %>% mutate(ones=rnorm(length(chain)))
   a_accuracy <- f_fit_gbm_predict(r1)
   
@@ -205,7 +229,7 @@ for (i in 1:nrow(conds)) {
     melt(id.vars = NULL) %>% 
     mutate(chain=as.factor(variable)) %>% 
     select(-variable)
-  if(dimension==1)
+  if(ncol(r2)==2)
     r2 <- r2 %>% mutate(ones=rnorm(length(chain)))
   b_accuracy <- f_fit_gbm_predict(r2)
   
@@ -213,7 +237,25 @@ for (i in 1:nrow(conds)) {
                     "Rstar_split"=b_accuracy * n_distinct(r2$chain))
 }
 res <- bind_rows(res)
-saveRDS(res, "../output/experiment_trends_rho.rds")
+saveRDS(res, "../output/experiment_trends_rho_nearer1.rds")
 
+```
+
+```{r}
+res <- readRDS("../output/experiment_trends_rho_nearer1.rds")
+
+ggplot(data = res, aes(x = rho, y = Rstar)) + 
+  geom_jitter() + 
+  facet_grid(vars(iters)) + 
+  geom_hline(yintercept = 1) + 
+  ggtitle('R* without splitting') +
+  ylim(0, 6)
+
+ggplot(data = res, aes(x = rho, y = Rstar_split)) + 
+  geom_jitter() + 
+  facet_grid(vars(iters)) + 
+  geom_hline(yintercept = 1) + 
+  ggtitle('Split-R*') +
+  ylim(0, 6)
 ```
 
