@@ -175,33 +175,15 @@ m_flattened <- m_flattened %>%
   rename(chain=V12) %>% 
   mutate(chain=as.factor(chain))
 
-full_data <- m_flattened
-rand_samples <- sample(1:nrow(full_data), 0.7 * nrow(full_data))
-training_data <- full_data[rand_samples, ]
-testing_data <- full_data[-rand_samples, ]
-gbmFit1 <- train(chain ~ ., data = training_data, 
-                 method = "gbm",
-                 trControl = trainControl(method = 'none'), 
-                    tuneGrid = caretGrid, verbose=FALSE)
+both <- f_fit_gbm_predict(m_flattened)
 
-plda <- predict(object=gbmFit1, newdata=testing_data)
-tibble(predicted=plda, actual=testing_data$chain) %>% 
-  mutate(correct=if_else(predicted==actual, 1, 0)) %>% 
-  summarise(mean(correct))
-varImp(gbmFit1)
-
-plda <- predict(object=gbmFit1, newdata=testing_data, type = "prob")
+plda <- both$predicted_prob
+testing_data <- both$testing_data
 
 nsim <- 1000
-mAccuracy <- matrix(nrow = nrow(plda),
-                    ncol = nsim)
-for(i in 1:nsim){
-  for(j in 1:nrow(plda)){
-    mAccuracy[j, i] <- if_else(which(rmultinom(1, 1, prob = plda[j, ])==1)==testing_data$chain[j], 1, 0)
-  }
-}
-mAccuracy_centered <- mAccuracy
+r_star_centered <- f_r_star_distribution(nsim, plda, testing_data)
 
+# noncentered
 full_data <- rstan::extract(fit_ncp, permuted=F)
 k <- 1
 m_flattened <- matrix(nrow = nrow(full_data) * 4, ncol = (nparams+1))
@@ -217,44 +199,24 @@ m_flattened <- m_flattened %>%
   as.data.frame() %>% 
   rename(chain=V20) %>% 
   mutate(chain=as.factor(chain))
+both <- f_fit_gbm_predict(m_flattened)
+plda <- both$predicted_prob
+testing_data <- both$testing_data
 
-full_data <- m_flattened
-rand_samples <- sample(1:nrow(full_data), 0.7 * nrow(full_data))
-training_data <- full_data[rand_samples, ]
-testing_data <- full_data[-rand_samples, ]
-gbmFit1 <- train(chain ~ ., data = training_data, 
-                 method = "gbm",
-                 trControl = trainControl(method = 'none'), 
-                    tuneGrid = caretGrid, verbose=FALSE)
-
-plda <- predict(object=gbmFit1, newdata=testing_data)
-tibble(predicted=plda, actual=testing_data$chain) %>% 
-  mutate(correct=if_else(predicted==actual, 1, 0)) %>% 
-  summarise(mean(correct))
-varImp(gbmFit1)
-
-plda <- predict(object=gbmFit1, newdata=testing_data, type = "prob")
-
-mAccuracy <- matrix(nrow = nrow(plda),
-                    ncol = nsim)
-for(i in 1:nsim){
-  for(j in 1:nrow(plda)){
-    mAccuracy[j, i] <- if_else(which(rmultinom(1, 1, prob = plda[j, ])==1)==testing_data$chain[j], 1, 0)
-  }
-}
-mAccuracy_noncentered <- mAccuracy
+nsim <- 1000
+r_star_noncentered <- f_r_star_distribution(nsim, plda, testing_data)
 ```
 
 ```{r}
-d_df <- tibble(centered=colMeans(mAccuracy_centered)/(1/n_distinct(training_data$chain)),
-       non_centered=colMeans(mAccuracy_noncentered)/(1/n_distinct(training_data$chain)))
+d_df <- tibble(centered=r_star_centered,
+               non_centered=r_star_noncentered)
 ```
 
 Plot two R* distributions
 ```{r}
 g1 <- 
   c_df %>% 
-  melt() %>% 
+  melt(id.vars=NULL) %>% 
   ggplot(aes(x=value, fill=as.factor(variable))) +
   geom_histogram(position="identity", alpha=0.8) +
   xlim(0.78, 1.6) +
@@ -267,7 +229,7 @@ g1 <-
         legend.position = "none")
 g2 <- 
   d_df %>% 
-  melt() %>% 
+  melt(id.vars=NULL) %>% 
   ggplot(aes(x=value, fill=as.factor(variable))) +
   geom_histogram(position="identity", alpha=0.8) +
   scale_fill_grey("Series", labels=c("centered", "non-centered")) +
@@ -277,12 +239,102 @@ g2 <-
   geom_vline(xintercept = 1, linetype=2) +
   ggtitle("B.") +
   theme(text = element_text(size=14, colour="black"))
-a_df <- readRDS("../output/eight_schools_replicates_4_index.rds")
+# a_df <- readRDS("../output/eight_schools_replicates_4_index.rds")
 
-pdf("../output/eight_schools.pdf", width = 12, height = 6)
-multiplot(g1, g2, cols = 2)
-dev.off()
-```
+# pdf("../output/eight_schools.pdf", width = 12, height = 6)
+# multiplot(g1, g2, cols = 2)
+# dev.off()
 ```
 
+# Plot tau prediction accuracy across quantiles
+```{r}
+full_data_all <- rstan::extract(fit_cp, permuted=F)
+full_data <- array(dim=c(500, 8, 11))
+k <- 1
+for(i in 1:4){
+  first_half <- full_data_all[1:500, i, ]
+  second_half <- full_data_all[501:1000, i, ]
+  full_data[, k, ] <- first_half
+  k <- k + 1
+  full_data[, k, ] <- second_half
+  k <- k + 1
+}
+  
+
+m_flattened <- matrix(nrow = nrow(full_data) * 8, ncol = 12)
+k <- 1
+for(i in 1:8){
+  for(j in 1:nrow(full_data)){
+    m_flattened[k, 1:11] <- full_data[j, i, ]
+    m_flattened[k, 12] <- i
+    k <- k + 1
+  }
+}
+m_flattened <- m_flattened %>% 
+  as.data.frame() %>% 
+  rename(chain=V12) %>% 
+  mutate(chain=as.factor(chain))
+
+full_data <- m_flattened
+both <- f_fit_gbm_predict(full_data)
+
+plda <- both$predicted_prob
+testing_data <- both$testing_data
+
+f_r_star_accuracy <- function(nsim, pred_test_prob, testing_data){
+   
+  mAccuracy <- matrix(nrow = nrow(pred_test_prob),
+                    ncol = nsim)
+  for(j in 1:nrow(pred_test_prob)){
+    test <- apply(rmultinom(nsim, 1, prob = pred_test_prob[j, ]), 2, function(x) which(x==1))
+    mAccuracy[j, ] <- if_else(test==testing_data$chain[j], 1, 0)
+  }
+  return(mAccuracy)
+}
+
+nsim <- 20
+mAccuracy <- f_r_star_accuracy(nsim, plda, testing_data)
+colnames(testing_data) <- c("mu", "tau",
+                            "theta.1", "theta.2",
+                            "theta.3", "theta.4",
+                            "theta.5", "theta.6",
+                            "theta.7", "theta.8",
+                            "lp", "chain")
+colnames(mAccuracy) <- map_chr(seq(1, nsim, 1), ~paste0("V", .))
+mAccuracy <- mAccuracy %>% 
+  as.data.frame() %>% 
+  bind_cols(testing_data)
+  
+lbreaks <- quantile(mAccuracy$tau, seq(0, 1, 0.1))
+mAccuracy$tau_cuts <- cut(mAccuracy$tau, breaks=lbreaks, include.lowest = T, right=T, ordered_result = T)
+cuts <- sort(unique(mAccuracy$tau_cuts))
+r_star <- matrix(ncol = length(cuts),
+                 nrow=nsim)
+for(i in seq_along(cuts)){
+  temp <- mAccuracy %>% 
+    filter(tau_cuts==cuts[i])
+  r_star[, i] <- colMeans(temp[, 1:nsim]) * n_distinct(testing_data$chain)
+}
+colnames(r_star) <- seq(0.1, 1, 0.1)
+r_mean <- 
+  r_star %>% 
+  melt(id.vars=NULL) %>%  
+  group_by(Var2) %>% 
+  summarise(value=mean(value))
+r_full <- 
+  r_star %>%
+  melt(id.vars=NULL) %>%
+  bind_rows(r_mean) %>% 
+  mutate(variable=as.numeric(as.character(Var2))) 
+
+ggplot(filter(r_full, !is.na(Var1)),
+       aes(x=variable, y=value)) +
+  geom_jitter(height = 0, width = 0.02, colour="grey") +
+  ylab(TeX("$R*$")) +
+  xlab("Quantile") +
+  geom_hline(yintercept = 1, linetype=2) +
+  theme(text = element_text(colour="black",
+                            size=12)) +
+  geom_line(data=filter(r_full, is.na(Var1)))
+```
 
