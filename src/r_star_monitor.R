@@ -24,7 +24,7 @@ library(tidyverse)
 #' \emph{arXiv preprint} \code{arXiv:TBD}
 r_star <- function(x, split_chains=T, training_percent=0.7, caret_default=NA){
   
-  if(split_data)
+  if(split_chains)
     x <- split_data(x)
   
   nparams <- dim(x)[3]
@@ -50,7 +50,7 @@ r_star <- function(x, split_chains=T, training_percent=0.7, caret_default=NA){
   training_data <- r[rand_samples, ]
   testing_data <- r[-rand_samples, ]
   
-  if(is.na(caret_grid_default))
+  if(is.na(caret_default))
     caretGrid <- expand.grid(interaction.depth=c(3), 
                              n.trees = 50,
                              shrinkage=c(0.1),
@@ -92,7 +92,7 @@ r_star <- function(x, split_chains=T, training_percent=0.7, caret_default=NA){
 #' @references Ben Lambert, Aki Vehtari (2020) R*: A robust MCMC convergence
 #' diagnostic with uncertainty using gradient-boosted machines
 #' \emph{arXiv preprint} \code{arXiv:TBD}
-r_star_dist <- function(x, split_chains=T, training_percent=0.7, caret_grid_default=NA, nsim=1000){
+r_star_dist <- function(x, split_chains=T, training_percent=0.7, caret_default=NA, nsim=1000){
   
   if(split_chains)
     x <- split_data(x)
@@ -120,7 +120,7 @@ r_star_dist <- function(x, split_chains=T, training_percent=0.7, caret_grid_defa
   training_data <- r[rand_samples, ]
   testing_data <- r[-rand_samples, ]
   
-  if(is.na(caret_grid_default))
+  if(is.na(caret_default))
     caretGrid <- expand.grid(interaction.depth=c(3), 
                              n.trees = 50,
                              shrinkage=c(0.1),
@@ -158,7 +158,8 @@ split_data <- function(x){
   if(half%%1!=0){
     print("Warning: dropping first iteration size since # iter
           is not an even integer")
-    full_data <- full_data[-1]
+    x <- x[-1, , ]
+    niter <- niter - 1
   }
   half <- floor(half)
   full_data <- array(dim=c(half, 2 * nchains, nparams))
