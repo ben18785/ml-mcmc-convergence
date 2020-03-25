@@ -406,6 +406,7 @@ a_df <-
 ```
 
 ```{r}
+a_df <- readRDS("../output/cauchy_r_star.rds")
 g2 <- 
   a_df %>% 
   melt(id.vars="iteration") %>% 
@@ -460,6 +461,7 @@ c_df <-
          upper=r_hat_upper,
          variable="nom"))
 # saveRDS(c_df, "../output/cauchy_r_hat.rds")
+c_df <- readRDS("../output/cauchy_r_hat.rds")
 g3 <- 
   c_df %>% 
   ggplot(aes(x=iteration)) +
