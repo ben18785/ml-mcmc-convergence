@@ -174,3 +174,51 @@ split_data <- function(x){
   }
   return(full_data)
 }
+
+#' Compute estimate of multivariate Rhat distribution
+#'
+#' @param x a 3D array of samples of dimensions: # iter x # chains x # parameters
+#'
+#' @param split_chains a Boolean (defaults to true) indicating whether to split
+#' chains into two equal halves
+#'
+#' @return single Rhat value
+#' 
+#' @references Stephen Brooks, Andrew Gelman (1998), General Methods for Monitoring
+#' Convergence of Iterative Simulations  
+#' Journal of Computational and Graphical Statistics, Volume 7, Number 4, Pages 434455
+r_hat_multivariate <- function(x, split_chains=T){
+  
+  if(split_chains)
+    x <- split_data(x)
+  
+  niter <- dim(x)[1]
+  nchains <- dim(x)[2]
+  nparams <- dim(x)[3]
+  
+  chains_l <- seq(1, nchains, 1)
+  phi_j_bar <- map(chains_l, ~colMeans(x[, ., ]))
+  phi_diff <- map(chains_l, ~x[ , ., ] - phi_j_bar[[.]])
+  phi_m <- map(chains_l, ~t(phi_diff[[.]])%*%phi_diff[[.]])
+  for(i in chains_l){
+    if(i==1)
+      phi_tot <- phi_m[[i]]
+    else
+      phi_tot <- phi_tot + phi_m[[i]]
+  }
+  W <- (1/(nchains * (niter - 1))) * phi_tot
+  phi_bar <- apply(x, c(3), mean)
+  phi_diff1 <- map(chains_l, ~phi_j_bar[[.]] - phi_bar)
+  temp <- map(chains_l, ~as.matrix(phi_diff1[[.]], nrow=nparams) %*% phi_diff1[[.]])
+  for(i in chains_l){
+    if(i==1)
+      phi_tot1 <- temp[[i]]
+    else
+      phi_tot1 <- phi_tot1 + temp[[i]]
+  }
+  B <- niter / (nchains - 1) * phi_tot1
+  W_minus_1_B_n <- solve(W) %*% B / niter
+  y <- eigen(W_minus_1_B_n)
+  R_hat <- (nchains + 1) / nchains * max(abs(y$values)) + (niter - 1) / niter
+  return(R_hat)
+}

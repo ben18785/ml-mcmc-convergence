@@ -367,6 +367,7 @@ b_df <-
          upper=r_vals1_upper,
          variable="nom"))
 # saveRDS(b_df, "../output/cauchy_r_squared.rds")
+b_df <- readRDS("../output/cauchy_r_squared.rds")
 g1 <- b_df %>% 
   ggplot(aes(x=iteration)) +
   geom_point(aes(y=middle,colour=as.factor(variable))) +
@@ -380,7 +381,7 @@ g1 <- b_df %>%
         legend.position = "none",
         axis.title.y = element_blank()) +
   scale_x_log10() +
-  ggtitle(TeX("Quantile $R^2$"))
+  ggtitle(TeX("A. Quantile $R^2$"))
 g1
 ```
 
@@ -423,7 +424,7 @@ g2 <-
   geom_hline(yintercept = 1, linetype=2) +
   scale_x_log10() +
   scale_y_continuous(limits=c(0.8, NA), breaks = seq(1, 7, 1)) +
-  ggtitle(TeX("Split-$R^*$"))
+  ggtitle(TeX("D. Split-$R^*$"))
 g2
 ```
 
@@ -478,14 +479,107 @@ g3 <-
   geom_hline(yintercept = 1, linetype=2) +
   scale_x_log10() +
   scale_y_continuous(limits=c(0.99, NA), breaks = seq(1, 6, 0.2)) +
-  ggtitle(TeX("Max split-$\\hat{R}$"))
+  ggtitle(TeX("B. Max split-$\\hat{R}$"))
 g3
 ```
 
+Multivariate Rhat
+```{r}
+fit1 <- readRDS("../output/fit_alt_50000.rds")
+x <- rstan::extract(fit1, permuted=F, pars="x")
+Rhat_alt <- map_dbl(iter, ~r_hat_multivariate(x[1:., , ]))
+
+fit1 <- readRDS("../output/fit_nominal_50000.rds")
+x <- rstan::extract(fit1, permuted=F, pars="x")
+Rhat_nom <- map_dbl(iter, ~r_hat_multivariate(x[1:., , ]))
+g_df <- tibble(iteration=iter,
+       alt=Rhat_alt,
+       nom=Rhat_nom) 
+g4 <- 
+  tibble(iteration=iter,
+       alt=Rhat_alt,
+       nom=Rhat_nom) %>% 
+  melt(id.vars="iteration") %>% 
+  ggplot(aes(x=iteration)) +
+  geom_point(aes(y=value, colour=as.factor(variable))) +
+  geom_line(aes(y=value, colour=as.factor(variable))) +
+  ylab(TeX("$\\hat{R}$")) +
+  scale_color_brewer("Parameterisation", palette = "Dark2", labels=c("Alternative", "Nominal")) +
+  scale_fill_brewer("Parameterisation", palette = "Dark2", labels=c("Alternative", "Nominal")) +
+  xlab("Iteration") +
+  theme(text=element_text(size=11, colour="black"),
+        axis.text = element_text(size=10, colour="black"),
+        legend.position = "none",
+        axis.title.y = element_blank()) +
+  geom_hline(yintercept = 1, linetype=2) +
+  scale_x_log10() +
+  scale_y_continuous(limits=c(0.99, NA), breaks = seq(1, 6, 0.2)) +
+  ggtitle(TeX("C. Multivariate split-$\\hat{R}$"))
+```
+
+Tail ESS
+```{r}
+fit1 <- readRDS("../output/fit_alt_50000.rds")
+x <- rstan::extract(fit1, permuted=F, pars="x")
+tail_ess_alt <- map_dbl(iter, function(i) min(map_dbl(seq(1, 50, 1), ~ess_tail(x[1:i, , .]))))
+bulk_ess_alt <- map_dbl(iter, function(i) min(map_dbl(seq(1, 50, 1), ~ess_bulk(x[1:i, , .]))))
+
+fit1 <- readRDS("../output/fit_nominal_50000.rds")
+x <- rstan::extract(fit1, permuted=F, pars="x")
+tail_ess_nom <- map_dbl(iter, function(i) min(map_dbl(seq(1, 50, 1), ~ess_tail(x[1:i, , .]))))
+bulk_ess_nom <- map_dbl(iter, function(i) min(map_dbl(seq(1, 50, 1), ~ess_bulk(x[1:i, , .]))))
+
+e_df <- tibble(iteration=iter,
+               alt=tail_ess_alt,
+               nom=tail_ess_nom)
+saveRDS(e_df, "../output/cauchy_tail_ess.rds")
+f_df <- tibble(iteration=iter,
+               alt=bulk_ess_alt,
+               nom=bulk_ess_nom)
+saveRDS(f_df, "../output/cauchy_bulk_ess.rds")
+g5 <- 
+  e_df %>% 
+  melt(id.vars="iteration") %>% 
+  ggplot(aes(x=iteration)) +
+  geom_point(aes(y=value, colour=as.factor(variable))) +
+  geom_line(aes(y=value, colour=as.factor(variable))) +
+  scale_color_brewer("Parameterisation", palette = "Dark2", labels=c("Alternative", "Nominal")) +
+  scale_fill_brewer("Parameterisation", palette = "Dark2", labels=c("Alternative", "Nominal")) +
+  xlab("Iteration") +
+  theme(text=element_text(size=11, colour="black"),
+        axis.text = element_text(size=10, colour="black"),
+        legend.position = "none",
+        axis.title.y = element_blank()) +
+  geom_hline(yintercept = 400, linetype=2) +
+  scale_x_log10() +
+  scale_y_log10() +
+  ggtitle(TeX("E. Tail ESS"))
+
+g6 <- 
+  f_df %>% 
+  melt(id.vars="iteration") %>% 
+  ggplot(aes(x=iteration)) +
+  geom_point(aes(y=value, colour=as.factor(variable))) +
+  geom_line(aes(y=value, colour=as.factor(variable))) +
+  scale_color_brewer("Parameterisation", palette = "Dark2", labels=c("Alternative", "Nominal")) +
+  scale_fill_brewer("Parameterisation", palette = "Dark2", labels=c("Alternative", "Nominal")) +
+  xlab("Iteration") +
+  theme(text=element_text(size=11, colour="black"),
+        axis.text = element_text(size=10, colour="black"),
+        legend.position = "none",
+        axis.title.y = element_blank()) +
+  geom_hline(yintercept = 400, linetype=2) +
+  scale_x_log10() +
+  scale_y_log10() +
+  ggtitle(TeX("F. Bulk ESS"))
+```
+
+
+
 Combine
 ```{r}
-pdf("../output/cauchy_convergence.pdf", width = 12, height = 4)
-multiplot(g1, g3, g2, cols = 3)
+pdf("../output/cauchy_convergence.pdf", width = 12, height = 8)
+multiplot(g1, g4, g5, g3, g2, g6, cols = 2)
 dev.off()
 ```
 
