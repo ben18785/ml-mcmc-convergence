@@ -86,12 +86,24 @@ saveRDS(res, "../output/experiment_trends_all_dim.rds")
 
 ```{r}
 res <- readRDS("../output/experiment_trends_all_dim.rds")
-ggplot(data = res, aes(y = Rstar_split, x = trend)) + 
+g <- 
+  res %>%
+  select(iters, trend, Rstar, Rstar_split) %>% 
+  melt(id.vars=c("iters", "trend")) %>% 
+  mutate(variable=case_when(variable=="Rstar"~"A. R*",
+                            variable=="Rstar_split"~"B. split-R*")) %>% 
+  ggplot(aes(y = value, x = trend)) + 
   geom_point() + 
   geom_jitter() + 
-  facet_grid(. ~ iters) + 
-  geom_hline(yintercept = 1) + 
-  ggtitle('Split-R*')
+  facet_grid(vars(iters), vars(variable)) + 
+  geom_hline(yintercept = 1) +
+  theme(strip.text.x = element_text(size=12, colour="black"),
+        strip.text.y = element_text(size=12, colour="black"),
+        axis.text.x = element_text(size=10, colour="black"),
+        axis.text.y = element_text(size=10, colour="black")) +
+  xlab("Trend") +
+  ylab("Value")
+ggsave("../output/trends_all_dim.pdf", g, width = 8, height = 6)
 ```
 
 
@@ -156,30 +168,123 @@ res <- bind_rows(res)
 saveRDS(res, "../output/experiment_trends_one_dim.rds")
 ```
 
-```{r}
-res <- readRDS("../output/experiment_trends_one_dim.rds") %>% 
-  select(trend, iters, rep, dimension, Rstar) %>% 
-  unique()
-ggplot(data = res, aes(x = trend, y = Rstar)) + 
-  geom_point() + 
-  geom_jitter() + 
-  facet_grid(vars(iters), vars(dimension)) + 
-  geom_hline(yintercept = 1) + 
-  ggtitle('R* without splitting')
-```
-
 
 ```{r}
-res <- readRDS("../output/experiment_trends_one_dim.rds") %>% 
+g <- readRDS("../output/experiment_trends_one_dim.rds") %>% 
   select(trend, iters, rep, dimension, Rstar_split) %>% 
-  unique()
-ggplot(data = res, aes(x = trend, y = Rstar_split)) + 
+  unique() %>%
+  select(-rep) %>% 
+  melt(c("trend", "iters", "dimension")) %>% 
+  filter(variable=="Rstar_split") %>% 
+  ggplot(aes(y = value, x = trend)) + 
   geom_point() + 
   geom_jitter() + 
   facet_grid(vars(iters), vars(dimension)) + 
-  geom_hline(yintercept = 1) + 
-  ggtitle('Split-R*')
+  geom_hline(yintercept = 1) +
+  theme(strip.text.x = element_text(size=12, colour="black"),
+        strip.text.y = element_text(size=12, colour="black"),
+        axis.text.x = element_text(size=10, colour="black"),
+        axis.text.y = element_text(size=10, colour="black")) +
+  xlab("Trend") +
+  ylab("Value")
+g
+
+ggsave("../output/trends_one_dim.pdf", g, width = 8, height = 6)
 ```
+
+# Trend in the joint distribution over time
+```{r}
+library(mvtnorm)
+rmvrnorm2D <- function(n, mux, muy, sigmax, sigmay, rho){
+  return(rmvnorm(n, c(mux, muy),
+                 matrix(c(sigmax^2, sigmax * sigmay * rho,
+                          sigmax * sigmay * rho, sigmay^2),
+                        ncol = 2)))
+}
+
+conds <- expand.grid(
+  iters = c(250, 1000, 4000), 
+  rep = 1:10,
+  rho = c(0, 0.2, 0.4, 0.6, 0.8)
+)
+res <- vector("list", nrow(conds))
+chains = 4
+
+for (i in 1:nrow(conds)) {
+  iters <- conds[i, "iters"]
+  rep <- conds[i, "rep"]
+  rho <- conds[i, "rho"]
+  rho_trend <- seq(-rho, rho, length.out = iters)
+  r <- array(dim=c(iters, chains, 2))
+  for(j in 1:chains)
+    for(jj in 1:iters)
+      r[jj, j, ] <- rmvrnorm2D(1, 0, 0, 1, 1, rho_trend[jj])
+  # take max as just using the Rhat values
+  rs <- as.data.frame(monitor_extra(r)) %>% 
+    apply(2, max)
+  
+ r_2d <- matrix(nrow = iters * chains, ncol=(2 + 2))
+  k <- 1
+  for(ii in 1:iters){
+    for(j in 1:chains){
+      r_2d[k, ] <- c(ii, j, r[ii, j, ])
+      k <- k + 1
+    }
+  }
+  r_2d <- r_2d %>%
+    as.data.frame()
+  colnames(r_2d)[1:2] <- c("iter", "chain")
+  
+  # R* calculation
+  r1 <- r_2d %>% 
+    arrange(chain, iter) %>% 
+    select(-iter) %>% 
+    mutate(chain=as.factor(chain))
+  a_accuracy <- f_fit_gbm_predict(r1)
+  
+  # Split R* calculation
+  half_rows <- iters / 2
+  r_1h <- r_2d %>% 
+    filter(iter<=half_rows)
+  r_2h <- r_2d %>% 
+    filter(iter>half_rows) %>% 
+    mutate(chain=chain + chains)
+  r2 <- bind_rows(r_1h, r_2h) %>% 
+    select(-iter) %>% 
+    mutate(chain=as.factor(chain))
+  b_accuracy <- f_fit_gbm_predict(r2)
+  
+  res[[i]] <- cbind(iters, rep, rho, t(rs), "Rstar"=a_accuracy * n_distinct(r1$chain),
+                    "Rstar_split"=b_accuracy * n_distinct(r2$chain))
+}
+res1 <- do.call(rbind, res)
+saveRDS(res1, "../output/experiment_trends_joint_distribution.rds")
+```
+
+```{r}
+g <- readRDS("../output/experiment_trends_joint_distribution.rds") %>%
+  as.data.frame() %>% 
+  select(iters, rho, rep, zsRhat, Rstar_split) %>% 
+  unique() %>%
+  select(-rep) %>% 
+  melt(c("rho", "iters"))  %>% 
+  mutate(variable=case_when(variable=="zsRhat"~"A. split-Rhat",
+                            variable=="Rstar_split"~"B. split-R*")) %>% 
+  ggplot(aes(y = value, x = rho)) + 
+  geom_jitter() + 
+  facet_grid(vars(iters), vars(variable)) + 
+  geom_hline(yintercept = 1) +
+  theme(strip.text.x = element_text(size=12, colour="black"),
+        strip.text.y = element_text(size=12, colour="black"),
+        axis.text.x = element_text(size=10, colour="black"),
+        axis.text.y = element_text(size=10, colour="black")) +
+  ylab("Value") +
+  xlab(TeX("$\\rho$"))
+g
+
+ggsave("../output/trends_joint_distribution.pdf", g, width = 8, height = 6)
+```
+
 
 # Stationary -> non-stationary data
 Vary rho of AR1 process from stationary->non-stationary generating process
@@ -244,7 +349,7 @@ saveRDS(res, "../output/experiment_trends_rho_nearer1.rds")
 ```{r}
 res <- readRDS("../output/experiment_trends_rho_nearer1.rds")
 
-ggplot(data = res, aes(x = rho, y = Rstar)) + 
+ggplot(data = res, aes(x = rho, y = Rhat)) + 
   geom_jitter() + 
   facet_grid(vars(iters)) + 
   geom_hline(yintercept = 1) + 
