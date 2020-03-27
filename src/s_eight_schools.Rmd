@@ -15,42 +15,7 @@ library(mvtnorm)
 options(mc.cores=4)
 rstan_options(auto_write = TRUE)
 source("monitornew.R")
-
-caretGrid <- expand.grid(interaction.depth=c(3), n.trees = 50,
-                   shrinkage=c(0.1),
-                   n.minobsinnode=10)
-
-f_fit_gbm_predict <- function(r){
-  rand_samples <- sample(1:nrow(r), 0.7 * nrow(r))
-  training_data <- r[rand_samples, ]
-  testing_data <- r[-rand_samples, ]
-
-  gbmFit1 <- train(chain ~ ., data = training_data, 
-                 method = "gbm",
-                 trControl = trainControl(method = 'none'), 
-                    tuneGrid = caretGrid, verbose=FALSE)
-  plda <- predict(object=gbmFit1, newdata=testing_data)
-  plda_prob <- predict(object=gbmFit1, newdata=testing_data, type = "prob")
-  a_accuracy <- 
-    tibble(predicted=plda, actual=testing_data$chain) %>%
-    mutate(correct=if_else(predicted==actual, 1, 0)) %>% 
-    summarise(mean(correct)) %>% 
-    pull()
-  return(list(accuracy=a_accuracy, predicted_prob=plda_prob, testing_data=testing_data))
-}
-
-f_r_star_distribution <- function(nsim, pred_test_prob, testing_data){
-   
-  mAccuracy <- matrix(nrow = nrow(pred_test_prob),
-                    ncol = nsim)
-  for(j in 1:nrow(pred_test_prob)){
-    test <- apply(rmultinom(nsim, 1, prob = pred_test_prob[j, ]), 2, function(x) which(x==1))
-    mAccuracy[j, ] <- if_else(test==testing_data$chain[j], 1, 0)
-  }
-  return(colMeans(mAccuracy) * n_distinct(testing_data$chain))
-}
-
-
+source("r_star_monitor.R")
 source("eight_schools.data.R")
 eight_schools <- list(J=J, y=y, sigma=sigma)
 model_cp <- stan_model("eight_schools_cp.stan")

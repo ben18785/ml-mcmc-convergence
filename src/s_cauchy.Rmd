@@ -382,7 +382,7 @@ g2 <-
   xlab("Iteration") +
   theme(text=element_text(size=11, colour="black"),
         axis.text = element_text(size=10, colour="black"),
-        legend.position = c(0.8, 0.8),
+        legend.position = c(0.8, 0.7),
         axis.title.y = element_blank()) +
   geom_hline(yintercept = 1, linetype=2) +
   scale_x_log10() +
@@ -526,8 +526,8 @@ g6 <-
   ggplot(aes(x=iteration)) +
   geom_point(aes(y=value, colour=as.factor(variable))) +
   geom_line(aes(y=value, colour=as.factor(variable))) +
-  scale_color_brewer("Parameterisation", palette = "Dark2", labels=c("Alternative", "Nominal")) +
-  scale_fill_brewer("Parameterisation", palette = "Dark2", labels=c("Alternative", "Nominal")) +
+  scale_color_grey("Parameterisation", labels=c("Alternative", "Nominal")) +
+  scale_fill_grey("Parameterisation", labels=c("Alternative", "Nominal")) +
   xlab("Iteration") +
   theme(text=element_text(size=11, colour="black"),
         axis.text = element_text(size=10, colour="black"),
