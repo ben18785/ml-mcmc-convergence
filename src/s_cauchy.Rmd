@@ -15,43 +15,6 @@ options(mc.cores=4)
 rstan_options(auto_write = TRUE)
 source("monitornew.R")
 source("r_star_monitor.R")
-
-multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
-  library(grid)
-
-  # Make a list from the ... arguments and plotlist
-  plots <- c(list(...), plotlist)
-
-  numPlots = length(plots)
-
-  # If layout is NULL, then use 'cols' to determine layout
-  if (is.null(layout)) {
-    # Make the panel
-    # ncol: Number of columns of plots
-    # nrow: Number of rows needed, calculated from # of cols
-    layout <- matrix(seq(1, cols * ceiling(numPlots/cols)),
-                    ncol = cols, nrow = ceiling(numPlots/cols))
-  }
-
- if (numPlots==1) {
-    print(plots[[1]])
-
-  } else {
-    # Set up the page
-    grid.newpage()
-    pushViewport(viewport(layout = grid.layout(nrow(layout), ncol(layout))))
-
-    # Make each plot, in the correct location
-    for (i in 1:numPlots) {
-      # Get the i,j matrix positions of the regions that contain this subplot
-      matchidx <- as.data.frame(which(layout == i, arr.ind = TRUE))
-
-      print(plots[[i]], vp = viewport(layout.pos.row = matchidx$row,
-                                      layout.pos.col = matchidx$col))
-    }
-  }
-}
-
 ```
 
 
@@ -374,7 +337,7 @@ g1 <- b_df %>%
   geom_line(aes(y=middle,colour=as.factor(variable))) +
   ylim(NA, 1) +
   ylab(TeX("$R^2$")) +
-  scale_color_brewer("Parameterisation", palette = "Dark2", labels=c("Alternative", "Nominal")) +
+  scale_color_grey("Parameterisation", labels=c("Alternative", "Nominal")) +
   xlab("Iteration") +
   theme(text=element_text(size=11, colour="black"),
         axis.text = element_text(size=10, colour="black"),
@@ -415,7 +378,7 @@ g2 <-
   geom_point() +
   geom_line() +
   ylab(TeX("$R^*$")) +
-  scale_color_brewer("Parameterisation", palette = "Dark2", labels=c("Alternative", "Nominal")) +
+  scale_color_grey("Parameterisation", labels=c("Alternative", "Nominal")) +
   xlab("Iteration") +
   theme(text=element_text(size=11, colour="black"),
         axis.text = element_text(size=10, colour="black"),
@@ -469,8 +432,8 @@ g3 <-
   geom_point(aes(y=middle, colour=as.factor(variable))) +
   geom_line(aes(y=middle, colour=as.factor(variable))) +
   ylab(TeX("$\\hat{R}$")) +
-  scale_color_brewer("Parameterisation", palette = "Dark2", labels=c("Alternative", "Nominal")) +
-  scale_fill_brewer("Parameterisation", palette = "Dark2", labels=c("Alternative", "Nominal")) +
+  scale_color_grey("Parameterisation", labels=c("Alternative", "Nominal")) +
+  scale_fill_grey("Parameterisation", labels=c("Alternative", "Nominal")) +
   xlab("Iteration") +
   theme(text=element_text(size=11, colour="black"),
         axis.text = element_text(size=10, colour="black"),
@@ -504,8 +467,8 @@ g4 <-
   geom_point(aes(y=value, colour=as.factor(variable))) +
   geom_line(aes(y=value, colour=as.factor(variable))) +
   ylab(TeX("$\\hat{R}$")) +
-  scale_color_brewer("Parameterisation", palette = "Dark2", labels=c("Alternative", "Nominal")) +
-  scale_fill_brewer("Parameterisation", palette = "Dark2", labels=c("Alternative", "Nominal")) +
+  scale_color_grey("Parameterisation", labels=c("Alternative", "Nominal")) +
+  scale_fill_grey("Parameterisation", labels=c("Alternative", "Nominal")) +
   xlab("Iteration") +
   theme(text=element_text(size=11, colour="black"),
         axis.text = element_text(size=10, colour="black"),
@@ -537,14 +500,16 @@ f_df <- tibble(iteration=iter,
                alt=bulk_ess_alt,
                nom=bulk_ess_nom)
 saveRDS(f_df, "../output/cauchy_bulk_ess.rds")
+e_df <- readRDS("../output/cauchy_tail_ess.rds")
+f_df <- readRDS("../output/cauchy_bulk_ess.rds")
 g5 <- 
   e_df %>% 
   melt(id.vars="iteration") %>% 
   ggplot(aes(x=iteration)) +
   geom_point(aes(y=value, colour=as.factor(variable))) +
   geom_line(aes(y=value, colour=as.factor(variable))) +
-  scale_color_brewer("Parameterisation", palette = "Dark2", labels=c("Alternative", "Nominal")) +
-  scale_fill_brewer("Parameterisation", palette = "Dark2", labels=c("Alternative", "Nominal")) +
+  scale_color_grey("Parameterisation", labels=c("Alternative", "Nominal")) +
+  scale_fill_grey("Parameterisation", labels=c("Alternative", "Nominal")) +
   xlab("Iteration") +
   theme(text=element_text(size=11, colour="black"),
         axis.text = element_text(size=10, colour="black"),

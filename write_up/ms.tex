@@ -355,8 +355,16 @@ In addition, to illustrate the power of $R^*$, we also repeat the analysis but, 
 
 \begin{figure}[!htb]
 	\centerline{\includegraphics[width=1.0\textwidth]{../output/eight_schools.pdf}}
-	\caption{\textbf{Eight schools example.} A shows samples from the $R^*$ distribution when splitting chains in two (resulting in 8 chains); B shows the same but using the 4 original chains. In all cases, the plots show 1000 $R^*$ samples. See the R markdown file on the Github repository for code to reproduce this example.}
+	\caption{\textbf{Eight schools example: $R^*$ distributions.} A shows samples from the $R^*$ distribution when splitting chains in two (resulting in 8 chains); B shows the same but using the 4 original chains. In all cases, the plots show 1000 $R^*$ samples. See the R markdown file on the Github repository for code to reproduce this example.}
 	\label{fig:eight_schools}
+\end{figure}
+
+To understand the predictive power of the ML better, we investigate how predictive accuracy varies across parameter space. After fitting the GBM model, we group MCMC samples into deciles and sample from the $R^*$ distribution for each decile. In Fig. \ref{fig:eight_schools_r_star_quantiles}, we show the results of this exercise for (A) $\mu$ and (B) $\tau$. In the top row of this figure, we show the path of four MCMC chains (here we did not split chains when calculating $R^*$ to simplify visualisations) across the quantiles of each parameter space. Above the top panel, we show the marginal distributions for each chain. In the bottom row, we show 40 $R^*$ samples for each decile, which were generated according to Algorithm \ref{alg:R_star_uncertainty} using a GBM fit to all the samples. In essence, the top rows explain the variation in $R^*$ in the bottom panels: if chains become stuck in regions of parameter space, this causes differences between the marginal distributions of the chains; these differences, in turn, allow a ML model to predict the generative chain in those same sticky regions. For example, for $\mu$, the purple chain became stuck around the middle quantile, forcing a difference in its marginal distribution in that region, which resulted in $R^*>1$ for the corresponding decile. Similarly, for $\tau$, the purple chain became stuck in the lowest quantiles, elevating its marginal distribution there and resulting in improved ML predictive accuracy.
+
+\begin{figure}[!htb]
+	\centerline{\includegraphics[width=1.0\textwidth]{../output/eight_schools_r_star_quantiles.pdf}}
+	\caption{\textbf{Eight schools example: quantile $R^*$ plots.} Column A shows plots for $\mu$; Column B for $\tau$. In each case, we show the path of the four individual chains above and 40 $R^*$ samples by parameter quantile below. Above the top row, we show the marginal distribution of each chain estimated via kernel density estimation using Gaussian kernels. Note that, in the bottom plots, jitter has been added to the data points. See the R markdown file on the Github repository for code to reproduce this example.}
+	\label{fig:eight_schools_r_star_quantiles}
 \end{figure}
 
 \section{Discussion}

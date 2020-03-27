@@ -75,81 +75,15 @@ fit_ncp <- sampling(
 ## Break each chain into two then make flattened data
 Centered
 ```{r}
-full_data_all <- rstan::extract(fit_cp, permuted=F)
-full_data <- array(dim=c(500, 8, 11))
-k <- 1
-for(i in 1:4){
-  first_half <- full_data_all[1:500, i, ]
-  second_half <- full_data_all[501:1000, i, ]
-  full_data[, k, ] <- first_half
-  k <- k + 1
-  full_data[, k, ] <- second_half
-  k <- k + 1
-}
-  
+x <- rstan::extract(fit_cp, permuted=F)
 
-m_flattened <- matrix(nrow = nrow(full_data) * 8, ncol = 12)
-k <- 1
-for(i in 1:8){
-  for(j in 1:nrow(full_data)){
-    m_flattened[k, 1:11] <- full_data[j, i, ]
-    m_flattened[k, 12] <- i
-    k <- k + 1
-  }
-}
-m_flattened <- m_flattened %>% 
-  as.data.frame() %>% 
-  rename(chain=V12) %>% 
-  mutate(chain=as.factor(chain))
-
-full_data <- m_flattened
-both <- f_fit_gbm_predict(full_data)
-
-plda <- both$predicted_prob
-testing_data <- both$testing_data
-
-nsim <- 1000
-r_star_centered <- f_r_star_distribution(nsim, plda, testing_data)
+r_star_centered <- r_star_dist(x)
 ```
 
 Noncentered
 ```{r}
-full_data_all <- rstan::extract(fit_ncp, permuted=F)
-nparams <- 19
-full_data <- array(dim=c(500, 8, nparams))
-k <- 1
-for(i in 1:4){
-  first_half <- full_data_all[1:500, i, ]
-  second_half <- full_data_all[501:1000, i, ]
-  full_data[, k, ] <- first_half
-  k <- k + 1
-  full_data[, k, ] <- second_half
-  k <- k + 1
-}
-  
-
-m_flattened <- matrix(nrow = nrow(full_data) * 8, ncol = (nparams+1))
-k <- 1
-for(i in 1:8){
-  for(j in 1:nrow(full_data)){
-    m_flattened[k, 1:nparams] <- full_data[j, i, ]
-    m_flattened[k, (nparams+1)] <- i
-    k <- k + 1
-  }
-}
-m_flattened <- m_flattened %>% 
-  as.data.frame() %>% 
-  rename(chain=V20) %>% 
-  mutate(chain=as.factor(chain))
-
-full_data <- m_flattened
-both <- f_fit_gbm_predict(full_data)
-
-plda <- both$predicted_prob
-testing_data <- both$testing_data
-
-nsim <- 1000
-r_star_noncentered <- f_r_star_distribution(nsim, plda, testing_data)
+x <- rstan::extract(fit_ncp, permuted=F)
+r_star_noncentered <- r_star_dist(x)
 ```
 
 Store both
@@ -160,51 +94,12 @@ c_df <- tibble(centered=r_star_centered,
 
 ## Trying with original data (i.e. 4 chains)
 ```{r}
-full_data <- rstan::extract(fit_cp, permuted=F)
-m_flattened <- matrix(nrow = nrow(full_data) * 4, ncol = 12)
-k <- 1
-for(i in 1:4){
-  for(j in 1:nrow(full_data)){
-    m_flattened[k, 1:11] <- full_data[j, i, ]
-    m_flattened[k, 12] <- i
-    k <- k + 1
-  }
-}
-m_flattened <- m_flattened %>% 
-  as.data.frame() %>% 
-  rename(chain=V12) %>% 
-  mutate(chain=as.factor(chain))
-
-both <- f_fit_gbm_predict(m_flattened)
-
-plda <- both$predicted_prob
-testing_data <- both$testing_data
-
-nsim <- 1000
-r_star_centered <- f_r_star_distribution(nsim, plda, testing_data)
+x <- rstan::extract(fit_cp, permuted=F)
+r_star_centered <- r_star_dist(x)
 
 # noncentered
-full_data <- rstan::extract(fit_ncp, permuted=F)
-k <- 1
-m_flattened <- matrix(nrow = nrow(full_data) * 4, ncol = (nparams+1))
-k <- 1
-for(i in 1:4){
-  for(j in 1:nrow(full_data)){
-    m_flattened[k, 1:nparams] <- full_data[j, i, ]
-    m_flattened[k, (nparams+1)] <- i
-    k <- k + 1
-  }
-}
-m_flattened <- m_flattened %>% 
-  as.data.frame() %>% 
-  rename(chain=V20) %>% 
-  mutate(chain=as.factor(chain))
-both <- f_fit_gbm_predict(m_flattened)
-plda <- both$predicted_prob
-testing_data <- both$testing_data
-
-nsim <- 1000
-r_star_noncentered <- f_r_star_distribution(nsim, plda, testing_data)
+x <- rstan::extract(fit_ncp, permuted=F)
+r_star_noncentered <- r_star_dist(x)
 ```
 
 ```{r}
@@ -246,95 +141,60 @@ g2 <-
 # dev.off()
 ```
 
-# Plot tau prediction accuracy across quantiles
+# Plot R* versus quantiles
 ```{r}
-full_data_all <- rstan::extract(fit_cp, permuted=F)
-full_data <- array(dim=c(500, 8, 11))
-k <- 1
-for(i in 1:4){
-  first_half <- full_data_all[1:500, i, ]
-  second_half <- full_data_all[501:1000, i, ]
-  full_data[, k, ] <- first_half
-  k <- k + 1
-  full_data[, k, ] <- second_half
-  k <- k + 1
-}
-  
+x <- rstan::extract(fit_cp, permuted=F)
+g1 <- plot_r_star_quantiles(1, x, nsim=40, split_chains = F) +
+  scale_y_continuous(limits = c(0.6, 1.7), breaks = c(0.6, 0.8, 1, 1.2, 1.4, 1.6))
 
-m_flattened <- matrix(nrow = nrow(full_data) * 8, ncol = 12)
-k <- 1
-for(i in 1:8){
-  for(j in 1:nrow(full_data)){
-    m_flattened[k, 1:11] <- full_data[j, i, ]
-    m_flattened[k, 12] <- i
-    k <- k + 1
-  }
-}
-m_flattened <- m_flattened %>% 
-  as.data.frame() %>% 
-  rename(chain=V12) %>% 
-  mutate(chain=as.factor(chain))
+g2 <- plot_r_star_quantiles(2, x, nsim=40, split_chains = F) +
+  scale_y_continuous(limits = c(0.6, 1.7), breaks = c(0.6, 0.8, 1, 1.2, 1.4, 1.6))
 
-full_data <- m_flattened
-both <- f_fit_gbm_predict(full_data)
+library(ggExtra)
+f <- ecdf(x[, , 2])
+p <- x[, , 2] %>% 
+  melt(id.vars="NULL") %>% 
+  mutate(value=f(value)) %>% 
+  ggplot(aes(x=iterations, y=value, colour=as.factor(chains))) +
+  geom_line(alpha=0.8) +
+  geom_point(aes(size=NA)) +
+  scale_size_identity() +
+  scale_color_brewer(palette = "Dark2") +
+  theme(text = element_text(colour="black", size=11),
+          axis.text = element_text(colour="black", size=10),
+        legend.position = "none",
+        axis.title.x = element_blank()) +
+  xlab("Iteration") +
+  ylab("Quantile") +
+  ylim(0, 1) +
+  coord_flip()
+ga <- ggMarginal(p, type="density", margins="x", groupColour = T,
+                 xparams = list(bw=0.05))
 
-plda <- both$predicted_prob
-testing_data <- both$testing_data
+f <- ecdf(x[, , 1])
+p <- x[, , 1] %>% 
+  melt(id.vars="NULL") %>% 
+  mutate(value=f(value)) %>% 
+  ggplot(aes(x=iterations, y=value, colour=as.factor(chains))) +
+  geom_line(alpha=0.8) +
+  geom_point(aes(size=NA)) +
+  scale_size_identity() +
+  scale_color_brewer(palette = "Dark2") +
+  theme(text = element_text(colour="black", size=11),
+          axis.text = element_text(colour="black", size=10),
+        legend.position = "none",
+        axis.title.x = element_blank()) +
+  xlab("Iteration") +
+  ylab("Quantile") +
+  ylim(0, 1) +
+  coord_flip()
+gb <- ggMarginal(p, type="density", margins="x", groupColour = T,
+                 xparams = list(bw=0.05))
 
-f_r_star_accuracy <- function(nsim, pred_test_prob, testing_data){
-   
-  mAccuracy <- matrix(nrow = nrow(pred_test_prob),
-                    ncol = nsim)
-  for(j in 1:nrow(pred_test_prob)){
-    test <- apply(rmultinom(nsim, 1, prob = pred_test_prob[j, ]), 2, function(x) which(x==1))
-    mAccuracy[j, ] <- if_else(test==testing_data$chain[j], 1, 0)
-  }
-  return(mAccuracy)
-}
+library(cowplot)
 
-nsim <- 20
-mAccuracy <- f_r_star_accuracy(nsim, plda, testing_data)
-colnames(testing_data) <- c("mu", "tau",
-                            "theta.1", "theta.2",
-                            "theta.3", "theta.4",
-                            "theta.5", "theta.6",
-                            "theta.7", "theta.8",
-                            "lp", "chain")
-colnames(mAccuracy) <- map_chr(seq(1, nsim, 1), ~paste0("V", .))
-mAccuracy <- mAccuracy %>% 
-  as.data.frame() %>% 
-  bind_cols(testing_data)
-  
-lbreaks <- quantile(mAccuracy$tau, seq(0, 1, 0.1))
-mAccuracy$tau_cuts <- cut(mAccuracy$tau, breaks=lbreaks, include.lowest = T, right=T, ordered_result = T)
-cuts <- sort(unique(mAccuracy$tau_cuts))
-r_star <- matrix(ncol = length(cuts),
-                 nrow=nsim)
-for(i in seq_along(cuts)){
-  temp <- mAccuracy %>% 
-    filter(tau_cuts==cuts[i])
-  r_star[, i] <- colMeans(temp[, 1:nsim]) * n_distinct(testing_data$chain)
-}
-colnames(r_star) <- seq(0.1, 1, 0.1)
-r_mean <- 
-  r_star %>% 
-  melt(id.vars=NULL) %>%  
-  group_by(Var2) %>% 
-  summarise(value=mean(value))
-r_full <- 
-  r_star %>%
-  melt(id.vars=NULL) %>%
-  bind_rows(r_mean) %>% 
-  mutate(variable=as.numeric(as.character(Var2))) 
-
-ggplot(filter(r_full, !is.na(Var1)),
-       aes(x=variable, y=value)) +
-  geom_jitter(height = 0, width = 0.02, colour="grey") +
-  ylab(TeX("$R*$")) +
-  xlab("Quantile") +
-  geom_hline(yintercept = 1, linetype=2) +
-  theme(text = element_text(colour="black",
-                            size=12)) +
-  geom_line(data=filter(r_full, is.na(Var1)))
+pdf("../output/eight_schools_r_star_quantiles.pdf", width = 6, height = 6)
+plot_grid(arrangeGrob(gb, top="A."), arrangeGrob(ga, top="B."), g1, g2,nrow = 2, rel_heights = c(1/2, 1/4))
+dev.off()
 ```
 
