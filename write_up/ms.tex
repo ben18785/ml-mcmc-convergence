@@ -352,8 +352,6 @@ Means that trends over time is one form of non-stationarity; another is a time-v
 	\label{fig:trends_joint_distribution}
 \end{figure}
 
-A subtler form of non-stationarity can occur as the autocorrelation of a series increases. For example, if consider an AR(1) process, $X_t = \rho X_{t-1} + \epsilon_t$, where $\epsilon_t\stackrel{i.i.d.}{\sim}\mathcal{N}(0, \sigma)$. For $|\rho|<1$, the process has a stationary variance: $\sigma^2 / (1 - \rho^2)$. If $|\rho|=1$, however, the process becomes a random walk, with a variance that increases linearly with time. Any measure of convergence should, therefore, determine that the sampling distribution of an AR(1) process with $|\rho=1|$ is not converged since, by construction, such processes do not have a stationary target distribution. Any $\rho<1$ has a stationary distribution and, if sample sizes suffice, 
-
 
 \subsection{Hierarchical model: Eight schools model}\label{sec:eight_shools}
 We now examine a simple classic example used to highlight difficulties in performing inference for hierarchical models: referred to as the ``Eight school'' model (see Section 5.5 in \citep{gelman2013bayesian}), which aimed to determine the effects of coaching on SAT scores in eight schools. 
