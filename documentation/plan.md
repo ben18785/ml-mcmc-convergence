@@ -5,15 +5,15 @@
 
 * Separate out examples, each into its own file, using common r_star and r_star_distribution files
   * [x] Eight schools
-  * [ ] Ar1
-  * [ ] Bivariate normal
-  * [ ] Wide datasets
+  * [x] Ar1
+  * [x] Bivariate normal
+  * [x] Wide datasets
   * [x] Trends
   * [x] Cauchy
 
 * Add these examples:
-  * [ ] Trends
-  * [ ] Wide
+  * [x] Trends
+  * [x] Wide
 
 * For some datasets, include how far the distributions are from the truth:
   * Plot of $R^*$ vs KL divergence: doesn't work for Cauchy because the tails are so poorly estimated, but can try with normal case
@@ -25,4 +25,12 @@
 
 * Change colours to monochrome:
   * [x] Cauchy convergence
-  * [ ] MVT normal
+  * [x] MVT normal
+
+* Check "non-centered" vs "noncentered" throughout MS:
+  * [ ] Text
+  * [ ] Figure legends
+
+* [ ] Check for " vs `` throughout the MS
+* [ ] Remove any reference to training and testing sample size and add in 70%
+* [ ] Change all results to past tense

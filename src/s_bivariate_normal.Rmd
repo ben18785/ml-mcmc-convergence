@@ -1,0 +1,124 @@
+---
+title: "Bivariate normal"
+output: html_notebook
+---
+
+```{r}
+rm(list=ls())
+library(tidyverse)
+library(reshape2)
+library(rstan)
+library(latex2exp)
+library(caret)
+library(gbm)
+library(mvtnorm)
+options(mc.cores=4)
+rstan_options(auto_write = TRUE)
+source("monitornew.R")
+source("r_star_monitor.R")
+
+caretGrid <- expand.grid(interaction.depth=c(3), n.trees = 50,
+                   shrinkage=c(0.1),
+                   n.minobsinnode=10)
+```
+
+```{r}
+rmvrnorm2D <- function(n, mux, muy, sigmax, sigmay, rho){
+  return(rmvnorm(n, c(mux, muy),
+                 matrix(c(sigmax^2, sigmax * sigmay * rho,
+                          sigmax * sigmay * rho, sigmay^2),
+                        ncol = 2)))
+}
+# calling function
+n <- 1000
+chain1 <- rmvrnorm2D(n, 0, 0, 1, 1, 0.0) %>% 
+  as.data.frame() %>% 
+  mutate(chain=1,
+         iter=seq_along(chain))
+chain2 <- rmvrnorm2D(n, 0, 0, 1, 1, 0.0) %>% 
+  as.data.frame() %>% 
+  mutate(chain=2,
+         iter=seq_along(chain))
+chain3 <- rmvrnorm2D(n, 0, 0, 1, 1, 0.0) %>% 
+  as.data.frame() %>% 
+  mutate(chain=3,
+         iter=seq_along(chain))
+chain4 <- rmvrnorm2D(n, 0, 0, 1, 1, 0.9) %>% 
+  as.data.frame() %>% 
+  mutate(chain=4,
+         iter=seq_along(chain))
+
+chains_stacked <- rbind.data.frame(chain1, chain2, chain3, chain4) %>% 
+  mutate(chain=as.factor(chain))
+chains_stacked1 <- chains_stacked %>% 
+  select(-iter)
+
+full_data <- chains_stacked1
+rand_samples <- sample(1:nrow(full_data), 0.7 * nrow(full_data))
+training_data <- full_data[rand_samples, ]
+testing_data <- full_data[-rand_samples, ]
+gbmFit1 <- train(chain ~ ., data = training_data, 
+                 method = "gbm",
+                 trControl = trainControl(method = 'none'), 
+                    tuneGrid = caretGrid, verbose=FALSE)
+
+plda <- predict(object=gbmFit1, newdata=testing_data)
+tibble(predicted=plda, actual=testing_data$chain) %>% 
+  mutate(correct=if_else(predicted==actual, 1, 0)) %>% 
+  summarise(mean(correct))
+
+plda <- predict(object=gbmFit1, newdata=testing_data, type = "prob")
+nsim <- 1000
+mAccuracy <- matrix(nrow = nrow(plda),
+                    ncol = nsim)
+for(i in 1:nsim){
+  for(j in 1:nrow(plda)){
+    mAccuracy[j, i] <- if_else(which(rmultinom(1, 1, prob = plda[j, ])==1)==testing_data$chain[j], 1, 0)
+  }
+}
+
+# Try monitor functionality -- split chains first
+half_iter <- max(chains_stacked$iter) / 2
+m_samples <- array(dim = c(half_iter,
+                           2*n_distinct(chains_stacked$chain),
+                           2))
+k <- 1
+chains_stacked_first <- chains_stacked %>% 
+  filter(iter<=half_iter)
+chains_stacked_second <- chains_stacked %>% 
+  filter(iter>half_iter)
+
+for(i in 1:half_iter){
+  temp <- chains_stacked_first %>% 
+    filter(iter==i)
+  for(j in 1:4){
+    temp1 <- temp %>%
+      filter(chain==j)
+    m_samples[i, j, ] <- as.numeric(temp1[1, 1:2])
+    k <- k + 1
+  }
+}
+
+for(i in 1:half_iter){
+  temp <- chains_stacked_second %>% 
+    filter(iter==(i + 500))
+  for(j in 5:8){
+    temp1 <- temp %>%
+      filter(chain==(j - 4))
+    m_samples[i, j, ] <- as.numeric(temp1[1, 1:2])
+    k <- k + 1
+  }
+}
+
+g <- 
+  qplot(4*colMeans(mAccuracy)) +
+  xlab(TeX("$R*$")) +
+  xlim(0.9, NA) +
+  geom_vline(xintercept = 1, linetype=2) +
+  ylab("Count") +
+  theme(text=element_text(size=14, colour="black"))
+# ggsave("../output/bivariate.pdf", g, width = 8, height = 6)
+mon <- monitor(m_samples)
+
+```
+

@@ -1,0 +1,194 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+rm(list=ls())
+library(tidyverse)
+library(reshape2)
+library(rstan)
+library(latex2exp)
+library(caret)
+library(gbm)
+library(mvtnorm)
+options(mc.cores=4)
+rstan_options(auto_write = TRUE)
+source("monitornew.R")
+source("r_star_monitor.R")
+
+caretGrid <- expand.grid(interaction.depth=c(3), n.trees = 50,
+                   shrinkage=c(0.1),
+                   n.minobsinnode=10)
+```
+
+# AR1 example
+Functions to generate simulated data
+```{r}
+f_ar1 <- function(rho, sigma, L){
+  x <- vector(length = L)
+  x[1] <- rnorm(1, 0, sd=sigma)
+  for(i in 2:L)
+    x[i] = rho * x[i - 1] + rnorm(1, 0, sd=sigma)
+  return(x)
+}
+
+f_generate_lower_var_four <- function(var_ratio, rho, sigma, L){
+  x <- matrix(nrow = L, ncol = 4)
+  for(i in 1:3)
+    x[, i] <- f_ar1(rho, sigma, L)
+  z <- f_ar1(rho, sigma * sqrt(var_ratio), L)
+  x[, 4] <- z
+  return(x)
+}
+```
+
+Perform 1000 replicates
+```{r}
+f_replicate <- function(){
+  full_data <- f_generate_lower_var_four(1/3, 0.3, 1, 1000) %>% 
+  melt() %>% 
+  rename(iter=Var1,
+         chain=Var2) %>% 
+  dplyr::select(-iter)
+  rand_samples <- sample(1:nrow(full_data), 0.7 * nrow(full_data))
+  training_data <- full_data[rand_samples, ]
+  testing_data <- full_data[-rand_samples, ]
+  
+  # add in extra column of nonsense values since the method needs at least 2 vars 
+  full_data <- full_data %>% 
+    mutate(chain=as.factor(chain)) %>% 
+    mutate(ones=rnorm(nrow(full_data)))
+  training_data <- full_data[rand_samples, ]
+  testing_data <- full_data[-rand_samples, ]
+
+  gbmFit1 <- train(chain ~ ., data = training_data, 
+                 method = "gbm",
+                 trControl = trainControl(method = 'none'), 
+                    tuneGrid = caretGrid, verbose=FALSE)
+  plda <- predict(object=gbmFit1, newdata=testing_data)
+  a_accuracy <- 
+    tibble(predicted=plda, actual=testing_data$chain) %>%
+    mutate(correct=if_else(predicted==actual, 1, 0)) %>% 
+    summarise(mean(correct)) %>% 
+    pull()
+  return(a_accuracy)
+}
+
+nreplicates <- 1000
+accuracies <- vector(length = nreplicates)
+for(i in 1:nreplicates){
+  if(i%%100==0)
+    print(i)
+  accuracies[i] <- f_replicate()
+}
+```
+
+Plot results
+```{r}
+
+g2 <- tibble(accuracy=accuracies/0.25, iteration=seq(1, nreplicates, 1)) %>% 
+  ggplot(aes(x=accuracy)) +
+  geom_histogram() +
+  xlab(TeX("$R*$")) +
+  ylab("Count") +
+  ggtitle("B.") +
+  theme(text = element_text(size=14, colour="black")) +
+  xlim(1, NA)
+
+g1 <- testing_data %>% 
+  arrange(value) %>% 
+  mutate(predictions=predict(object=gbmFit1, .)) %>% 
+  ggplot(aes(x=value, y=predictions)) +
+  geom_jitter(height = 0.3) +
+  xlab("Value") +
+  ylab("Chain classification") +
+  theme(text = element_text(size=14, colour="black")) +
+  coord_flip() +
+  ggtitle("A.")
+```
+
+Generate R* distribution based on 1000 iterations
+```{r}
+full_data <- f_generate_lower_var_four(1/3, 0.3, 1, 1000) %>% 
+  melt() %>% 
+  rename(iter=Var1,
+         chain=Var2) %>% 
+  dplyr::select(-iter)
+rand_samples <- sample(1:nrow(full_data), 0.7 * nrow(full_data))
+full_data <- full_data %>% 
+    mutate(chain=as.factor(chain)) %>% 
+    mutate(ones=rnorm(nrow(full_data)))
+training_data <- full_data[rand_samples, ]
+testing_data <- full_data[-rand_samples, ]
+
+gbmFit1 <- train(chain ~ ., data = training_data, 
+                 method = "gbm",
+                 trControl = trainControl(method = 'none'), 
+                    tuneGrid = caretGrid, verbose=FALSE)
+
+plda <- predict(object=gbmFit1, newdata=testing_data, type = "prob")
+
+
+nsim <- 1000
+mAccuracy <- matrix(nrow = nrow(plda),
+                    ncol = nsim)
+for(i in 1:nsim){
+  for(j in 1:nrow(plda)){
+    mAccuracy[j, i] <- if_else(which(rmultinom(1, 1, prob = plda[j, ])==1)==testing_data$chain[j], 1, 0)
+  }
+}
+
+f_generate_all_same_var_four <- function(var_ratio, rho, sigma, L){
+  x <- matrix(nrow = L, ncol = 4)
+  for(i in 1:4)
+    x[, i] <- f_ar1(rho, sigma, L)
+  return(x)
+}
+
+full_data <- f_generate_all_same_var_four(1/3, 0.3, 1, 1000) %>% 
+  melt() %>% 
+  rename(iter=Var1,
+         chain=Var2) %>% 
+  dplyr::select(-iter)
+rand_samples <- sample(1:nrow(full_data), 0.7 * nrow(full_data))
+full_data <- full_data %>% 
+    mutate(chain=as.factor(chain)) %>% 
+    mutate(ones=rnorm(nrow(full_data)))
+training_data <- full_data[rand_samples, ]
+testing_data <- full_data[-rand_samples, ]
+
+gbmFit1 <- train(chain ~ ., data = training_data, 
+                 method = "gbm",
+                 trControl = trainControl(method = 'none'), 
+                    tuneGrid = caretGrid, verbose=FALSE)
+plda <- predict(object=gbmFit1, newdata=testing_data, type = "prob")
+
+nsim <- 1000
+mAccuracy1 <- matrix(nrow = nrow(plda),
+                    ncol = nsim)
+for(i in 1:nsim){
+  for(j in 1:nrow(plda)){
+    mAccuracy1[j, i] <- if_else(which(rmultinom(1, 1, prob = plda[j, ])==1)==testing_data$chain[j], 1, 0)
+  }
+}
+
+mAR1 <- tibble(unconverged=colMeans(mAccuracy)/0.25,
+               converged=colMeans(mAccuracy1)/0.25)
+g3 <- 
+  mAR1 %>% 
+  melt() %>% 
+  ggplot(aes(x=value, fill=as.factor(variable))) +
+  geom_histogram(position="identity", alpha=0.8) +
+  scale_fill_grey("Series") +
+  xlab(TeX("$R*$")) +
+  ylab("Count") +
+  geom_vline(xintercept = 1, linetype=2) +
+  ggtitle("C.") +
+  theme(text = element_text(size=14, colour="black"),
+        legend.position = c(0.8, 0.8))
+
+# pdf("../output/ar1.pdf", width = 12, height = 6)
+multiplot(g1, g2, g3, cols = 3)
+# dev.off()
+```
