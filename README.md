@@ -1,4 +1,4 @@
-# $R^*$ convergence diagnostic
+# R* convergence diagnostic
 
 This repository partners the following arXiv paper: https://arxiv.org/abs/2003.07900
 To rerun the examples in the paper, execute the following files in the src folder:
