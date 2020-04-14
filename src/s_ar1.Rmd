@@ -1,5 +1,5 @@
 ---
-title: "R Notebook"
+title: "Autoregressive example"
 output: html_notebook
 ---
 
@@ -22,7 +22,6 @@ caretGrid <- expand.grid(interaction.depth=c(3), n.trees = 50,
                    n.minobsinnode=10)
 ```
 
-# AR1 example
 Functions to generate simulated data
 ```{r}
 f_ar1 <- function(rho, sigma, L){
@@ -33,6 +32,7 @@ f_ar1 <- function(rho, sigma, L){
   return(x)
 }
 
+# Generates three chains with same var; one with a different var
 f_generate_lower_var_four <- function(var_ratio, rho, sigma, L){
   x <- matrix(nrow = L, ncol = 4)
   for(i in 1:3)
@@ -43,51 +43,33 @@ f_generate_lower_var_four <- function(var_ratio, rho, sigma, L){
 }
 ```
 
-Perform 1000 replicates
+Calculate R* and Rhat across 1000 replicates
 ```{r}
 f_replicate <- function(){
-  full_data <- f_generate_lower_var_four(1/3, 0.3, 1, 1000) %>% 
-  melt() %>% 
-  rename(iter=Var1,
-         chain=Var2) %>% 
-  dplyr::select(-iter)
-  rand_samples <- sample(1:nrow(full_data), 0.7 * nrow(full_data))
-  training_data <- full_data[rand_samples, ]
-  testing_data <- full_data[-rand_samples, ]
-  
-  # add in extra column of nonsense values since the method needs at least 2 vars 
-  full_data <- full_data %>% 
-    mutate(chain=as.factor(chain)) %>% 
-    mutate(ones=rnorm(nrow(full_data)))
-  training_data <- full_data[rand_samples, ]
-  testing_data <- full_data[-rand_samples, ]
-
-  gbmFit1 <- train(chain ~ ., data = training_data, 
-                 method = "gbm",
-                 trControl = trainControl(method = 'none'), 
-                    tuneGrid = caretGrid, verbose=FALSE)
-  plda <- predict(object=gbmFit1, newdata=testing_data)
-  a_accuracy <- 
-    tibble(predicted=plda, actual=testing_data$chain) %>%
-    mutate(correct=if_else(predicted==actual, 1, 0)) %>% 
-    summarise(mean(correct)) %>% 
-    pull()
-  return(a_accuracy)
+  temp <- f_generate_lower_var_four(1/3, 0.3, 1, 1000)
+  a_array <- array(dim=c(1000, 4, 1))
+  a_array[,,1] <- temp
+  a_accuracy <- r_star(a_array)
+  mon <- monitor(temp)
+  return(list(r_star=a_accuracy, r_hat=mon$Rhat))
 }
 
 nreplicates <- 1000
-accuracies <- vector(length = nreplicates)
+r_star_vals <- vector(length = nreplicates)
+r_hat_vals <- vector(length = nreplicates)
 for(i in 1:nreplicates){
   if(i%%100==0)
     print(i)
-  accuracies[i] <- f_replicate()
+  
+  temp <- f_replicate()
+  r_star_vals[i] <- temp$r_star
+  r_hat_vals[i] <- temp$r_hat
 }
 ```
 
 Plot results
 ```{r}
-
-g2 <- tibble(accuracy=accuracies/0.25, iteration=seq(1, nreplicates, 1)) %>% 
+g2 <- tibble(accuracy=r_star_vals, iteration=seq(1, nreplicates, 1)) %>% 
   ggplot(aes(x=accuracy)) +
   geom_histogram() +
   xlab(TeX("$R*$")) +
@@ -95,7 +77,10 @@ g2 <- tibble(accuracy=accuracies/0.25, iteration=seq(1, nreplicates, 1)) %>%
   ggtitle("B.") +
   theme(text = element_text(size=14, colour="black")) +
   xlim(1, NA)
+```
 
+Look at predictions of model
+```{r}
 g1 <- testing_data %>% 
   arrange(value) %>% 
   mutate(predictions=predict(object=gbmFit1, .)) %>% 
@@ -108,73 +93,20 @@ g1 <- testing_data %>%
   ggtitle("A.")
 ```
 
-Generate R* distribution based on 1000 iterations
+
+Generate R* distribution based on 1000 iterations for run where chain has lower variance and another where all four chains have same variance
 ```{r}
-full_data <- f_generate_lower_var_four(1/3, 0.3, 1, 1000) %>% 
-  melt() %>% 
-  rename(iter=Var1,
-         chain=Var2) %>% 
-  dplyr::select(-iter)
-rand_samples <- sample(1:nrow(full_data), 0.7 * nrow(full_data))
-full_data <- full_data %>% 
-    mutate(chain=as.factor(chain)) %>% 
-    mutate(ones=rnorm(nrow(full_data)))
-training_data <- full_data[rand_samples, ]
-testing_data <- full_data[-rand_samples, ]
+full_data <- f_generate_lower_var_four(1/3, 0.3, 1, 1000) 
+a_array <- array(dim=c(1000, 4, 1))
+a_array[,,1] <- temp
+unmixed <- r_star_dist(a_array)
 
-gbmFit1 <- train(chain ~ ., data = training_data, 
-                 method = "gbm",
-                 trControl = trainControl(method = 'none'), 
-                    tuneGrid = caretGrid, verbose=FALSE)
+full_data <- f_generate_lower_var_four(1, 0.3, 1, 1000)
+a_array <- array(dim=c(1000, 4, 1))
+a_array[,,1] <- temp
+mixed <- r_star_dist(a_array)
 
-plda <- predict(object=gbmFit1, newdata=testing_data, type = "prob")
-
-
-nsim <- 1000
-mAccuracy <- matrix(nrow = nrow(plda),
-                    ncol = nsim)
-for(i in 1:nsim){
-  for(j in 1:nrow(plda)){
-    mAccuracy[j, i] <- if_else(which(rmultinom(1, 1, prob = plda[j, ])==1)==testing_data$chain[j], 1, 0)
-  }
-}
-
-f_generate_all_same_var_four <- function(var_ratio, rho, sigma, L){
-  x <- matrix(nrow = L, ncol = 4)
-  for(i in 1:4)
-    x[, i] <- f_ar1(rho, sigma, L)
-  return(x)
-}
-
-full_data <- f_generate_all_same_var_four(1/3, 0.3, 1, 1000) %>% 
-  melt() %>% 
-  rename(iter=Var1,
-         chain=Var2) %>% 
-  dplyr::select(-iter)
-rand_samples <- sample(1:nrow(full_data), 0.7 * nrow(full_data))
-full_data <- full_data %>% 
-    mutate(chain=as.factor(chain)) %>% 
-    mutate(ones=rnorm(nrow(full_data)))
-training_data <- full_data[rand_samples, ]
-testing_data <- full_data[-rand_samples, ]
-
-gbmFit1 <- train(chain ~ ., data = training_data, 
-                 method = "gbm",
-                 trControl = trainControl(method = 'none'), 
-                    tuneGrid = caretGrid, verbose=FALSE)
-plda <- predict(object=gbmFit1, newdata=testing_data, type = "prob")
-
-nsim <- 1000
-mAccuracy1 <- matrix(nrow = nrow(plda),
-                    ncol = nsim)
-for(i in 1:nsim){
-  for(j in 1:nrow(plda)){
-    mAccuracy1[j, i] <- if_else(which(rmultinom(1, 1, prob = plda[j, ])==1)==testing_data$chain[j], 1, 0)
-  }
-}
-
-mAR1 <- tibble(unconverged=colMeans(mAccuracy)/0.25,
-               converged=colMeans(mAccuracy1)/0.25)
+mAR1 <- tibble(unmixed, mixed)
 g3 <- 
   mAR1 %>% 
   melt() %>% 

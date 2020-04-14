@@ -11,3 +11,7 @@ ms.pdf
 *mvt_ncp_fit*
 /write_up/*.pdf
 /output/mvt_*.rds
+/data/ovarian_long.rds
+/data/ovarian_short.rds
+/src/.Rhistory
+/src/ovarian_lambert.R
