@@ -1,0 +1,40 @@
+---
+title: "Ovarian and prostate models"
+output: html_notebook
+---
+
+```{r}
+rm(list=ls())
+library(tidyverse)
+library(reshape2)
+library(rstan)
+library(latex2exp)
+library(caret)
+library(gbm)
+library(mvtnorm)
+options(mc.cores=4)
+rstan_options(auto_write = TRUE)
+source("monitornew.R")
+source("r_star_monitor.R")
+```
+
+# Ovarian data
+```{r}
+ovarian <- read.csv("../data/ovarian.csv", header=FALSE)
+
+y<-ovarian[,1537]
+x<-ovarian[,1:1536]
+
+n = nrow(x);
+p = ncol(x);
+
+## regularized horseshoe prior
+p0 <- 5
+sigma <- 1
+tau0 <- p0/(p-p0)*sigma/sqrt(n)
+## data
+data <- list(n = n, d = ncol(x), x = x, y = y,
+             nu_local = 1, nu_global = 1, scale_global = tau0,
+             scale_icept=5, slab_scale=2, slab_df=100)
+```
+
