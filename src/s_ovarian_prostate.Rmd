@@ -76,6 +76,7 @@ r_star_shorter <- readRDS("../data/ovarian_short_r_star.rds")
 mon_longer <- readRDS("../data/ovarian_long_mon.rds")
 mon_shorter <- readRDS("../data/ovarian_short_mon.rds")
 
+
 g <- tibble(long=r_star_longer, short=r_star_shorter, metric="A. R*") %>% 
   bind_rows(tibble(long=mon_longer$Rhat, short=mon_shorter$Rhat, metric="B. Rhat")) %>% 
   bind_rows(tibble(long=mon_longer$Bulk_ESS, short=mon_shorter$Bulk_ESS, metric="C. Bulk ESS")) %>% 
@@ -96,6 +97,7 @@ ggsave("../output/ovarian.pdf", g, width = 12, height = 8)
 ```
 
 # Prostate
+
 ```{r}
 prostate <- read.csv("../data/prostate.csv", header=FALSE)
 
@@ -127,9 +129,12 @@ fit <- readRDS("../data/prostate_long.rds")
 mon <- monitor(fit)
 saveRDS(mon, "../data/prostate_long_mon.rds")
 full_data <- rstan::extract(fit, permuted=F)
-r_star <- r_star_dist(full_data)
+
+# Thin data again
+r_star <- r_star_dist(full_data[, , seq(1, 18106, 5)])
 saveRDS(r_star, "../data/prostate_long_r_star.rds")
 ```
+
 
 With 16, shorter, chains
 ```{r}
@@ -141,7 +146,7 @@ fit <- readRDS("../data/prostate_short.rds")
 mon <- monitor(fit)
 saveRDS(mon, "../data/prostate_short_mon.rds")
 full_data <- rstan::extract(fit, permuted=F)
-r_star <- r_star_dist(full_data)
+r_star <- r_star_dist(full_data[, , seq(1, 18106, 5)])
 saveRDS(r_star, "../data/prostate_short_r_star.rds")
 ```
 
@@ -152,6 +157,8 @@ r_star_shorter <- readRDS("../data/prostate_short_r_star.rds")
 
 mon_longer <- readRDS("../data/prostate_long_mon.rds")
 mon_shorter <- readRDS("../data/prostate_short_mon.rds")
+
+my_breaks <- function(x) { if (max(x) < 10) c(0.95, max(x)) else c(0, max(x)) }
 
 g <- tibble(long=r_star_longer, short=r_star_shorter, metric="A. R*") %>% 
   bind_rows(tibble(long=mon_longer$Rhat, short=mon_shorter$Rhat, metric="B. Rhat")) %>% 
@@ -168,6 +175,7 @@ g <- tibble(long=r_star_longer, short=r_star_shorter, metric="A. R*") %>%
         axis.text = element_text(size=10, colour="black"),
         legend.text = element_text(size=12, colour="black"),
         axis.title.x = element_blank()) +
-  ylab("Count")
+  ylab("Count") +
+  scale_x_continuous(limits=my_breaks)
 ggsave("../output/prostate.pdf", g, width = 12, height = 8)
 ```

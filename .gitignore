@@ -15,3 +15,5 @@ ms.pdf
 /data/ovarian_short.rds
 /src/.Rhistory
 /src/ovarian_lambert.R
+/data/prostate_long.rds
+/data/prostate_short.rds
