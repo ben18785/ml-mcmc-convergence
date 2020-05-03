@@ -6,6 +6,8 @@ To rerun the examples in the paper, execute the following files in the src folde
 - `s_ar1.Rmd`
 - `s_bivariate_normal.Rmd`
 - `s_mvt_normal.Rmd`
+- `s_wide_distributions.Rmd`
 - `s_cauchy.Rmd`
 - `s_trends.Rmd`
 - `s_eight_schools.Rmd`
+

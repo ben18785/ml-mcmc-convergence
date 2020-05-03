@@ -17,3 +17,5 @@ ms.pdf
 /src/ovarian_lambert.R
 /data/prostate_long.rds
 /data/prostate_short.rds
+/output/fit_alt_50000.rds
+/output/fit_nominal_50000.rds

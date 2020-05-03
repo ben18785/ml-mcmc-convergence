@@ -60,7 +60,7 @@ r_star <- function(x, split_chains=T, training_percent=0.7, caret_default=NA){
                              shrinkage=c(0.1),
                              n.minobsinnode=10)
   else
-    caretGrid <- expand.grid(caret_grid_default)
+    caretGrid <- expand.grid(caret_default)
   
   gbmFit <- train(chain ~ ., data = training_data, 
                    method = "gbm",
@@ -130,7 +130,7 @@ r_star_dist <- function(x, split_chains=T, training_percent=0.7, caret_default=N
                              shrinkage=c(0.1),
                              n.minobsinnode=10)
   else
-    caretGrid <- expand.grid(caret_grid_default)
+    caretGrid <- expand.grid(caret_default)
   
   gbmFit1 <- train(chain ~ ., data = training_data, 
                    method = "gbm",

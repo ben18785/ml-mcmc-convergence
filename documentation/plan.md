@@ -33,10 +33,10 @@
 
 ## Aki's comments
 
-* [ ] In Figure 3, could we have also histogram for Rhat? It takes time to search the
+* [x] In Figure 3, could we have also histogram for Rhat? It takes time to search the
   comment about Rhat from the text, which makes it harder for the reader and
   especially we don't want to make it harder for the reviewers.
-* [ ] I don't understand what is going on in Figure 3C. Instead of "unconverged" and "converged", maybe "un-mixed" and "mixed" as in figures 1 and 2?
+* [x] I don't understand what is going on in Figure 3C. Instead of "unconverged" and "converged", maybe "un-mixed" and "mixed" as in figures 1 and 2?
 * [x] In Figure 4, could we have also histogram for max Rhat? I guess max would be
   appropriate although it may emphasize the multiple comparison issue in higher
   dimensional examples.
@@ -47,23 +47,24 @@
 * [ ] "In the first of these, we used the 250-dimensional multivariate normal of
   eq. 2 and used 250 post-warm-up iterations (after 250 warm-up iterations)"
   * [ ] How many chains?
-* [ ] Figure 5:
-  * [ ]  "# of samples" -> "# of draws" or "sample size"
-  * [ ] could we have also histograms for max Rhat?
-  * [ ] mention the number of dimensions
-  * [ ] distributions -> distributions across 1000 simulations
-    * [ ] No because this is the R* distribution from a single simulation
-* [ ] Figure 6:
-  * [ ] what are the Models 400 and 1000 in legend?
-  * [ ] could we have also histograms for max Rhat?
-  * [ ] distribution -> distribution across 1000 simulations
-    * [ ] No because this is the R* distribution from a single simulation
-* [ ] Figure 7:
-  * [ ] is this just for one simulation?
-  * [ ] "using 250 post-warm-up draws" how many chains for getting total of
-    20 draws?
-* [ ] Figure 8:
-  * [ ] could we have also histograms for max Rhat?
+* [x] Figure 5:
+  * [x] "# of samples" -> "# of draws" or "sample size"
+  * [x] could we have also histograms for max Rhat?
+    * Not for max Rhat but for Rhat across all dims
+  * [x] mention the number of dimensions
+  * [x] distributions -> distributions across 1000 simulations
+    - No because this is the R* distribution from a single simulation
+* [x] Figure 6:
+  * [x] what are the Models 400 and 1000 in legend? Changed to show that these correspond to # of draws
+  * [x] could we have also histograms for max Rhat? Shown in Fig. 7 A
+  * [x] distribution -> distribution across 1000 simulations
+    * [x] No because this is the R* distribution from a single simulation
+* [x] Figure 7:
+  * [x] is this just for one simulation? Yep, added this
+  * [x] "using 250 post-warm-up draws" how many chains for getting total of
+    20 draws? Yep added this info
+* [x] Figure 8:
+  * [x] could we have also histograms for max Rhat? Done for individual Rhat values
 * [ ] Cauchy example: is R* classification with x? I assume that would be unstable
   compared to making R* classification with ranks of x. You could test this even
   with independent exact draws from Cauchy vs. ranked ones. I assume you would
@@ -85,10 +86,23 @@
 
 ## Clean up example notebooks
 
-- [ ] s_ar1
+- [x] s_ar1
+  - [x] Runs monitor to calculate Rhat?
 - [x] s_bivariate_normal
-- [ ] s_mvt_normal
+  - [x] Runs monitor to calculate Rhat? NA
+- [x] s_mvt_normal
+  - [x] Runs monitor to calculate Rhat?
+- [x] s_wide_distributions
+  - [x] 
 - [ ] s_cauchy
+  - [ ] Runs monitor to calculate Rhat?
 - [ ] s_trends
+  - [ ] Runs monitor to calculate Rhat?
 - [ ] s_eight_schools
+  - [ ] Runs monitor to calculate Rhat?
 - [ ] s_ovarian_prostate
+  - [ ] Runs monitor to calculate Rhat?
+
+
+
+* [ ] Say somewhere that the R* values are comparable for smaller models to Rhat but can be more computationally intensive for larger ones.

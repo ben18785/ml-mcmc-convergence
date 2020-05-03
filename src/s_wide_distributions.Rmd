@@ -1,0 +1,201 @@
+---
+title: "MVT Normal: wide"
+output: html_notebook
+---
+
+```{r}
+rm(list=ls())
+library(tidyverse)
+library(reshape2)
+library(rstan)
+library(latex2exp)
+library(caret)
+library(gbm)
+library(mvtnorm)
+options(mc.cores=4)
+rstan_options(auto_write = TRUE)
+source("monitornew.R")
+source("r_star_monitor.R")
+```
+
+
+## Similar numbers of iterations to target dims
+Centered
+```{r}
+# N <- 250
+# A <- readRDS("../output/A_matrix.rds")
+# model <- stan_model("mvt_250.stan")
+# fit <- sampling(model, data=list(N=N, A=A), iter=500, chains=4, thin=1)
+# saveRDS(fit, "../output/mvt_fit_500.rds")
+fit <- readRDS("../output/mvt_fit_500.rds")
+
+full_data <- rstan::extract(fit, permuted=F, inc_warmup=F)
+r_star <- r_star_dist(full_data)
+
+a_df <- tibble(samples_cp=r_star)
+
+mon <- monitor(fit)
+mean(mon$Rhat>1.01)
+mean(mon$Bulk_ESS<400)
+mean(mon$Tail_ESS<400)
+
+b_df <- tibble(samples_cp=mon$Rhat[1:250])
+
+ha <- tibble(bulk_ess=mon$Bulk_ESS,
+       tail_ess=mon$Tail_ESS,
+       rhat=mon$Rhat) %>% 
+  melt() %>% 
+  mutate(variable=case_when(variable=="bulk_ess"~"Bulk ESS",
+                            variable=="tail_ess"~"Tail ESS",
+                            variable=="rhat"~"Split-Rhat")) %>% 
+  ggplot(aes(x=value)) +
+  geom_histogram() + 
+  facet_wrap(~relevel(as.factor(variable), "Split-Rhat", "Bulk ESS", "Tail ESS"), scales="free") + xlab("Value") +
+  ylab("Count") +
+  theme(text=element_text(size=12, colour="black"),
+        axis.text=element_text(size=12, colour="black"),
+        strip.text = element_text(size=12, colour="black"),
+        axis.title.x = element_blank())
+ha
+aa_df <- tibble(bulk_ess=mon$Bulk_ESS,
+       tail_ess=mon$Tail_ESS,
+       rhat=mon$Rhat,
+       source="Centered")
+# ggsave("../output/wide_cp_diagnostics.pdf", ha, width = 12, height = 8)
+```
+
+Non-centered
+```{r}
+# A <- readRDS("../output/A_matrix.rds")
+# model <- stan_model("mvt_250_ncp.stan")
+# fit <- sampling(model, data=list(N=N, A=A), iter=500, chains=4, thin=1)
+# saveRDS(fit, "../output/mvt_ncp_fit_500.rds")
+fit <- readRDS("../output/mvt_ncp_fit_500.rds")
+full_data <- rstan::extract(fit, permuted=F, inc_warmup=F)
+r_star <- r_star_dist(full_data)
+
+a_df <- a_df %>%
+  mutate(samples_ncp=r_star)
+saveRDS(a_df, "../output/mvt_500_all.rds")
+a_df <- readRDS("../output/mvt_500_all.rds")
+g <- 
+  a_df %>% 
+  melt() %>% 
+  ggplot(aes(x=value, fill=as.factor(variable))) +
+  geom_histogram(position="identity", alpha=0.8, bins=20) +
+  scale_fill_grey("Model", labels=c("centered", "non-centered")) +
+  xlab(TeX("$R*$")) +
+  ylab("Count") +
+  geom_vline(xintercept = 1, linetype=2) +
+  theme(text = element_text(size=14, colour="black"),
+        legend.position = c(0.8, 0.8)) +
+  ggtitle("A.")
+# ggsave("../output/wide_data.pdf", g, width = 12, height = 8)
+
+mon <- monitor(fit)
+mean(mon$Rhat>1.01)
+mean(mon$Bulk_ESS<400)
+mean(mon$Tail_ESS<400)
+
+h <- tibble(bulk_ess=mon$Bulk_ESS,
+       tail_ess=mon$Tail_ESS,
+       rhat=mon$Rhat) %>% 
+  melt() %>% 
+  mutate(variable=case_when(variable=="bulk_ess"~"Bulk ESS",
+                            variable=="tail_ess"~"Tail ESS",
+                            variable=="rhat"~"Split-Rhat")) %>% 
+  ggplot(aes(x=value)) +
+  geom_histogram() + 
+  facet_wrap(~relevel(as.factor(variable), "Split-Rhat", "Bulk ESS", "Tail ESS"), scales="free") + xlab("Value") +
+  ylab("Count") +
+  theme(text=element_text(size=12, colour="black"),
+        axis.text=element_text(size=12, colour="black"),
+        strip.text = element_text(size=12, colour="black"),
+        axis.title.x = element_blank())
+ggsave("../output/wide_ncp_diagnostics.pdf", h, width = 12, height = 8)
+
+aa_df <- aa_df %>%
+  bind_rows(tibble(bulk_ess=mon$Bulk_ESS,
+       tail_ess=mon$Tail_ESS,
+       rhat=mon$Rhat,
+       source="Non-centered"))
+
+h1 <- aa_df %>% 
+  melt(id.vars="source") %>% 
+  mutate(variable=case_when(variable=="bulk_ess"~"B. Bulk ESS",
+                            variable=="tail_ess"~"C. Tail ESS",
+                            variable=="rhat"~"A. Split-Rhat")) %>% 
+  ggplot(aes(x=value)) +
+  geom_histogram() + 
+  facet_grid(vars(source), vars(relevel(as.factor(variable), "A. Split-Rhat", "B. Bulk ESS", "C. Tail ESS")), scales="free") + xlab("Value") +
+  ylab("Count") +
+  theme(text=element_text(size=12, colour="black"),
+        axis.text=element_text(size=12, colour="black"),
+        strip.text = element_text(size=12, colour="black"),
+        axis.title.x = element_blank())
+ggsave("../output/wide_both_diagnostics.pdf", h1, width = 12, height = 8)
+```
+
+# Wide dataset - standard normal with 10,000 dimensions
+```{r}
+# N <- 10000
+# A <- diag(nrow=N)
+# model <- stan_model("mvt_wide.stan")
+# fit <- sampling(model, data=list(N=N), iter=400, chains=4)
+# saveRDS(fit, "../output/mvt_wide_400.rds")
+fit <- readRDS("../output/mvt_wide_400.rds")
+
+full_data <- rstan::extract(fit, permuted=F, inc_warmup=F)
+r_star <- r_star_dist(full_data)
+a_df <- tibble(samples_400=r_star)
+# saveRDS(a_df, "../output/mvt_wide_400_summary.rds")
+mon <- monitor(fit)
+mean(mon$Rhat>1.01)
+mean(mon$Bulk_ESS<400)
+mean(mon$Tail_ESS<400)
+```
+
+1,000 samples
+```{r}
+N <- 10000
+A <- diag(nrow=N)
+model <- stan_model("mvt_wide.stan")
+fit <- sampling(model, data=list(N=N), iter=1000, chains=4)
+saveRDS(fit, "../output/mvt_wide_1000.rds")
+
+fit <- readRDS("../output/mvt_wide_1000.rds")
+full_data <- rstan::extract(fit, permuted=F, inc_warmup=F)
+r_star1 <- r_star_dist(full_data)
+
+a_df <- a_df %>%
+  tibble(samples_1000=r_star1)
+saveRDS(a_df, "../output/mvt_wide_summaries.rds")
+mon <- monitor(fit)
+mean(mon$Rhat>1.01)
+mean(mon$Bulk_ESS<400)
+mean(mon$Tail_ESS<400)
+a_df <- readRDS("../output/mvt_wide_summaries.rds")
+a_df <- tibble(samples_400=a_df$.$samples_400, samples_1000=a_df$samples_1000)
+g1 <- 
+  a_df %>% 
+  melt() %>% 
+  ggplot(aes(x=value, fill=as.factor(variable))) +
+  geom_histogram(position="identity", alpha=0.8, bins=20) +
+  scale_fill_grey("# of draws", labels=c("400", "1000")) +
+  xlab(TeX("$R*$")) +
+  ylab("Count") +
+  geom_vline(xintercept = 1, linetype=2) +
+  theme(text = element_text(size=14, colour="black"),
+        legend.position = c(0.8, 0.8)) +
+  ggtitle("B.")
+# ggsave("../output/very_wide_data.pdf", g, width = 12, height = 8)
+```
+
+```{r}
+pdf("../output/mvt_wide_both.pdf", width = 12, height = 6)
+multiplot(g, g1, cols = 2)
+dev.off()
+```
+
+
+

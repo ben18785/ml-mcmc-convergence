@@ -26,6 +26,9 @@ fit_nom <- stan(file = 'cauchy_nom.stan', seed = 7878,
 x <- rstan::extract(fit_nom, permuted=F)
 
 r_star_nom <- r_star_dist(x)
+
+mon <- monitor(fit_nom)
+a_rhat_df <- tibble(nominal=mon$Rhat[1:50])
 ```
 
 Generate split-R* distribution from alternative Cauchy parameterisation
@@ -35,12 +38,18 @@ fit_alt1 <- stan(file = 'cauchy_alt_1.stan',
 full_data <- rstan::extract(fit_alt1, permuted=F)
 
 r_star_alt <- r_star_dist(full_data)
+mon <- monitor(fit_alt1)
+a_rhat_df <-a_rhat_df %>% 
+  mutate(alt=mon$Rhat[101:150],
+         source="r_hat")
 ```
 
 Plot split-R* values for each parameterisation
 ```{r}
 a_df <- tibble(nominal=r_star_nom,
-               alt=r_star_alt)
+               alt=r_star_alt,
+               source="r_star") %>% 
+  bind_rows(a_rhat_df)
 g <-
   a_df %>% 
   melt() %>% 
@@ -51,238 +60,69 @@ g <-
   ylab("Count") +
   geom_vline(xintercept = 1, linetype=2) +
   theme(text = element_text(size=14, colour="black"),
-        legend.position = "none")
+        legend.position = "none") +
+  facet_wrap(~source, scales = "free")
 g
 ```
 
-## Calculate KL divergence from true density by fitting kernel density estimator to points then integrating
-nominal parameterisation
-```{r}
-x <- rstan::extract(fit_nom, permuted=F)
-
-sample <- as.vector(x[, , i])
-dens <- density(sample)
-f_approx <- approxfun(dens$x, dens$y, rule=2)
-integrate(
-    function(x) f_approx(x) * log(f_approx(x) / dcauchy(x)),      -20, 20, subdivisions = 1000)
-
-t <- seq(-20, 20, 0.01)
-tibble(t,
-  true=map_dbl(t, ~dcauchy(.)),
-  approx=map_dbl(t, ~f_approx(.))) %>%
-  melt(id.vars="t") %>%
-  ggplot(aes(x=t, y=value, colour=as.factor(variable))) +
-  geom_line()
-
-f_kl_approx <- function(sample, limit=20){
-  dens <- density(sample)
-  f_approx <- approxfun(dens$x, dens$y, rule=2)
-  kl <- integrate(function(x) f_approx(x) * log(f_approx(x) / dcauchy(x)),      -limit, limit, subdivisions=1000)$value
-  if(kl < 0)
-    return(0)
-  else
-    return(kl)
-}
-
-kl <- vector(length = 50)
-for(i in seq_along(kl))
-  kl[i] <- f_kl_approx(x[, , i], limit=20)
-```
-
-Density estimation fails for alternative parameterisation because of fat tails
-```{r}
-names(extract(fit_alt1))
-x <- rstan::extract(fit_alt1, permuted=F, pars="x")
-sample <- as.vector(x[, , 3])
-dens <- density(sample, 0.001)
-f_approx <- approxfun(dens$x, dens$y, rule=2)
-integrate(function(x) f_approx(x), -10, 10)
-integrate(
-    function(x) f_approx(x) * log(f_approx(x) / dcauchy(x)),      -100, 100, subdivisions = 1000)
-
-t <- seq(-20, 20, 0.01)
-tibble(t,
-  true=map_dbl(t, ~dcauchy(.)),
-  approx=map_dbl(t, ~f_approx(.))) %>%
-  melt(id.vars="t") %>%
-  ggplot(aes(x=t, y=value, colour=as.factor(variable))) +
-  geom_line()
-
-f_kl_approx <- function(sample, limit=20){
-  dens <- density(sample)
-  f_approx <- approxfun(dens$x, dens$y, rule=2)
-  kl <- integrate(function(x) f_approx(x) * log(f_approx(x) / dcauchy(x)),      -limit, limit, subdivisions=1000)$value
-  if(kl < 0)
-    return(0)
-  else
-    return(kl)
-}
-
-kl <- vector(length = 50)
-for(i in seq_along(kl))
-  kl[i] <- f_kl_approx(x[, , i], limit=20)
-```
-
-Look at quantiles instead using KS test statistic: problem with KS test statistic is that it is most sensitive to middle values: https://asaip.psu.edu/articles/beware-the-kolmogorov-smirnov-test/
-```{r}
-x <- rstan::extract(fit_alt1, permuted=F, pars="x")
-sample <- as.vector(x[, , 1])
-ks.test(sample, pcauchy)
-ks <- vector(length = 50)
-for(i in 1:50)
-  ks[i] <- ks.test(x[, , i], pcauchy)[1]$statistic
-```
-
-Anderson-darling test -- by comparing with an independent sampler we get a gauge of the quality of MCMC
-```{r}
-x <- rstan::extract(fit, permuted=F, pars="x")
-
-f_calculate_ad <- function(x){
-  dims <- dim(x)
-  nparams <- dims[3]
-  ad <- vector(length = nparams)
-  for(i in 1:nparams)
-    ad[i] <- ad.test(x[, , i], pcauchy)[2]$p.value
-  return(ad)
-}
-
-# keep sample size fixed by thinning
-nmax <- 5000
-iter <- seq(500, nmax, 50)
-ad <- vector(length = length(iter))
-for(i in seq_along(iter)){
-  a_iter <- iter[i]
-  ele <- round(seq(1, a_iter, length.out = 500))
-  ad[i] <- mean(f_calculate_ad(x[ele, ,]))
-}
-
-e_df <- tibble(iter, ad, source="MCMC")
-
-# compare with independent samples
-# ps <- map_dbl(seq(1, 1000, 1), function(i) ad.test(rcauchy(1000), pcauchy)[2]$p.value)
-# hist(ps)
-
-x <- array(rcauchy(2 * nmax * 50), c(nmax, 4, 50))
-
-iter <- seq(500, nmax, 50)
-ad <- vector(length = length(iter))
-for(i in seq_along(iter)){
-  a_iter <- iter[i]
-  ele <- round(seq(1, a_iter, length.out = 500))
-  ad[i] <- mean(f_calculate_ad(x[ele, ,]))
-}
-f_df <- e_df %>% 
-  bind_rows(tibble(iter, ad, source="independent"))
-f_df %>% 
-  ggplot(aes(x=iter, y=ad, colour=as.factor(source))) +
-  geom_line()
-```
-
-Try R* with independent sampler
-```{r}
-nmax <- 100
-x <- array(rcauchy(2 * nmax * 50), c(nmax, 4, 50))
-r_star_inde <- r_star_dist(x)
-hist(r_star_inde)
-```
-
-Possible to tell whether sample came from MCMC or independent?
-```{r}
-x_mcmc <- rstan::extract(fit, permuted=F, pars="x")
-x_mcmc <- array(rcauchy(2000 * 50), c(2000, 50)) %>% 
-  as.data.frame() %>% 
-  mutate(source="mcmc")
-
-f_distribution <- function(x_mcmc){
-  x_inde <- array(rcauchy(2000 * 50), c(2000, 50))
-  x_inde <- x_inde %>% 
-  as.data.frame() %>% 
-  mutate(source="independent")
-  r <- bind_rows(x_mcmc,
-                 x_inde) %>% 
-    mutate(source=as.factor(source))
-  rand_samples <- sample(1:nrow(r), 0.7 * nrow(r))
-  training_data <- r[rand_samples, ]
-  testing_data <- r[-rand_samples, ]
-  
-  gbmFit1 <- train(source ~ ., data = training_data, 
-                     method = "gbm",
-                     trControl = trainControl(method = 'none'), 
-                     tuneGrid = caretGrid, verbose=FALSE)
-  
-  plda <- predict(object=gbmFit1, newdata=testing_data)
-  a_accuracy <- 
-    tibble(predicted=plda, actual=testing_data$source) %>%
-    mutate(correct=if_else(predicted==actual, 1, 0)) %>% 
-    summarise(mean(correct)) %>% 
-    pull()
-  return(a_accuracy)
-}
-library(furrr)
-future::plan(multiprocess)
-laccuracy <- future_map_dbl(seq(1, 1000, 1), function(i) f_distribution(x_mcmc))
-hist(laccuracy, 50)
-```
-
-Could do same test with simply empirical distributions, also, by bootstrapping
-
-
 ## 10,000 iterations
-Nominal model with 10000 iterations and thinning by 10
+Nominal model with 50000 iterations and thinning by 5
 ```{r}
 fit <- stan(file = 'cauchy_nom.stan', seed = 7878,
-            refresh = 0, iter = 50000)
+            refresh = 0, iter = 50000, thin=5)
 saveRDS(fit, "../output/fit_nominal_50000.rds")
+# fit <- readRDS("../output/fit_nominal_50000.rds")
 full_data <- rstan::extract(fit, permuted=F)
 
 r_star_nom <- r_star_dist(full_data)
+mon_nom <- monitor(fit)
 ```
 
-Alternative model with 10000 iterations and thinning by 10
+Alternative model with 50000 iterations and thinning by 5
 ```{r}
 fit <- stan(file = 'cauchy_alt_1.stan', seed = 7878,
-            refresh = 0, iter = 50000)
+            refresh = 0, iter = 60000, thin=3)
 saveRDS(fit, "../output/fit_alt_50000.rds")
 full_data <- rstan::extract(fit, permuted=F)
 
 r_star_alt <- r_star_dist(full_data)
+mon_alt <- monitor(fit)
 ```
 
 Plot
 ```{r}
 b_df <- tibble(nominal=r_star_nom,
-               alt=r_star_alt)
+               alt=r_star_alt,
+               source="r_star") %>% 
+  bind_rows(tibble(nominal=mon_nom$Rhat[1:50],
+                alt=mon_alt$Rhat[101:150],
+                source="r_hat")) %>% 
+  mutate(iter=10000)
  
-g1 <-
-  a_df %>% 
-  melt() %>% 
+c_df <- a_df %>% mutate(iter=1000) %>% 
+  bind_rows(b_df) %>% 
+  mutate(source=if_else(source=="r_hat", "split-Rhat", source)) %>% 
+  mutate(source=if_else(source=="r_star", "R*", source))
+
+my_lims <- function(x) { if (max(x) < 1.2) c(0.985, 1.03) else c(0.9, 3)}
+
+g <- c_df %>% 
+  melt(id.vars=c("source", "iter")) %>% 
   ggplot(aes(x=value, fill=as.factor(variable))) +
   geom_histogram(position="identity", alpha=0.8) +
   scale_fill_grey("Parameterisation", labels=c("nominal", "alternative")) +
-  xlab(TeX("$R*$")) +
   ylab("Count") +
   geom_vline(xintercept = 1, linetype=2) +
-  theme(text = element_text(size=14, colour="black"),
-        legend.position = "none") +
-  ggtitle("A.")
-g1
+  facet_wrap(~source+iter, scales="free") +
+  scale_x_continuous(limits=my_lims) +
+  theme(strip.text = element_text(size=14, colour="black"),
+        axis.text = element_text(size=12, colour="black"),
+        axis.title = element_text(size=14, colour="black"),
+        legend.text = element_text(size=14, colour="black"),
+        legend.title = element_text(size=14, colour="black")) +
+  xlab("Value")
 
-g2 <-
-  b_df %>% 
-  melt() %>% 
-  ggplot(aes(x=value, fill=as.factor(variable))) +
-  geom_histogram(position="identity", alpha=0.8) +
-  scale_fill_grey("Parameterisation", labels=c("nominal", "alternative")) +
-  xlab(TeX("$R*$")) +
-  ylab("Count") +
-  geom_vline(xintercept = 1, linetype=2) +
-  theme(text = element_text(size=14, colour="black")) +
-  ggtitle("B.")
-g2
-
-pdf("../output/cauchy.pdf", width = 12, height = 6)
-multiplot(g1, g2, cols = 2)
-dev.off()
+ggsave("../output/cauchy.pdf", g, width = 12, height = 8)
 ```
 
 Compare quantiles

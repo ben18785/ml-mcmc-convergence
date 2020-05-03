@@ -1,5 +1,5 @@
 ---
-title: "R Notebook"
+title: "Multivariate normal example"
 output: html_notebook
 ---
 
@@ -22,8 +22,8 @@ caretGrid <- expand.grid(interaction.depth=c(3), n.trees = 50,
                    n.minobsinnode=10)
 ```
 
-
-Fit model in Stan with 10000 iterations
+# Centered and non-centered parameterisations
+Fit centered model in Stan with 10000 iterations and look at variable importance
 ```{r}
 N <- 250
 # A <- rWishart(1, 250, diag(N))[,,1]
@@ -33,6 +33,12 @@ model <- stan_model("mvt_250.stan")
 # fit <- sampling(model, data=list(N=N, A=A), iter=10000, chains=4, thin=5)
 # saveRDS(fit, "../output/mvt_fit_10000.rds")
 fit <- readRDS("../output/mvt_fit_10000.rds")
+
+# Collect Rhat
+a_sum <- monitor(fit)
+rhat <- a_sum$Rhat
+
+# Reshape data into form for R* estimation
 full_data <- rstan::extract(fit, permuted=F)
 m_flattened <- matrix(nrow = nrow(full_data) * 4, ncol = 252)
 k <- 1
@@ -52,55 +58,49 @@ full_data <- m_flattened
 rand_samples <- sample(1:nrow(full_data), 0.7 * nrow(full_data))
 training_data <- full_data[rand_samples, ]
 testing_data <- full_data[-rand_samples, ]
+
+# Fit gradient-boosed model
 gbmFit1 <- train(chain ~ ., data = training_data, 
                  method = "gbm",
                  trControl = trainControl(method = 'none'), 
                     tuneGrid = caretGrid, verbose=FALSE)
 
-plda <- predict(object=gbmFit1, newdata=testing_data)
-tibble(predicted=plda, actual=testing_data$chain) %>% 
-  mutate(correct=if_else(predicted==actual, 1, 0)) %>% 
-  summarise(mean(correct))
-varImp(gbmFit1)
-
-plda <- predict(object=gbmFit1, newdata=testing_data, type = "prob")
-  
-nsim <- 1000
-mAccuracy <- matrix(nrow = nrow(plda),
-                      ncol = nsim)
-  for(j in 1:nrow(plda)){
-    test <- apply(rmultinom(nsim, 1, prob = plda[j, ]), 2, function(x) which(x==1))
-    mAccuracy[j, ] <- if_else(test==testing_data$chain[j], 1, 0)
-  }
-
-a_df <- tibble(samples_10000=colMeans(mAccuracy)/(1/n_distinct(training_data$chain)))
+# Get R* distribution
+full_data <- rstan::extract(fit, permuted=F)
+a_df <- tibble(samples_10000_cp=r_star_dist(full_data))
 
 importance <- 100-varImp(gbmFit1)$importance$Overall
-rhat <- summary(fit)$summary[, 10]
-ess <- summary(fit)$summary[, 9]
-plot(importance, rhat)
-plot(importance, ess)
-b_df <- tibble(importance, ess, rhat, lp=c(rep(0, 250), 1))
+ess_b <- a_sum$Bulk_ESS
+ess_t <- a_sum$Tail_ESS
+b_df <- tibble(importance, ess_b, ess_t, rhat, lp=c(rep(0, 250), 1))
 sum(rhat<1.01)
-sum(ess>400)
-gc <- 
-  b_df %>%
-  ggplot(aes(importance, ess)) +
-  geom_jitter(width=1, aes(shape=as.factor(lp)), colour='grey') +
-  geom_smooth(span=1, colour="black") +
+mean(ess_b>400)
+mean(ess_t>400)
+cor.test(b_df$importance, b_df$rhat, method="spearman")
+cor.test(b_df$importance, b_df$ess_b, method="spearman")
+cor.test(b_df$importance, b_df$ess_t, method="spearman")
+gc <- b_df %>%
+  select(importance, ess_b, ess_t, lp) %>% 
+  melt(id.vars=c("importance", "lp")) %>% 
+  ggplot(aes(importance, value)) +
+  geom_jitter(width=1, aes(shape=as.factor(lp), colour=as.factor(variable))) +
+  geom_smooth(span=1, aes(colour=as.factor(variable))) +
   xlab("Variable importance") +
   ylab("ESS") +
-  ggtitle("C.") +
-  theme(legend.position = "none")
+  ggtitle("D.") +
+  scale_color_grey("ESS type", labels=c("Bulk", "Tail")) +
+  scale_shape("LP param", labels=c("False", "True")) +
+  theme(legend.position = c(0.85, 0.7))
 
 gb <- b_df %>%
   ggplot(aes(importance, rhat)) +
   geom_jitter(width = 1, aes(shape=as.factor(lp)), colour='grey') +
   geom_smooth(span=1, colour="black") +
   xlab("Variable importance") +
-  ylab(TeX("$\\hat{R}$")) +
-  ggtitle("B.") +
+  ylab(TeX("split-$\\hat{R}$")) +
+  ggtitle("C.") +
   theme(legend.position = "none")
+b_df <- tibble(samples_10000_cp=a_sum$Rhat[1:250])
 ```
 
 With 400 iterations
@@ -109,29 +109,38 @@ With 400 iterations
 print(fit)
 # saveRDS(fit, "../output/mvt_fit_400.rds")
 fit <- readRDS("../output/mvt_fit_400.rds")
+
 full_data <- rstan::extract(fit, permuted=F)
 r_star2 <- r_star_dist(full_data)
 
 a_df <- a_df %>%
   mutate(samples_400=r_star2)
+
+a_sum <- monitor(fit)
+b_df <- b_df %>%
+  mutate(samples_400=a_sum$Rhat[1:250])
 ```
 
-10,000 iterations
+10,000 iterations for non-centered parameterisation
 ```{r}
 # model <- stan_model("mvt_250_ncp.stan")
 # fit <- sampling(model, data=list(N=N, A=A), iter=10000, chains=4, thin=5)
 # print(fit)
 # saveRDS(fit, "../output/mvt_ncp_fit_10000.rds")
 fit <- readRDS("../output/mvt_ncp_fit_10000.rds")
+a_sum <- monitor(fit)
+sum(a_sum$Bulk_ESS>400)
+sum(a_sum$Tail_ESS>400)
+b_df <- b_df %>%
+  mutate(samples_10000_ncp=a_sum$Rhat[251:500])
+saveRDS(b_df, "../output/mvt_fit_all_rhat.rds")
+b_df <- readRDS("../output/mvt_fit_all_rhat.rds")
 
 full_data <- rstan::extract(fit, permuted=F)
 r_star3 <- r_star_dist(full_data)
 
 a_df <- a_df %>%
-  mutate(samples_10000=r_star3)
-
-a_df <- a_df %>%
-  mutate(samples_10000_ncp=colMeans(mAccuracy)/(1/n_distinct(training_data$chain)))
+  mutate(samples_10000_ncp=r_star3)
 
 saveRDS(a_df, "../output/mvt_fit_all_accuracy.rds")
 a_df <- readRDS("../output/mvt_fit_all_accuracy.rds")
@@ -141,7 +150,7 @@ ga <-
   melt() %>% 
   ggplot(aes(x=value, fill=fct_relevel(as.factor(variable), "samples_400", "samples_10000", "samples_10000_ncp"))) +
   geom_histogram(position="identity", alpha=0.8, bins=20) +
-  scale_fill_grey("# of samples", labels=c("400, cp", "10000, cp", "10000, ncp")) +
+  scale_fill_grey("# of draws", labels=c("400, cp", "10000, cp", "10000, ncp")) +
   xlab(TeX("$R*$")) +
   ylab("Count") +
   geom_vline(xintercept = 1, linetype=2) +
@@ -149,180 +158,21 @@ ga <-
         legend.position = c(0.8, 0.8)) +
   ggtitle("A.")
 
+ga2 <- 
+  b_df %>% 
+  melt() %>% 
+  ggplot(aes(x=value, fill=fct_relevel(as.factor(variable), "samples_400", "samples_10000", "samples_10000_ncp"))) +
+  geom_histogram(position="identity", alpha=0.8, bins=20) +
+  scale_fill_grey("# of draws", labels=c("400, cp", "10000, cp", "10000, ncp")) +
+  xlab(TeX("split-$\\hat{R}$")) +
+  ylab("Count") +
+  geom_vline(xintercept = 1, linetype=2) +
+  theme(text = element_text(size=14, colour="black"),
+        legend.position = c(0.8, 0.8)) +
+  ggtitle("B.")
+
 pdf("../output/mvt_three.pdf", width = 12, height = 8)
-multiplot(ga, gb, gc, cols = 3)
-dev.off()
-```
-
-## Try measure for similar numbers of iterations to posterior
-Centered
-```{r}
-N <- 250
-A <- readRDS("../output/A_matrix.rds")
-model <- stan_model("mvt_250.stan")
-fit <- sampling(model, data=list(N=N, A=A), iter=500, chains=4, thin=1)
-saveRDS(fit, "../output/mvt_fit_500.rds")
-fit <- readRDS("../output/mvt_fit_500.rds")
-
-full_data <- rstan::extract(fit, permuted=F, inc_warmup=F)
-r_star <- r_star_dist(full_data)
-
-a_df <- tibble(samples_cp=r_star)
-
-mon <- monitor(fit)
-mean(mon$Rhat>1.01)
-mean(mon$Bulk_ESS<400)
-mean(mon$Tail_ESS<400)
-
-ha <- tibble(bulk_ess=mon$Bulk_ESS,
-       tail_ess=mon$Tail_ESS,
-       rhat=mon$Rhat) %>% 
-  melt() %>% 
-  mutate(variable=case_when(variable=="bulk_ess"~"Bulk ESS",
-                            variable=="tail_ess"~"Tail ESS",
-                            variable=="rhat"~"Split-Rhat")) %>% 
-  ggplot(aes(x=value)) +
-  geom_histogram() + 
-  facet_wrap(~relevel(as.factor(variable), "Split-Rhat", "Bulk ESS", "Tail ESS"), scales="free") + xlab("Value") +
-  ylab("Count") +
-  theme(text=element_text(size=12, colour="black"),
-        axis.text=element_text(size=12, colour="black"),
-        strip.text = element_text(size=12, colour="black"),
-        axis.title.x = element_blank())
-ha
-aa_df <- tibble(bulk_ess=mon$Bulk_ESS,
-       tail_ess=mon$Tail_ESS,
-       rhat=mon$Rhat,
-       source="Centered")
-ggsave("../output/wide_cp_diagnostics.pdf", ha, width = 12, height = 8)
-```
-
-Non-centered
-```{r}
-A <- readRDS("../output/A_matrix.rds")
-model <- stan_model("mvt_250_ncp.stan")
-fit <- sampling(model, data=list(N=N, A=A), iter=500, chains=4, thin=1)
-saveRDS(fit, "../output/mvt_ncp_fit_500.rds")
-fit <- readRDS("../output/mvt_ncp_fit_500.rds")
-full_data <- rstan::extract(fit, permuted=F, inc_warmup=F)
-r_star <- r_star_dist(full_data)
-
-a_df <- a_df %>%
-  mutate(samples_ncp=r_star)
-saveRDS(a_df, "../output/mvt_500_all.rds")
-g <- 
-  a_df %>% 
-  melt() %>% 
-  ggplot(aes(x=value, fill=as.factor(variable))) +
-  geom_histogram(position="identity", alpha=0.8, bins=20) +
-  scale_fill_grey("Model", labels=c("centered", "noncentered")) +
-  xlab(TeX("$R*$")) +
-  ylab("Count") +
-  geom_vline(xintercept = 1, linetype=2) +
-  theme(text = element_text(size=14, colour="black"),
-        legend.position = c(0.8, 0.8))
-# ggsave("../output/wide_data.pdf", g, width = 12, height = 8)
-
-mon <- monitor(fit)
-mean(mon$Rhat>1.01)
-mean(mon$Bulk_ESS<400)
-mean(mon$Tail_ESS<400)
-
-h <- tibble(bulk_ess=mon$Bulk_ESS,
-       tail_ess=mon$Tail_ESS,
-       rhat=mon$Rhat) %>% 
-  melt() %>% 
-  mutate(variable=case_when(variable=="bulk_ess"~"Bulk ESS",
-                            variable=="tail_ess"~"Tail ESS",
-                            variable=="rhat"~"Split-Rhat")) %>% 
-  ggplot(aes(x=value)) +
-  geom_histogram() + 
-  facet_wrap(~relevel(as.factor(variable), "Split-Rhat", "Bulk ESS", "Tail ESS"), scales="free") + xlab("Value") +
-  ylab("Count") +
-  theme(text=element_text(size=12, colour="black"),
-        axis.text=element_text(size=12, colour="black"),
-        strip.text = element_text(size=12, colour="black"),
-        axis.title.x = element_blank())
-ggsave("../output/wide_ncp_diagnostics.pdf", h, width = 12, height = 8)
-
-aa_df <- aa_df %>%
-  bind_rows(tibble(bulk_ess=mon$Bulk_ESS,
-       tail_ess=mon$Tail_ESS,
-       rhat=mon$Rhat,
-       source="Non-centered"))
-
-h1 <- aa_df %>% 
-  melt(id.vars="source") %>% 
-  mutate(variable=case_when(variable=="bulk_ess"~"B. Bulk ESS",
-                            variable=="tail_ess"~"C. Tail ESS",
-                            variable=="rhat"~"A. Split-Rhat")) %>% 
-  ggplot(aes(x=value)) +
-  geom_histogram() + 
-  facet_grid(vars(source), vars(relevel(as.factor(variable), "A. Split-Rhat", "B. Bulk ESS", "C. Tail ESS")), scales="free") + xlab("Value") +
-  ylab("Count") +
-  theme(text=element_text(size=12, colour="black"),
-        axis.text=element_text(size=12, colour="black"),
-        strip.text = element_text(size=12, colour="black"),
-        axis.title.x = element_blank())
-ggsave("../output/wide_both_diagnostics.pdf", h1, width = 12, height = 8)
-```
-
-# Wide dataset - standard normal with 10,000 dimensions
-```{r}
-# N <- 10000
-# A <- diag(nrow=N)
-# model <- stan_model("mvt_wide.stan")
-# fit <- sampling(model, data=list(N=N), iter=400, chains=4)
-# saveRDS(fit, "../output/mvt_wide_400.rds")
-fit <- readRDS("../output/mvt_wide_400.rds")
-
-full_data <- rstan::extract(fit, permuted=F, inc_warmup=F)
-r_star <- r_star_dist(full_data)
-a_df <- tibble(samples_400=r_star)
-# saveRDS(a_df, "../output/mvt_wide_400_summary.rds")
-mon <- monitor(fit)
-mean(mon$Rhat>1.01)
-mean(mon$Bulk_ESS<400)
-mean(mon$Tail_ESS<400)
-```
-
-1,000 samples
-```{r}
-N <- 10000
-A <- diag(nrow=N)
-model <- stan_model("mvt_wide.stan")
-fit <- sampling(model, data=list(N=N), iter=1000, chains=4)
-saveRDS(fit, "../output/mvt_wide_1000.rds")
-
-fit <- readRDS("../output/mvt_wide_1000.rds")
-full_data <- rstan::extract(fit, permuted=F, inc_warmup=F)
-r_star1 <- r_star_dist(full_data)
-
-a_df <- a_df %>%
-  tibble(samples_1000=r_star1)
-saveRDS(a_df, "../output/mvt_wide_summaries.rds")
-mon <- monitor(fit)
-mean(mon$Rhat>1.01)
-mean(mon$Bulk_ESS<400)
-mean(mon$Tail_ESS<400)
-
-g1 <- 
-  a_df %>% 
-  melt() %>% 
-  ggplot(aes(x=value, fill=as.factor(variable))) +
-  geom_histogram(position="identity", alpha=0.8, bins=20) +
-  scale_fill_grey("Model", labels=c("400", "1000")) +
-  xlab(TeX("$R*$")) +
-  ylab("Count") +
-  geom_vline(xintercept = 1, linetype=2) +
-  theme(text = element_text(size=14, colour="black"),
-        legend.position = c(0.8, 0.8))
-# ggsave("../output/very_wide_data.pdf", g, width = 12, height = 8)
-```
-
-```{r}
-pdf("../output/mvt_wide_both.pdf", width = 12, height = 8)
-multiplot(g, g1, cols = 2)
+multiplot(ga, gb, ga2, gc, cols = 2)
 dev.off()
 ```
 
