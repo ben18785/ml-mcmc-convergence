@@ -42,39 +42,75 @@ fit_ncp <- sampling(
 # Centered
 x <- rstan::extract(fit_cp, permuted=F)
 r_star_centered <- r_star_dist(x)
-mon_cp <- monitor(split_data(x))
+mon_cp <- monitor_extra(split_data(x))
 
 # Noncentered
 x <- rstan::extract(fit_ncp, permuted=F)
 r_star_noncentered <- r_star_dist(x)
-mon_ncp <- monitor(split_data(x))
+mon_ncp <- monitor_extra(split_data(x))
 
 c_df <- tibble(centered=r_star_centered,
                non_centered=r_star_noncentered,
                metric="R*",
                simulations="split")
-c1_df <- tibble(centered=mon_cp$Rhat[1:10],
-                non_centered=mon_ncp$Rhat[c(1, 2, 11:18)],
+c1_df <- tibble(centered=mon_cp$zfsRhat[1:10],
+                non_centered=mon_ncp$zfsRhat[c(1, 2, 11:18)],
                 metric="split-Rhat",
                simulations="split")
 ```
+
+## Look at GBM fitted to data for variable importance
+```{r}
+caretGrid <- expand.grid(interaction.depth=c(3), n.trees = 50,
+                   shrinkage=c(0.1),
+                   n.minobsinnode=10)
+x <- rstan::extract(fit_cp, permuted=F)
+x <- split_data(x)
+# Reshape data into form for R* estimation
+m_flattened <- matrix(nrow = nrow(x) * 8, ncol = 12)
+k <- 1
+for(i in 1:8){
+  for(j in 1:nrow(x)){
+    m_flattened[k, 1:11] <- x[j, i, ]
+    m_flattened[k, 12] <- i
+    k <- k + 1
+  }
+}
+m_flattened <- m_flattened %>% 
+  as.data.frame() %>% 
+  rename(chain=V12) %>% 
+  mutate(chain=as.factor(chain))
+
+full_data <- m_flattened
+rand_samples <- sample(1:nrow(full_data), 0.7 * nrow(full_data))
+training_data <- full_data[rand_samples, ]
+testing_data <- full_data[-rand_samples, ]
+
+# Fit gradient-boosed model
+gbmFit1 <- train(chain ~ ., data = training_data, 
+                 method = "gbm",
+                 trControl = trainControl(method = 'none'), 
+                    tuneGrid = caretGrid, verbose=FALSE)
+varImp(gbmFit1)
+```
+
 
 ## Trying with original data (i.e. 4 chains)
 ```{r}
 x <- rstan::extract(fit_cp, permuted=F)
 r_star_centered <- r_star_dist(x, split_chains = F)
-mon_cp <- monitor(fit_cp)
+mon_cp <- monitor_extra(fit_cp)
 # noncentered
 x <- rstan::extract(fit_ncp, permuted=F)
 r_star_noncentered <- r_star_dist(x, split_chains = F)
-mon_ncp <- monitor(fit_ncp)
+mon_ncp <- monitor_extra(fit_ncp)
 
 d_df <- tibble(centered=r_star_centered,
                non_centered=r_star_noncentered,
                metric="R*",
                simulations="unsplit")
-d1_df <- tibble(centered=mon_cp$Rhat[1:10],
-                non_centered=mon_ncp$Rhat[c(1, 2, 11:18)],
+d1_df <- tibble(centered=mon_cp$zfsRhat[1:10],
+                non_centered=mon_ncp$zfsRhat[c(1, 2, 11:18)],
                 metric="split-Rhat",
                simulations="unsplit")
 ```

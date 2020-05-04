@@ -25,7 +25,7 @@
 * Check "non-centered" vs "noncentered" throughout MS:
   * [x] Text
   * [ ] Figure legends
-* [ ] Check for " vs `` throughout the MS
+* [x] Check for " vs `` throughout the MS
 * [ ] Remove any reference to training and testing sample size and add in 70%
 * [ ] Change all results to past tense
 
@@ -44,9 +44,9 @@
 * [x] Figure 4, distribution for R∗ across 1000 draws -> distribution for R∗ across
   1000 simulations
   * [x] No, this is based on 1000 draws *not* 1000 simulations.
-* [ ] "In the first of these, we used the 250-dimensional multivariate normal of
+* [x] "In the first of these, we used the 250-dimensional multivariate normal of
   eq. 2 and used 250 post-warm-up iterations (after 250 warm-up iterations)"
-  * [ ] How many chains?
+  * [x] How many chains? 4 — added
 * [x] Figure 5:
   * [x] "# of samples" -> "# of draws" or "sample size"
   * [x] could we have also histograms for max Rhat?
@@ -65,11 +65,12 @@
     20 draws? Yep added this info
 * [x] Figure 8:
   * [x] could we have also histograms for max Rhat? Done for individual Rhat values
-* [ ] Cauchy example: is R* classification with x? I assume that would be unstable
+* [x] Cauchy example: is R* classification with x? I assume that would be unstable
   compared to making R* classification with ranks of x. You could test this even
   with independent exact draws from Cauchy vs. ranked ones. I assume you would
   see there also that ranking will make R* go faster to 1. If the ranking doesn't
   matter we should explicitly state that with justification.
+  * [x] Doesn't seem to be affected by ranking (see cauchy_ranked_unranked.pdf)
 * [x] Replace quantile R-2 with Cramer-Von Mises if it works
   * [x] It doesn't really work as is too noisy and, I think, less interpretable than quantile R-2
   * [x] Tried Anderson-Darling test too but equally problematic
@@ -90,26 +91,34 @@
 
 - [x] s_ar1
   - [x] Runs monitor to calculate Rhat?
-  - [ ] Split Rhat?
+  - [x] Split Rhat?
+  - [x] Rank-normaled split-Rhat?
 - [x] s_bivariate_normal
   - [x] Runs monitor to calculate Rhat? NA
 - [x] s_mvt_normal
   - [x] Runs monitor to calculate Rhat?
-  - [ ] Split Rhat?
+  - [x] Split Rhat?
+  - [x] Rank-normaled split-Rhat?
 - [x] s_wide_distributions
   - [x] Runs monitor to calculate Rhat?
-  - [ ] Split Rhat?
+  - [x] Split Rhat?
+  - [x] Rank-normaled split-Rhat?
 - [x] s_cauchy
   - [x] Runs monitor to calculate Rhat? Yep done
-  - [ ] Split Rhat?
-- [ ] s_trends
-  - [ ] Runs monitor to calculate Rhat?
+  - [x] Split Rhat?
+  - [x] Rank-normaled split-Rhat?
+- [x] s_trends
+  - [x] Runs monitor to calculate Rhat?
+  - [x] Split Rhat? NA
+  - [x] Rank-normaled split-Rhat? NA
 - [x] s_eight_schools
   - [x] Runs monitor to calculate Rhat? Done
-  - [ ] Split Rhat?
+  - [x] Split Rhat?
+  - [x] Rank-normaled split-Rhat?
 - [ ] s_ovarian_prostate
   - [ ] Runs monitor to calculate Rhat?
+  - [ ] Rank-normaled split-Rhat?
 
 
 
-* [ ] Say somewhere that the R* values are comparable for smaller models to Rhat but can be more computationally intensive for larger ones.
+* [x] Say somewhere that the R* values are comparable for smaller models to Rhat but can be more computationally intensive for larger ones.

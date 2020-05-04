@@ -46,8 +46,8 @@ f_replicate <- function(){
   a_array <- array(dim=c(1000, 4, 1))
   a_array[,,1] <- temp
   a_accuracy <- r_star(a_array)
-  mon <- monitor(temp)
-  return(list(r_star=a_accuracy, r_hat=mon$Rhat))
+  mon <- monitor_extra(split_data(a_array))
+  return(list(r_star=a_accuracy, r_hat=mon$zfsRhat))
 }
 
 nreplicates <- 1000

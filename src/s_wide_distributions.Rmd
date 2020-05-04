@@ -34,16 +34,16 @@ r_star <- r_star_dist(full_data)
 
 a_df <- tibble(samples_cp=r_star)
 
-mon <- monitor(fit)
-mean(mon$Rhat>1.01)
-mean(mon$Bulk_ESS<400)
-mean(mon$Tail_ESS<400)
+mon <- monitor_extra(split_data(full_data))
+mean(mon$zfsRhat>1.01)
+mean(mon$zsseff<400)
+mean(mon$tailseff<400)
 
-b_df <- tibble(samples_cp=mon$Rhat[1:250])
+b_df <- tibble(samples_cp=mon$zfsRhat[1:250])
 
-ha <- tibble(bulk_ess=mon$Bulk_ESS,
-       tail_ess=mon$Tail_ESS,
-       rhat=mon$Rhat) %>% 
+ha <- tibble(bulk_ess=mon$zsseff,
+       tail_ess=mon$tailseff,
+       rhat=mon$zfsRhat) %>% 
   melt() %>% 
   mutate(variable=case_when(variable=="bulk_ess"~"Bulk ESS",
                             variable=="tail_ess"~"Tail ESS",
@@ -57,9 +57,9 @@ ha <- tibble(bulk_ess=mon$Bulk_ESS,
         strip.text = element_text(size=12, colour="black"),
         axis.title.x = element_blank())
 ha
-aa_df <- tibble(bulk_ess=mon$Bulk_ESS,
-       tail_ess=mon$Tail_ESS,
-       rhat=mon$Rhat,
+aa_df <- tibble(bulk_ess=mon$zsseff,
+       tail_ess=mon$tailseff,
+       rhat=mon$zfsRhat,
        source="Centered")
 # ggsave("../output/wide_cp_diagnostics.pdf", ha, width = 12, height = 8)
 ```
@@ -92,14 +92,14 @@ g <-
   ggtitle("A.")
 # ggsave("../output/wide_data.pdf", g, width = 12, height = 8)
 
-mon <- monitor(fit)
-mean(mon$Rhat>1.01)
-mean(mon$Bulk_ESS<400)
-mean(mon$Tail_ESS<400)
+mon <- monitor_extra(split_data(full_data))
+mean(mon$zfsRhat>1.01)
+mean(mon$zsseff<400)
+mean(mon$tailseff<400)
 
-h <- tibble(bulk_ess=mon$Bulk_ESS,
-       tail_ess=mon$Tail_ESS,
-       rhat=mon$Rhat) %>% 
+h <- tibble(bulk_ess=mon$zsseff,
+       tail_ess=mon$tailseff,
+       rhat=mon$zfsRhat) %>% 
   melt() %>% 
   mutate(variable=case_when(variable=="bulk_ess"~"Bulk ESS",
                             variable=="tail_ess"~"Tail ESS",
@@ -115,9 +115,9 @@ h <- tibble(bulk_ess=mon$Bulk_ESS,
 ggsave("../output/wide_ncp_diagnostics.pdf", h, width = 12, height = 8)
 
 aa_df <- aa_df %>%
-  bind_rows(tibble(bulk_ess=mon$Bulk_ESS,
-       tail_ess=mon$Tail_ESS,
-       rhat=mon$Rhat,
+  bind_rows(tibble(bulk_ess=mon$zsseff,
+       tail_ess=mon$tailseff,
+       rhat=mon$zfsRhat,
        source="Non-centered"))
 
 h1 <- aa_df %>% 
@@ -149,19 +149,19 @@ full_data <- rstan::extract(fit, permuted=F, inc_warmup=F)
 r_star <- r_star_dist(full_data)
 a_df <- tibble(samples_400=r_star)
 # saveRDS(a_df, "../output/mvt_wide_400_summary.rds")
-mon <- monitor(fit)
-mean(mon$Rhat>1.01)
-mean(mon$Bulk_ESS<400)
-mean(mon$Tail_ESS<400)
+mon <- monitor_extra(split_data(full_data))
+mean(mon$zfsRhat>1.01)
+mean(mon$zsseff<400)
+mean(mon$tailseff<400)
 ```
 
 1,000 samples
 ```{r}
-N <- 10000
-A <- diag(nrow=N)
-model <- stan_model("mvt_wide.stan")
-fit <- sampling(model, data=list(N=N), iter=1000, chains=4)
-saveRDS(fit, "../output/mvt_wide_1000.rds")
+# N <- 10000
+# A <- diag(nrow=N)
+# model <- stan_model("mvt_wide.stan")
+# fit <- sampling(model, data=list(N=N), iter=1000, chains=4)
+# saveRDS(fit, "../output/mvt_wide_1000.rds")
 
 fit <- readRDS("../output/mvt_wide_1000.rds")
 full_data <- rstan::extract(fit, permuted=F, inc_warmup=F)
@@ -170,10 +170,10 @@ r_star1 <- r_star_dist(full_data)
 a_df <- a_df %>%
   tibble(samples_1000=r_star1)
 saveRDS(a_df, "../output/mvt_wide_summaries.rds")
-mon <- monitor(fit)
-mean(mon$Rhat>1.01)
-mean(mon$Bulk_ESS<400)
-mean(mon$Tail_ESS<400)
+mon <- monitor_extra(split_data(full_data))
+mean(mon$zfsRhat>1.01)
+mean(mon$zsseff<400)
+mean(mon$tailseff<400)
 a_df <- readRDS("../output/mvt_wide_summaries.rds")
 a_df <- tibble(samples_400=a_df$.$samples_400, samples_1000=a_df$samples_1000)
 g1 <- 
@@ -188,7 +188,7 @@ g1 <-
   theme(text = element_text(size=14, colour="black"),
         legend.position = c(0.8, 0.8)) +
   ggtitle("B.")
-# ggsave("../output/very_wide_data.pdf", g, width = 12, height = 8)
+ggsave("../output/very_wide_data.pdf", g, width = 12, height = 8)
 ```
 
 ```{r}

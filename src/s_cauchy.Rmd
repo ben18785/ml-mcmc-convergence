@@ -27,8 +27,8 @@ x <- rstan::extract(fit_nom, permuted=F)
 
 r_star_nom <- r_star_dist(x)
 
-mon <- monitor(fit_nom)
-a_rhat_df <- tibble(nominal=mon$Rhat[1:50])
+mon <- monitor_extra(split_data(x))
+a_rhat_df <- tibble(nominal=mon$zfsRhat[1:50])
 ```
 
 Generate split-R* distribution from alternative Cauchy parameterisation
@@ -38,9 +38,9 @@ fit_alt1 <- stan(file = 'cauchy_alt_1.stan',
 full_data <- rstan::extract(fit_alt1, permuted=F)
 
 r_star_alt <- r_star_dist(full_data)
-mon <- monitor(fit_alt1)
+mon <- monitor_extra(split_data(full_data))
 a_rhat_df <-a_rhat_df %>% 
-  mutate(alt=mon$Rhat[101:150],
+  mutate(alt=mon$zfsRhat[101:150],
          source="r_hat")
 ```
 
@@ -49,14 +49,15 @@ Plot split-R* values for each parameterisation
 a_df <- tibble(nominal=r_star_nom,
                alt=r_star_alt,
                source="r_star") %>% 
-  bind_rows(a_rhat_df)
+  bind_rows(a_rhat_df) %>% 
+  mutate(source=if_else(source=="r_star", "R*", "Rhat"))
 g <-
   a_df %>% 
   melt() %>% 
   ggplot(aes(x=value, fill=as.factor(variable))) +
   geom_histogram(position="identity", alpha=0.8) +
   scale_fill_grey("Parameterisation", labels=c("nominal", "alternative")) +
-  xlab(TeX("$R*$")) +
+  xlab("Value") +
   ylab("Count") +
   geom_vline(xintercept = 1, linetype=2) +
   theme(text = element_text(size=14, colour="black"),
@@ -68,26 +69,26 @@ g
 ## 10,000 iterations
 Nominal model with 50000 iterations
 ```{r}
-fit <- stan(file = 'cauchy_nom.stan', seed = 7878,
-            refresh = 0, iter = 50000)
-saveRDS(fit, "../output/fit_nominal_50000.rds")
+# fit <- stan(file = 'cauchy_nom.stan', seed = 7878,
+#             refresh = 0, iter = 50000)
+# saveRDS(fit, "../output/fit_nominal_50000.rds")
 fit <- readRDS("../output/fit_nominal_50000.rds")
 full_data <- rstan::extract(fit, permuted=F)
 
 r_star_nom <- r_star_dist(full_data)
-mon_nom <- monitor(fit)
+mon_nom <- monitor_extra(split_data(full_data))
 ```
 
 Alternative model with 50000 iterations
 ```{r}
-fit <- stan(file = 'cauchy_alt_1.stan', seed = 7878,
-            refresh = 0, iter = 50000)
-saveRDS(fit, "../output/fit_alt_50000.rds")
+# fit <- stan(file = 'cauchy_alt_1.stan', seed = 7878,
+#             refresh = 0, iter = 50000)
+# saveRDS(fit, "../output/fit_alt_50000.rds")
 fit <- readRDS("../output/fit_alt_50000.rds")
 full_data <- rstan::extract(fit, permuted=F)
 
 r_star_alt <- r_star_dist(full_data)
-mon_alt <- monitor(fit)
+mon_alt <- monitor_extra(split_data(full_data))
 ```
 
 Plot
@@ -95,8 +96,8 @@ Plot
 b_df <- tibble(nominal=r_star_nom,
                alt=r_star_alt,
                source="r_star") %>% 
-  bind_rows(tibble(nominal=mon_nom$Rhat[1:50],
-                alt=mon_alt$Rhat[101:150],
+  bind_rows(tibble(nominal=mon_nom$zfsRhat[1:50],
+                alt=mon_alt$zfsRhat[101:150],
                 source="r_hat")) %>% 
   mutate(iter=10000)
  
@@ -145,7 +146,7 @@ r_squared <- function(x, lower=0.001){
   return(r_vals)
 }
 
-log_last <- log10(10000)
+log_last <- log10(25000)
 log_first <- log10(100)
 iter <- round(10^(seq(log_first, log_last, length.out = 20)))
 r_vals1 <- map_dbl(iter, ~median(r_squared(x[1:., , ])))
@@ -280,7 +281,40 @@ g2
 
 Progression of R* with ranked samples instead
 ```{r}
+fit <- readRDS("../output/fit_nominal_50000.rds")
+x <- rstan::extract(fit, permuted=F, pars="x")
+future::plan(multiprocess)
+unranked <- future_map_dbl(iter, function(i) r_star(x[1:i, , ]))
 
+x <- z_scale(x)
+ranked <- future_map_dbl(iter, function(i) r_star(x[1:i, , ]))
+cc_df <- tibble(ranked, unranked, iter, source="nominal") 
+
+fit <- readRDS("../output/fit_alt_50000.rds")
+x <- rstan::extract(fit, permuted=F, pars="x")
+future::plan(multiprocess)
+unranked <- future_map_dbl(iter, function(i) r_star(x[1:i, , ]))
+
+x <- z_scale(x)
+ranked <- future_map_dbl(iter, function(i) r_star(x[1:i, , ]))
+
+cc_df <- cc_df %>% 
+  bind_rows(tibble(ranked, unranked, iter, source="alt"))
+saveRDS(cc_df, "../output/cauchy_ranked_unranked.rds")
+
+
+g <- cc_df %>% 
+  mutate(source=if_else(source=="alt", "alternative", "nominal")) %>% 
+  melt(id.vars=c("iter", "source")) %>% 
+  mutate(variable=as.factor(variable)) %>% 
+  ggplot(aes(x=iter, y=value, colour=variable)) +
+  geom_line() +
+  facet_wrap(~source) +
+  scale_x_log10() +
+  scale_color_grey("Method") +
+  xlab("Draws") +
+  ylab("R*")
+ggsave("../output/cauchy_ranked_unranked.pdf", g)
 ```
 
 
@@ -288,13 +322,14 @@ Rhat
 ```{r}
 r_hat_all_params <- function(x){
  nparams <- dim(x)[3] 
- rhat_vals <- map_dbl(seq(1, nparams, 1), ~rhat(split_chains(x[ , , .])))
+ rhat_vals <- map_dbl(seq(1, nparams, 1), ~rhat(split_chains(z_scale(x[ , , .]))))
  return(rhat_vals)
 }
 
 fit <- readRDS("../output/fit_nominal_50000.rds")
 x <- rstan::extract(fit, permuted=F, pars="x")
 future::plan(multiprocess)
+iter <- a_df$iteration %>% unique()
 r_hat <- future_map_dbl(iter, ~max(r_hat_all_params(x[1:., , ])))
 r_hat_lower <- future_map_dbl(iter, ~quantile(r_hat_all_params(x[1:., , ]), 0.025))
 r_hat_upper <- future_map_dbl(iter, ~quantile(r_hat_all_params(x[1:., , ]), 0.975))
@@ -317,7 +352,7 @@ c_df <-
          lower=r_hat_lower,
          upper=r_hat_upper,
          variable="nom"))
-# saveRDS(c_df, "../output/cauchy_r_hat.rds")
+saveRDS(c_df, "../output/cauchy_r_hat.rds")
 c_df <- readRDS("../output/cauchy_r_hat.rds")
 g3 <- 
   c_df %>% 

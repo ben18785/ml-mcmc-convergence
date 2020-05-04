@@ -25,21 +25,21 @@ caretGrid <- expand.grid(interaction.depth=c(3), n.trees = 50,
 # Centered and non-centered parameterisations
 Fit centered model in Stan with 10000 iterations and look at variable importance
 ```{r}
-N <- 250
+# N <- 250
 # A <- rWishart(1, 250, diag(N))[,,1]
 # saveRDS(A, "../output/A_matrix.rds")
-A <- readRDS("../output/A_matrix.rds")
-model <- stan_model("mvt_250.stan")
+# A <- readRDS("../output/A_matrix.rds")
+# model <- stan_model("mvt_250.stan")
 # fit <- sampling(model, data=list(N=N, A=A), iter=10000, chains=4, thin=5)
 # saveRDS(fit, "../output/mvt_fit_10000.rds")
 fit <- readRDS("../output/mvt_fit_10000.rds")
 
 # Collect Rhat
-a_sum <- monitor(fit)
-rhat <- a_sum$Rhat
+full_data <- rstan::extract(fit, permuted=F)
+a_sum <- monitor_extra(split_data(full_data))
+rhat <- a_sum$zfsRhat
 
 # Reshape data into form for R* estimation
-full_data <- rstan::extract(fit, permuted=F)
 m_flattened <- matrix(nrow = nrow(full_data) * 4, ncol = 252)
 k <- 1
 for(i in 1:4){
@@ -70,12 +70,12 @@ full_data <- rstan::extract(fit, permuted=F)
 a_df <- tibble(samples_10000_cp=r_star_dist(full_data))
 
 importance <- 100-varImp(gbmFit1)$importance$Overall
-ess_b <- a_sum$Bulk_ESS
-ess_t <- a_sum$Tail_ESS
+ess_b <- a_sum$zsseff
+ess_t <- a_sum$tailseff
 b_df <- tibble(importance, ess_b, ess_t, rhat, lp=c(rep(0, 250), 1))
-sum(rhat<1.01)
-mean(ess_b>400)
-mean(ess_t>400)
+mean(rhat<1.01)
+mean(ess_b<400)
+mean(ess_t<400)
 cor.test(b_df$importance, b_df$rhat, method="spearman")
 cor.test(b_df$importance, b_df$ess_b, method="spearman")
 cor.test(b_df$importance, b_df$ess_t, method="spearman")
@@ -100,13 +100,14 @@ gb <- b_df %>%
   ylab(TeX("split-$\\hat{R}$")) +
   ggtitle("C.") +
   theme(legend.position = "none")
-b_df <- tibble(samples_10000_cp=a_sum$Rhat[1:250])
+b_df <- tibble(samples_10000_cp=a_sum$zfsRhat[1:250])
 ```
 
 With 400 iterations
 ```{r}
+source("monitornew.R")
 # fit <- sampling(model, data=list(N=N, A=A), iter=400, chains=4)
-print(fit)
+# print(fit)
 # saveRDS(fit, "../output/mvt_fit_400.rds")
 fit <- readRDS("../output/mvt_fit_400.rds")
 
@@ -116,9 +117,9 @@ r_star2 <- r_star_dist(full_data)
 a_df <- a_df %>%
   mutate(samples_400=r_star2)
 
-a_sum <- monitor(fit)
+a_sum <- monitor_extra(split_data(full_data))
 b_df <- b_df %>%
-  mutate(samples_400=a_sum$Rhat[1:250])
+  mutate(samples_400=a_sum$zfsRhat[1:250])
 ```
 
 10,000 iterations for non-centered parameterisation
@@ -128,15 +129,17 @@ b_df <- b_df %>%
 # print(fit)
 # saveRDS(fit, "../output/mvt_ncp_fit_10000.rds")
 fit <- readRDS("../output/mvt_ncp_fit_10000.rds")
-a_sum <- monitor(fit)
-sum(a_sum$Bulk_ESS>400)
-sum(a_sum$Tail_ESS>400)
+full_data <- rstan::extract(fit, permuted=F)
+a_sum <- monitor_extra(split_data(full_data))
+sum(a_sum$zsseff>400)
+sum(a_sum$tailseff>400)
+sum(a_sum$zfsRhat<1.01)
 b_df <- b_df %>%
-  mutate(samples_10000_ncp=a_sum$Rhat[251:500])
+  mutate(samples_10000_ncp=a_sum$zfsRhat[251:500])
 saveRDS(b_df, "../output/mvt_fit_all_rhat.rds")
 b_df <- readRDS("../output/mvt_fit_all_rhat.rds")
 
-full_data <- rstan::extract(fit, permuted=F)
+
 r_star3 <- r_star_dist(full_data)
 
 a_df <- a_df %>%
