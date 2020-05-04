@@ -23,7 +23,7 @@
   * [x] Cauchy convergence
   * [x] MVT normal
 * Check "non-centered" vs "noncentered" throughout MS:
-  * [ ] Text
+  * [x] Text
   * [ ] Figure legends
 * [ ] Check for " vs `` throughout the MS
 * [ ] Remove any reference to training and testing sample size and add in 70%
@@ -70,11 +70,13 @@
   with independent exact draws from Cauchy vs. ranked ones. I assume you would
   see there also that ranking will make R* go faster to 1. If the ranking doesn't
   matter we should explicitly state that with justification.
-* [ ] Replace quantile R-2 with Cramer-Von Mises if it works
-* [ ] Figure 9:
-  * [ ] Replace quantile R-2
-* [ ] Figure 13:
-  * [ ] could we have also histograms for max Rhat?
+* [x] Replace quantile R-2 with Cramer-Von Mises if it works
+  * [x] It doesn't really work as is too noisy and, I think, less interpretable than quantile R-2
+  * [x] Tried Anderson-Darling test too but equally problematic
+* [x] Figure 9:
+  * [x] Replace quantile R-2. Not done for reason above.
+* [x] Figure 13:
+  * [x] could we have also histograms for max Rhat? Done for the individual Rhat parameters.
 * [ ] Introduction: mention rank plots, which are univariate and classification is made by eye
 * [ ] Figure 14:
   * [ ] What happens if long chains are used but thinning is employed?
@@ -88,18 +90,23 @@
 
 - [x] s_ar1
   - [x] Runs monitor to calculate Rhat?
+  - [ ] Split Rhat?
 - [x] s_bivariate_normal
   - [x] Runs monitor to calculate Rhat? NA
 - [x] s_mvt_normal
   - [x] Runs monitor to calculate Rhat?
+  - [ ] Split Rhat?
 - [x] s_wide_distributions
-  - [x] 
-- [ ] s_cauchy
-  - [ ] Runs monitor to calculate Rhat?
+  - [x] Runs monitor to calculate Rhat?
+  - [ ] Split Rhat?
+- [x] s_cauchy
+  - [x] Runs monitor to calculate Rhat? Yep done
+  - [ ] Split Rhat?
 - [ ] s_trends
   - [ ] Runs monitor to calculate Rhat?
-- [ ] s_eight_schools
-  - [ ] Runs monitor to calculate Rhat?
+- [x] s_eight_schools
+  - [x] Runs monitor to calculate Rhat? Done
+  - [ ] Split Rhat?
 - [ ] s_ovarian_prostate
   - [ ] Runs monitor to calculate Rhat?
 

@@ -38,45 +38,52 @@ fit_ncp <- sampling(
 ```
 
 ## Break each chain into two then make flattened data
-Centered
 ```{r}
+# Centered
 x <- rstan::extract(fit_cp, permuted=F)
-
 r_star_centered <- r_star_dist(x)
-```
+mon_cp <- monitor(split_data(x))
 
-Noncentered
-```{r}
+# Noncentered
 x <- rstan::extract(fit_ncp, permuted=F)
 r_star_noncentered <- r_star_dist(x)
-```
+mon_ncp <- monitor(split_data(x))
 
-Store both
-```{r}
 c_df <- tibble(centered=r_star_centered,
-               non_centered=r_star_noncentered)
+               non_centered=r_star_noncentered,
+               metric="R*",
+               simulations="split")
+c1_df <- tibble(centered=mon_cp$Rhat[1:10],
+                non_centered=mon_ncp$Rhat[c(1, 2, 11:18)],
+                metric="split-Rhat",
+               simulations="split")
 ```
 
 ## Trying with original data (i.e. 4 chains)
 ```{r}
 x <- rstan::extract(fit_cp, permuted=F)
-r_star_centered <- r_star_dist(x)
-
+r_star_centered <- r_star_dist(x, split_chains = F)
+mon_cp <- monitor(fit_cp)
 # noncentered
 x <- rstan::extract(fit_ncp, permuted=F)
-r_star_noncentered <- r_star_dist(x)
-```
+r_star_noncentered <- r_star_dist(x, split_chains = F)
+mon_ncp <- monitor(fit_ncp)
 
-```{r}
 d_df <- tibble(centered=r_star_centered,
-               non_centered=r_star_noncentered)
+               non_centered=r_star_noncentered,
+               metric="R*",
+               simulations="unsplit")
+d1_df <- tibble(centered=mon_cp$Rhat[1:10],
+                non_centered=mon_ncp$Rhat[c(1, 2, 11:18)],
+                metric="split-Rhat",
+               simulations="unsplit")
 ```
 
 Plot two R* distributions
 ```{r}
 g1 <- 
   c_df %>% 
-  melt(id.vars=NULL) %>% 
+  melt(id.vars=c("metric", "simulations")) %>% 
   ggplot(aes(x=value, fill=as.factor(variable))) +
   geom_histogram(position="identity", alpha=0.8) +
   xlim(0.78, 1.6) +
@@ -89,7 +96,7 @@ g1 <-
         legend.position = "none")
 g2 <- 
   d_df %>% 
-  melt(id.vars=NULL) %>% 
+  melt(id.vars=c("metric", "simulations")) %>% 
   ggplot(aes(x=value, fill=as.factor(variable))) +
   geom_histogram(position="identity", alpha=0.8) +
   scale_fill_grey("Series", labels=c("centered", "non-centered")) +
@@ -98,13 +105,37 @@ g2 <-
   ylab("Count") +
   geom_vline(xintercept = 1, linetype=2) +
   ggtitle("B.") +
-  theme(text = element_text(size=14, colour="black"))
+  theme(text = element_text(size=14, colour="black"),
+        legend.position = "none")
 # a_df <- readRDS("../output/eight_schools_replicates_4_index.rds")
-
-# pdf("../output/eight_schools.pdf", width = 12, height = 6)
-# multiplot(g1, g2, cols = 2)
-# dev.off()
 ```
+
+Look at Rhat distributions
+```{r}
+e_df <- c1_df %>% 
+  mutate(var_num=seq_along(metric)) %>% 
+  bind_rows(d1_df %>% mutate(var_num=seq_along(metric)))
+g3 <- e_df %>%
+  select(-metric) %>% 
+  melt(id.vars=c("simulations", "var_num")) %>% 
+  pivot_wider(id_cols=c("variable", "var_num"), values_from = "value", names_from = "simulations") %>% 
+  ggplot(aes(x=unsplit, y=split, colour=as.factor(variable))) +
+  geom_point() +
+  scale_x_continuous(limits=c(NA, 1.1)) +
+  scale_y_continuous(limits=c(NA, 1.1)) +
+  geom_vline(xintercept = 1.01, linetype=2) +
+  geom_hline(yintercept = 1.01, linetype=2) +
+  geom_abline(linetype=3) +
+  scale_color_grey("Series", labels=c("centered", "non-centered")) +
+  ylab("Split chains") +
+  xlab("Original chains") +
+  ggtitle("C.")
+
+pdf("../output/eight_schools.pdf", width = 12, height = 4)
+multiplot(g1, g2, g3, cols = 3)
+dev.off()
+```
+
 
 # Plot R* versus quantiles
 ```{r}

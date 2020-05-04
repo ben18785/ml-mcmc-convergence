@@ -408,9 +408,11 @@ As in \S\ref{sec:multivariate_normal}, we calculated a measure of variable impor
 
 In addition, to illustrate the power of $R^*$, we also repeat the analysis but, this time, do not split the chains in two. The results are shown in Fig.\ref{fig:eight_schools}B. In this case, because the unsplit chains do not mix with themselves, it is harder to accurately predict the chain that generated each draw, meaning that the centered model $R^*$ values are shifted leftwards. Despite this, however, the centered model distribution for $R^*$ still does not strongly overlap with $R^*=1$, indicating that the model has not converged, contrasting with the non-centered model which appears converged.
 
+$\widehat{R}$, like $R^*$, is recommended to be calculated using split chains. In Fig. \ref{fig:eight_schools}C, we plot the values of values of this metric when using the original four chains (horizontal axis) versus those when using the split chains (vertical axis) for the ten parameters in this model; we do this for both the centered and non-centered models. These show that the values of $\widehat{R}$ for the non-centered model for both the split and unsplit cases were, for all parameters, above 1.01, echoing the results for $R^*$; also, like $R^*$, the value of $\widehat{R}$ is higher for the split case. Finally, as for $R^*$, all parameters for the centered models were below 1.01, indicating convergence.
+
 \begin{figure}[!htb]
 	\centerline{\includegraphics[width=1.0\textwidth]{../output/eight_schools.pdf}}
-	\caption{\textbf{Eight schools example: $R^*$ distributions.} A shows draws from the $R^*$ distribution when splitting chains in two (resulting in 8 chains); B shows the same but using the 4 original chains. In all cases, the plots show 1000 $R^*$ draws. See the R markdown file on the Github repository for code to reproduce this example.}
+	\caption{\textbf{Eight schools example: $R^*$ distributions.} A shows draws from the $R^*$ distribution when splitting chains in two (resulting in 8 chains); B shows the same but using the 4 original chains; C shows rank-normalised $\widehat{R}$ for original 4 chains vs those for the 8 chains case for all ten parameters defined by the centered model -- in this case, we plot horizontal and vertical dashed lines to illustrate the $\widehat{R}=1.01$ cutoff and a $y=x$ line. In all cases, the plots show 1000 $R^*$ draws. See the R markdown file on the Github repository for code to reproduce this example.}
 	\label{fig:eight_schools}
 \end{figure}
 

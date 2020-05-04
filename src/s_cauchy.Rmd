@@ -66,23 +66,24 @@ g
 ```
 
 ## 10,000 iterations
-Nominal model with 50000 iterations and thinning by 5
+Nominal model with 50000 iterations
 ```{r}
 fit <- stan(file = 'cauchy_nom.stan', seed = 7878,
-            refresh = 0, iter = 50000, thin=5)
+            refresh = 0, iter = 50000)
 saveRDS(fit, "../output/fit_nominal_50000.rds")
-# fit <- readRDS("../output/fit_nominal_50000.rds")
+fit <- readRDS("../output/fit_nominal_50000.rds")
 full_data <- rstan::extract(fit, permuted=F)
 
 r_star_nom <- r_star_dist(full_data)
 mon_nom <- monitor(fit)
 ```
 
-Alternative model with 50000 iterations and thinning by 5
+Alternative model with 50000 iterations
 ```{r}
 fit <- stan(file = 'cauchy_alt_1.stan', seed = 7878,
-            refresh = 0, iter = 60000, thin=3)
+            refresh = 0, iter = 50000)
 saveRDS(fit, "../output/fit_alt_50000.rds")
+fit <- readRDS("../output/fit_alt_50000.rds")
 full_data <- rstan::extract(fit, permuted=F)
 
 r_star_alt <- r_star_dist(full_data)
@@ -125,10 +126,12 @@ g <- c_df %>%
 ggsave("../output/cauchy.pdf", g, width = 12, height = 8)
 ```
 
+
+## Look at how various measures indicate convergence with iteration
 Compare quantiles
 ```{r}
 fit <- readRDS("../output/fit_nominal_50000.rds")
-x <- rstan::extract(fit, permuted=F, pars="x")
+x <- rstan::extract(fit, permuted=F, pars="x", inc_warmup=T)
 r_squared <- function(x, lower=0.001){
   qs <- seq(lower, 1-lower, lower)
   q_actual <- map_dbl(qs, ~qcauchy(.))
@@ -142,7 +145,7 @@ r_squared <- function(x, lower=0.001){
   return(r_vals)
 }
 
-log_last <- log10(25000)
+log_last <- log10(10000)
 log_first <- log10(100)
 iter <- round(10^(seq(log_first, log_last, length.out = 20)))
 r_vals1 <- map_dbl(iter, ~median(r_squared(x[1:., , ])))
@@ -150,7 +153,7 @@ r_vals1_lower <- map_dbl(iter, ~quantile(r_squared(x[1:., , ]), 0.025))
 r_vals1_upper <- map_dbl(iter, ~quantile(r_squared(x[1:., , ]), 0.975))
 
 fit <- readRDS("../output/fit_alt_50000.rds")
-x <- rstan::extract(fit, permuted=F, pars="x")
+x <- rstan::extract(fit, permuted=F, pars="x", inc_warmup=T)
 r_vals <- map_dbl(iter, ~median(r_squared(x[1:., , ])))
 r_vals_lower <- map_dbl(iter, ~quantile(r_squared(x[1:., , ]), 0.025))
 r_vals_upper <- map_dbl(iter, ~quantile(r_squared(x[1:., , ]), 0.975))
@@ -186,6 +189,50 @@ g1 <- b_df %>%
   scale_x_log10() +
   ggtitle(TeX("A. Quantile $R^2$"))
 g1
+```
+
+Cramer Von Mises -- seems very noisy
+```{r}
+library(goftest)
+f_cvm <- function(x){
+  temp <- cvm.test(x, null = "pcauchy")
+  return(temp$p.value)
+}
+
+f_cvm_all_dims <- function(x, max_iter){
+  vals <- map_dbl(seq(1, 50, 1), ~f_cvm(x[1:max_iter, , .]))
+  return(vals)
+}
+
+fit <- readRDS("../output/fit_nominal_50000.rds")
+x <- rstan::extract(fit, permuted=F, pars="x", inc_warmup=T)
+cvm_min <- map_dbl(iter, ~mean(f_cvm_all_dims(x, .)))
+
+fit <- readRDS("../output/fit_alt_50000.rds")
+x <- rstan::extract(fit, permuted=F, pars="x", inc_warmup=T)
+cvm_min <- map_dbl(iter, ~mean(f_cvm_all_dims(x, .)))
+```
+
+Anderson-Darling test -- again, noisy
+```{r}
+library(goftest)
+f_ad <- function(x){
+  temp <- ad.test(x, null = "pcauchy")
+  return(temp$p.value)
+}
+
+f_ad_all_dims <- function(x, max_iter){
+  vals <- map_dbl(seq(1, 50, 1), ~f_ad(x[1:max_iter, , .]))
+  return(vals)
+}
+
+fit <- readRDS("../output/fit_nominal_50000.rds")
+x <- rstan::extract(fit, permuted=F, pars="x", inc_warmup=T)
+cvm_min <- map_dbl(iter, ~mean(f_ad_all_dims(x, .)<0.05))
+
+fit <- readRDS("../output/fit_alt_50000.rds")
+x <- rstan::extract(fit, permuted=F, pars="x", inc_warmup=T)
+cvm_min <- map_dbl(iter, ~mean(f_ad_all_dims(x, .)<0.05))
 ```
 
 Progression of R*
@@ -230,6 +277,12 @@ g2 <-
   ggtitle(TeX("D. Split-$R^*$"))
 g2
 ```
+
+Progression of R* with ranked samples instead
+```{r}
+
+```
+
 
 Rhat
 ```{r}
@@ -388,51 +441,4 @@ multiplot(g1, g4, g5, g3, g2, g6, cols = 2)
 dev.off()
 ```
 
-Look at quantile accuracy for models converged by R* and Rhat
-```{r}
-fit <- readRDS("../output/fit_alt_50000.rds")
-x <- rstan::extract(fit, permuted=F, pars="x")
-quantile_errors <- function(x, lower=0.001){
-  print(dim(x))
-  qs <- seq(lower, 1-lower, lower)
-  q_actual <- map_dbl(qs, ~qcauchy(.))
-  errors <- matrix(nrow = length(qs),
-                   ncol=dim(x)[3])
-  for(i in 1:50){
-    q_approx <- quantile(x[, , i], qs)
-    errors[, i] <- abs(q_actual - q_approx)
-  }
-  errors <- errors %>% 
-    as.data.frame() %>% 
-    mutate(q=0.5-abs(0.5-qs)) %>% 
-    melt(id.vars="q")
-  return(errors)
-}
-
-errors_df <- quantile_errors(x, lower=0.001)
-errors_df %>% 
-  ggplot(aes(x=q, y=value)) +
-  geom_jitter(width = 0.05) +
-  scale_x_log10() +
-  scale_y_log10() +
-  geom_smooth(method="lm") +
-  xlab("Distance from centre") +
-  ylab("Error")
-
-aLM <- lm(data=errors_df, formula="log(value)~log(q)")
-summary(aLM)
-
-errors_df <- quantile_errors(x[1:iter[8], , ], lower=0.001)
-errors_df %>% 
-  ggplot(aes(x=q, y=value)) +
-  geom_jitter(width = 0.05) +
-  scale_x_log10() +
-  scale_y_log10() +
-  geom_smooth(method="lm") +
-  xlab("Distance from centre") +
-  ylab("Error")
-
-bLM <- lm(data=errors_df, formula="log(value)~log(q)")
-summary(bLM)
-```
 
