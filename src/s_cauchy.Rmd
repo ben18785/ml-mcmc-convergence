@@ -50,7 +50,7 @@ a_df <- tibble(nominal=r_star_nom,
                alt=r_star_alt,
                source="r_star") %>% 
   bind_rows(a_rhat_df) %>% 
-  mutate(source=if_else(source=="r_star", "R*", "Rhat"))
+  mutate(source=if_else(source=="r_star", "R*", "split-Rhat"))
 g <-
   a_df %>% 
   melt() %>% 
