@@ -22,7 +22,7 @@ library(tidyverse)
 #' @references Ben Lambert, Aki Vehtari (2020) R*: A robust MCMC convergence
 #' diagnostic with uncertainty using gradient-boosted machines
 #' \emph{arXiv preprint} \code{arXiv:TBD}
-r_star <- function(x, split_chains=T, training_percent=0.7, caret_default=NA){
+r_star <- function(x, split_chains=T, training_percent=0.7, caret_default=NULL){
   
   if(split_chains)
     x <- split_data(x)
@@ -54,7 +54,7 @@ r_star <- function(x, split_chains=T, training_percent=0.7, caret_default=NA){
   training_data <- r[rand_samples, ]
   testing_data <- r[-rand_samples, ]
   
-  if(is.na(caret_default))
+  if(is.null(caret_default))
     caretGrid <- expand.grid(interaction.depth=c(3), 
                              n.trees = 50,
                              shrinkage=c(0.1),
@@ -96,7 +96,7 @@ r_star <- function(x, split_chains=T, training_percent=0.7, caret_default=NA){
 #' @references Ben Lambert, Aki Vehtari (2020) R*: A robust MCMC convergence
 #' diagnostic with uncertainty using gradient-boosted machines
 #' \emph{arXiv preprint} \code{arXiv:TBD}
-r_star_dist <- function(x, split_chains=T, training_percent=0.7, caret_default=NA, nsim=1000){
+r_star_dist <- function(x, split_chains=T, training_percent=0.7, caret_default=NULL, nsim=1000){
   
   if(split_chains)
     x <- split_data(x)
@@ -124,7 +124,7 @@ r_star_dist <- function(x, split_chains=T, training_percent=0.7, caret_default=N
   training_data <- r[rand_samples, ]
   testing_data <- r[-rand_samples, ]
   
-  if(is.na(caret_default))
+  if(is.null(caret_default))
     caretGrid <- expand.grid(interaction.depth=c(3), 
                              n.trees = 50,
                              shrinkage=c(0.1),

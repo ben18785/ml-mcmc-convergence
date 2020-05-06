@@ -10,4 +10,5 @@ To rerun the examples in the paper, execute the following files in the src folde
 - `s_cauchy.Rmd`
 - `s_trends.Rmd`
 - `s_eight_schools.Rmd`
+- `s_ovarian_prostate.Rmd`
 

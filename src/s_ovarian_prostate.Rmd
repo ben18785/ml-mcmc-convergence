@@ -47,7 +47,8 @@ fit <- sampling(model, data=data, chains=4, iter=9000, warmup=1000,
 saveRDS(fit, "../data/ovarian_long.rds")
 fit <- readRDS("../data/ovarian_long.rds")
 
-mon <- monitor(fit)
+x <- rstan::extract(fit, permuted=F)
+mon <- monitor_extra(split_data(x))
 saveRDS(mon, "../data/ovarian_long_mon.rds")
 full_data <- rstan::extract(fit, permuted=F)
 r_star <- r_star_dist(full_data)
@@ -61,7 +62,8 @@ fit <- sampling(model, data=data, chains=16, iter=1000, warmup=500,
 saveRDS(fit, "../data/ovarian_short.rds")
 fit <- readRDS("../data/ovarian_short.rds")
 
-mon <- monitor(fit)
+x <- rstan::extract(fit, permuted=F)
+mon <- monitor_extra(split_data(x))
 saveRDS(mon, "../data/ovarian_short_mon.rds")
 full_data <- rstan::extract(fit, permuted=F)
 r_star <- r_star_dist(full_data)
@@ -78,11 +80,11 @@ mon_shorter <- readRDS("../data/ovarian_short_mon.rds")
 
 
 g <- tibble(long=r_star_longer, short=r_star_shorter, metric="A. R*") %>% 
-  bind_rows(tibble(long=mon_longer$Rhat, short=mon_shorter$Rhat, metric="B. Rhat")) %>% 
-  bind_rows(tibble(long=mon_longer$Bulk_ESS, short=mon_shorter$Bulk_ESS, metric="C. Bulk ESS")) %>% 
-  bind_rows(tibble(long=mon_longer$Tail_ESS, short=mon_shorter$Tail_ESS, metric="D. Tail ESS")) %>% 
+  bind_rows(tibble(long=mon_longer$zsRhat, short=mon_shorter$zsRhat, metric="B. split-Rhat")) %>% 
+  bind_rows(tibble(long=mon_longer$zsseff, short=mon_shorter$zsseff, metric="C. Bulk ESS")) %>% 
+  bind_rows(tibble(long=mon_longer$tailseff, short=mon_shorter$tailseff, metric="D. Tail ESS")) %>% 
   melt(id.vars="metric") %>% 
-  mutate(metric=fct_relevel(as.factor(metric), "A. R*", "B. Rhat", "C. Bulk ESS", "D. Tail ESS")) %>% 
+  mutate(metric=fct_relevel(as.factor(metric), "A. R*", "B. split-Rhat", "C. Bulk ESS", "D. Tail ESS")) %>% 
   ggplot(aes(x=value, fill=as.factor(variable))) +
   geom_histogram(position="identity", alpha=0.6) +
   facet_wrap(~metric, scales="free") +
@@ -97,7 +99,6 @@ ggsave("../output/ovarian.pdf", g, width = 12, height = 8)
 ```
 
 # Prostate
-
 ```{r}
 prostate <- read.csv("../data/prostate.csv", header=FALSE)
 
@@ -126,7 +127,8 @@ fit <- sampling(model, data=data, chains=4, iter=9000, warmup=1000,
 saveRDS(fit, "../data/prostate_long.rds")
 fit <- readRDS("../data/prostate_long.rds")
 
-mon <- monitor(fit)
+x <- rstan::extract(fit, permuted=F)
+mon <- monitor_extra(split_data(x))
 saveRDS(mon, "../data/prostate_long_mon.rds")
 full_data <- rstan::extract(fit, permuted=F)
 
@@ -143,7 +145,8 @@ fit <- sampling(model, data=data, chains=16, iter=1000, warmup=500,
 saveRDS(fit, "../data/prostate_short.rds")
 fit <- readRDS("../data/prostate_short.rds")
 
-mon <- monitor(fit)
+x <- rstan::extract(fit, permuted=F)
+mon <- monitor_extra(split_data(x))
 saveRDS(mon, "../data/prostate_short_mon.rds")
 full_data <- rstan::extract(fit, permuted=F)
 r_star <- r_star_dist(full_data[, , seq(1, 18106, 5)])
@@ -161,11 +164,11 @@ mon_shorter <- readRDS("../data/prostate_short_mon.rds")
 my_breaks <- function(x) { if (max(x) < 10) c(0.95, max(x)) else c(0, max(x)) }
 
 g <- tibble(long=r_star_longer, short=r_star_shorter, metric="A. R*") %>% 
-  bind_rows(tibble(long=mon_longer$Rhat, short=mon_shorter$Rhat, metric="B. Rhat")) %>% 
-  bind_rows(tibble(long=mon_longer$Bulk_ESS, short=mon_shorter$Bulk_ESS, metric="C. Bulk ESS")) %>% 
-  bind_rows(tibble(long=mon_longer$Tail_ESS, short=mon_shorter$Tail_ESS, metric="D. Tail ESS")) %>% 
+  bind_rows(tibble(long=mon_longer$zsRhat, short=mon_shorter$zsRhat, metric="B. split-Rhat")) %>% 
+  bind_rows(tibble(long=mon_longer$zsseff, short=mon_shorter$zsseff, metric="C. Bulk ESS")) %>% 
+  bind_rows(tibble(long=mon_longer$tailseff, short=mon_shorter$tailseff, metric="D. Tail ESS")) %>% 
   melt(id.vars="metric") %>% 
-  mutate(metric=fct_relevel(as.factor(metric), "A. R*", "B. Rhat", "C. Bulk ESS", "D. Tail ESS")) %>% 
+  mutate(metric=fct_relevel(as.factor(metric), "A. R*", "B. split-Rhat", "C. Bulk ESS", "D. Tail ESS")) %>% 
   ggplot(aes(x=value, fill=as.factor(variable))) +
   geom_histogram(position="identity", alpha=0.6) +
   facet_wrap(~metric, scales="free") +

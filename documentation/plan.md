@@ -79,13 +79,13 @@
 * [x] Figure 13:
   * [x] could we have also histograms for max Rhat? Done for the individual Rhat parameters.
 * [ ] Introduction: mention rank plots, which are univariate and classification is made by eye
-* [ ] Figure 14:
-  * [ ] What happens if long chains are used but thinning is employed?
-* [ ] Show how robust R* is to hyperparameter choice
+* [x] Figure 14:
+  * [x] What happens if long chains are used but thinning is employed?
+* [x] Show how robust R* is to hyperparameter choice: done for AR1 model
 * [ ] Reference ABC forest paper
-* [ ] Run:
-  * [ ] Ovarian
-  * [ ] Prostate
+* [x] Run:
+  * [x] Ovarian
+  * [x] Prostate
 
 ## Clean up example notebooks
 
@@ -115,9 +115,9 @@
   - [x] Runs monitor to calculate Rhat? Done
   - [x] Split Rhat?
   - [x] Rank-normaled split-Rhat?
-- [ ] s_ovarian_prostate
-  - [ ] Runs monitor to calculate Rhat?
-  - [ ] Rank-normaled split-Rhat?
+- [x] s_ovarian_prostate
+  - [x] Runs monitor to calculate Rhat?
+  - [x] Rank-normaled split-Rhat?
 
 
 

@@ -155,3 +155,90 @@ pdf("../output/ar1.pdf", width = 12, height = 6)
 multiplot(g1, g2a, g2, g3, cols = 2)
 dev.off()
 ```
+
+# Show performance as a function of hyperparameters
+```{r}
+caretGrid <- expand.grid(interaction.depth=c(3), n.trees = 50,
+                   shrinkage=c(0.1),
+                   n.minobsinnode=10)
+caretGrid1 <- expand.grid(interaction.depth=c(5), n.trees = 50,
+                   shrinkage=c(0.1),
+                   n.minobsinnode=10)
+caretGrid2 <- expand.grid(interaction.depth=c(3), n.trees = 100,
+                   shrinkage=c(0.1),
+                   n.minobsinnode=10)
+caretGrid3 <- expand.grid(interaction.depth=c(5), n.trees = 100,
+                   shrinkage=c(0.1),
+                   n.minobsinnode=10)
+caretGrid4 <- expand.grid(interaction.depth=c(7), n.trees = 100,
+                   shrinkage=c(0.1),
+                   n.minobsinnode=10)
+caretGrid5 <- expand.grid(interaction.depth=c(7), n.trees = 200,
+                   shrinkage=c(0.1),
+                   n.minobsinnode=10)
+lgrids <- list(caretGrid, caretGrid1, caretGrid2, caretGrid3, caretGrid4, caretGrid5)
+f_replicate_hyper <- function(lgrids){
+  temp <- f_generate_lower_var_four(1/3, 0.3, 1, 1000)
+  a_array <- array(dim=c(1000, 4, 1))
+  a_array[,,1] <- temp
+  laccuracy <- vector(length = length(lgrids))
+  for(i in seq_along(lgrids))
+    laccuracy[i] <- r_star(a_array, caret_default=lgrids[[i]])
+  return(laccuracy)
+}
+
+nreplicates <- 200
+r_star_vals <- matrix(nrow = nreplicates, ncol=length(lgrids))
+for(i in 1:nreplicates){
+  if(i%%100==0)
+    print(i)
+  
+  temp <- f_replicate_hyper(lgrids)
+  r_star_vals[i, ] <- temp
+}
+
+saveRDS(r_star_vals, "../data/ar1_sensitivity.rds")
+
+b_sum <-
+  r_star_vals %>% 
+  as.data.frame() %>% 
+  mutate(iterate=seq(1, nreplicates, 1)) %>%
+  melt(id.vars="iterate") %>% 
+  mutate(below=if_else(value < 1, 1, 0)) %>% 
+  group_by(variable) %>% 
+  summarise(below_per=round(mean(below)*100, 1),
+            lower=quantile(value, 0.25),
+            upper=quantile(value, 0.75),
+            middle=median(value)) %>%
+  mutate(below_per=paste0(below_per, "%")) %>% 
+  mutate(x_pos=seq(1, 6, 1)) %>% 
+  mutate(y_pos=0.95)
+
+
+g <- r_star_vals %>% 
+  as.data.frame() %>% 
+  mutate(iterate=seq(1, nreplicates, 1)) %>% 
+  melt(id.vars="iterate") %>% 
+  mutate(below=if_else(value < 1, 0, 1)) %>% 
+  left_join(b_sum, by = "variable") %>% 
+  mutate(variable=case_when(variable=="V1"~"int.depth=3\nn.trees=50",
+                            variable=="V2"~"int.depth=5\nn.trees=50",
+                            variable=="V3"~"int.depth=3\nn.trees=100",
+                            variable=="V4"~"int.depth=5\nn.trees=100",
+                            variable=="V5"~"int.depth=7\nn.trees=100",
+                            variable=="V6"~"int.depth=7\nn.trees=200")) %>% 
+  ggplot(aes(x=as.factor(variable), y=value, colour=as.factor(below))) +
+  geom_jitter() +
+  xlab("Hyperparameters") +
+  ylab("R*") +
+  geom_hline(yintercept = 1, linetype=2) +
+  annotate("text", x = b_sum$x_pos, y = b_sum$y_pos, label = b_sum$below_per, size=5) +
+  annotate("pointrange", x = 1:6, ymin=b_sum$lower, ymax=b_sum$upper, y = b_sum$middle, colour="black", size=1) +
+  coord_flip() +
+  scale_color_grey() +
+  theme(axis.text = element_text(colour="black", size=12),
+        axis.title = element_text(colour="black", size=14),
+        legend.position = "none")
+ggsave("../output/ar1_sensitivity.pdf", g, width = 12, height = 8)
+```
+
