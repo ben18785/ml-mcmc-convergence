@@ -42,8 +42,8 @@ f_generate_lower_var_four <- function(var_ratio, rho, sigma, L){
 Calculate R* and Rhat across 1000 replicates
 ```{r}
 f_replicate <- function(){
-  temp <- f_generate_lower_var_four(1/3, 0.3, 1, 1000)
-  a_array <- array(dim=c(1000, 4, 1))
+  temp <- f_generate_lower_var_four(1/3, 0.3, 1, 2000)
+  a_array <- array(dim=c(2000, 4, 1))
   a_array[,,1] <- temp
   a_accuracy <- r_star(a_array)
   mon <- monitor_extra(split_data(a_array))
@@ -89,11 +89,11 @@ g2a <- tibble(accuracy=r_hat_vals, iteration=seq(1, nreplicates, 1)) %>%
 Look at predictions of model
 ```{r}
 # add in a column of noise since gbm requires >1 variables
-full_data <- f_generate_lower_var_four(1/3, 0.3, 1, 1000) %>% 
+full_data <- f_generate_lower_var_four(1/3, 0.3, 1, 2000) %>% 
   melt() %>% 
   select(-Var1) %>% 
   rename(chain=Var2) %>% 
-  mutate(ran_val=rnorm(4000)) %>% 
+  mutate(ran_val=rnorm(8000)) %>% 
   mutate(chain=as.factor(chain))
 
 caretGrid <- expand.grid(interaction.depth=c(3), n.trees = 50,
@@ -121,18 +121,18 @@ g1 <- testing_data %>%
 ```
 
 
-Generate R* distribution based on 1000 iterations for run where chain has lower variance and another where all four chains have same variance
+Generate R* distribution based on 2000 iterations for run where chain has lower variance and another where all four chains have same variance
 ```{r}
-temp <- f_generate_lower_var_four(1/3, 0.3, 1, 1000) 
-temp1 <- matrix(rnorm(4000), nrow = 1000)
-a_array <- array(dim=c(1000, 4, 2))
+temp <- f_generate_lower_var_four(1/3, 0.3, 1, 2000) 
+temp1 <- matrix(rnorm(8000), nrow = 2000)
+a_array <- array(dim=c(2000, 4, 2))
 a_array[,,1] <- temp
 a_array[,,2] <- temp1
 unmixed <- r_star_dist(a_array)
 
-temp <- f_generate_lower_var_four(1, 0.3, 1, 1000)
-temp1 <- matrix(rnorm(4000), nrow = 1000)
-a_array <- array(dim=c(1000, 4, 2))
+temp <- f_generate_lower_var_four(1, 0.3, 1, 2000)
+temp1 <- matrix(rnorm(8000), nrow = 1000)
+a_array <- array(dim=c(2000, 4, 2))
 a_array[,,1] <- temp
 a_array[,,2] <- temp1
 mixed <- r_star_dist(a_array)
@@ -211,6 +211,13 @@ b_sum <-
             upper=quantile(value, 0.75),
             middle=median(value)) %>%
   mutate(below_per=paste0(below_per, "%")) %>% 
+  mutate(variable=case_when(variable=="V1"~"int.depth=3\nn.trees=50",
+                            variable=="V2"~"int.depth=5\nn.trees=50",
+                            variable=="V3"~"int.depth=3\nn.trees=100",
+                            variable=="V4"~"int.depth=5\nn.trees=100",
+                            variable=="V5"~"int.depth=7\nn.trees=100",
+                            variable=="V6"~"int.depth=7\nn.trees=200")) %>% 
+  arrange(variable) %>% 
   mutate(x_pos=seq(1, 6, 1)) %>% 
   mutate(y_pos=0.95)
 
@@ -220,13 +227,13 @@ g <- r_star_vals %>%
   mutate(iterate=seq(1, nreplicates, 1)) %>% 
   melt(id.vars="iterate") %>% 
   mutate(below=if_else(value < 1, 0, 1)) %>% 
-  left_join(b_sum, by = "variable") %>% 
   mutate(variable=case_when(variable=="V1"~"int.depth=3\nn.trees=50",
                             variable=="V2"~"int.depth=5\nn.trees=50",
                             variable=="V3"~"int.depth=3\nn.trees=100",
                             variable=="V4"~"int.depth=5\nn.trees=100",
                             variable=="V5"~"int.depth=7\nn.trees=100",
                             variable=="V6"~"int.depth=7\nn.trees=200")) %>% 
+  left_join(b_sum, by = "variable") %>%
   ggplot(aes(x=as.factor(variable), y=value, colour=as.factor(below))) +
   geom_jitter() +
   xlab("Hyperparameters") +
