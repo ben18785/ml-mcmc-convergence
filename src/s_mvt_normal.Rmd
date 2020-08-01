@@ -152,8 +152,8 @@ ga <-
   a_df %>% 
   melt() %>% 
   ggplot(aes(x=value, fill=fct_relevel(as.factor(variable), "samples_400", "samples_10000_cp", "samples_10000_ncp"))) +
-  geom_histogram(position="identity", alpha=0.8, bins=20) +
-  scale_fill_grey("# of draws", labels=c("400, cp", "10000, cp", "10000, ncp")) +
+  geom_histogram(position="identity", alpha=0.8, bins=50) +
+  scale_fill_grey("# of draws", labels=c("400, cp", "10,000, cp", "10,000, ncp")) +
   xlab(TeX("$R*$")) +
   ylab("Count") +
   geom_vline(xintercept = 1, linetype=2) +
@@ -165,8 +165,8 @@ ga2 <-
   b_df %>% 
   melt() %>% 
   ggplot(aes(x=value, fill=fct_relevel(as.factor(variable), "samples_400", "samples_10000_cp", "samples_10000_ncp"))) +
-  geom_histogram(position="identity", alpha=0.8, bins=20) +
-  scale_fill_grey("# of draws", labels=c("400, cp", "10000, cp", "10000, ncp")) +
+  geom_histogram(position="identity", alpha=0.8, bins=60) +
+  scale_fill_grey("# of draws", labels=c("400, cp", "10,000, cp", "10,000, ncp")) +
   xlab(TeX("split-$\\hat{R}$")) +
   ylab("Count") +
   geom_vline(xintercept = 1, linetype=2) +

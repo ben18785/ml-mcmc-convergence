@@ -114,6 +114,15 @@
 \newcommand{\Var}{\textrm{Var}}
 \newcommand{\LF}{\mathrm{Leapfrog}}
 
+\newcommand{\beginsupplement}{%
+	\setcounter{table}{0}
+	\renewcommand{\thetable}{S\arabic{table}}%
+	\setcounter{figure}{0}
+	\renewcommand{\thefigure}{S\arabic{figure}}%
+	\setcounter{section}{0}
+	\renewcommand{\thesection}{S\arabic{section}}%
+}
+
 \title{$R^*$: A robust MCMC convergence diagnostic with uncertainty using gradient-boosted machines}
 
 % The \author macro works with any number of authors. There are two commands
@@ -180,7 +189,7 @@ If Markov chains have not mixed, it is possible to determine to which chain a dr
 	\label{fig:joint}
 \end{figure}
 
-These two cases, whilst simple, illustrate the basis of our approach. To determine if a set of Markov chains has converged to the same distribution, we train a supervised machine learning (ML) model to classify the chain to which each draw belongs. By evaluating its performance on an independent test set, we delineate whether chains have mixed based on whether classification accuracy is above the ``null'' case, where accuracy is $1/{N}$, and $N$ is the number of chains. By taking the ratio of ML accuracy to this null accuracy, we obtain a statistic that is interpretable in a similar way to $\widehat{R}$ \citep{gelman2013bayesian}. In a nod to this established statistic, we call our statistic $R^*$, and, by design, $R^*\approx 1$ signifies convergence. Algorithm \ref{alg:R_star} gives a recipe for calculating $R^*$.
+These two cases, whilst simple, illustrate the basis of our approach. To determine if a set of Markov chains has converged to the same distribution, we train a supervised machine learning (ML) model to classify the chain to which each draw belongs. By evaluating its performance on a separate test set, we delineate whether chains have mixed based on whether classification accuracy is above the ``null'' case, where accuracy is $1/{N}$, and $N$ is the number of chains. By taking the ratio of ML accuracy to this null accuracy, we obtain a statistic that is interpretable in a similar way to $\widehat{R}$ \citep{gelman2013bayesian}. In a nod to this established statistic, we call our statistic $R^*$, and, by design, $R^*\approx 1$ signifies convergence. Algorithm \ref{alg:R_star} gives a recipe for calculating $R^*$.
 
 \begin{algorithm}[tb]
 	\caption{$R^*$ calculation}
@@ -230,7 +239,22 @@ From the GBM fit, predicted chain probabilities can also be obtained, which we l
 \end{algorithm}
 
 \section{Results}\label{sec:results}
-To illustrate the versatility of $R^*$, we use a range of examples that demonstrate how this statistic fares across a range of scenarios.
+To illustrate the versatility of $R^*$, we use a range of examples that demonstrate how this statistic fares across a range of scenarios. Table \ref{tab:results} summarises the examples and provides a rationale for their inclusion. Alongside the examples included in the main text, there are a number of supplementary text examples: in \S\ref{sec:wide}, we illustrate how $R^*$ can provide a reasonable measure of convergence when the number of dimensions of a distribution is comparable to the number of samples; in \S\ref{sec:non-stationary}, we illustrate the importance of splitting chains before calculating $R^*$ to ensure poor within-chain is diagnosed; in \S\ref{sec:prostate}, we show that $R^*$ performs well for a Bayesian logistic regression problem with a large number of parameters and a highly multimodal posterior.
+
+\begin{table}[]
+	\begin{tabular}{l|l|l}
+		Example &  Relevance & Section \\
+		\midrule
+		Autoregressive & Heterogeneous chain variance & \ref{sec:heterogeneity} \\
+		Bivariate normal & Converged marginals but unconverged joint distribution &  \ref{sec:multivariate_normal}\\
+		250D normal & High correlations between dims & \ref{sec:multivariate_normal}\\
+		Wide multivariate normal & \# samples $\sim$ \# dims & \ref{sec:wide}\\
+		Cauchy & Long-tailed distribution & \ref{sec:cauchy}\\
+		Non-stationary marginals & Time-varying sampling distribution & \ref{sec:non-stationary}\\
+		Eight schools model & Hierarchical Bayesian model slow convergence & \ref{sec:eight_shools}\\
+		Ovarian and prostate models & Bayesian models with many parameters & \ref{sec:prostate}
+	\end{tabular}\caption{\textbf{Summarising the example problems and reasons for their inclusion.}}\label{tab:results}
+\end{table}
 
 \subsection{Heterogeneity in chain variance: autoregressive example}\label{sec:heterogeneity}
 We generate four Markov chains, where each samples from an autoregressive order 1 (AR(1)) process of the form,
@@ -245,12 +269,14 @@ To illustrate the consistency of $R^*$, we perform 1000 replicates where, in eac
 
 \begin{figure}[!htb]
 	\centerline{\includegraphics[width=1.0\textwidth]{../output/ar1.pdf}}
-	\caption{\textbf{Autoregressive example.} A shows how the GBM's classifications vary according to the draw's value for an example model fit; B shows 1000 $R^*$ draws as generated by Algorithm \ref{alg:R_star_uncertainty} across 1000 replicates; C shows corresponding rank-normalised split-$\widehat{R}$ values as calculated in \cite{vehtari2019rank} for each of the 1000 replicates; and D shows the $R^*$ distributions for the two series described in the text. See the R markdown file on the Github repository for code to reproduce this example.}
+	\caption{\textbf{Autoregressive example.} A shows how the GBM's classifications vary according to the draw's value for an example model fit; B shows 1000 $R^*$ draws as generated by Algorithm \ref{alg:R_star_uncertainty} across 1000 replicates; C shows corresponding rank-normalised split-$\widehat{R}$ values as calculated in \cite{vehtari2019rank} for each of the 1000 replicates; and D shows the $R^*$ distributions for two series, the first being the same as used for figures A-C; the second where all chains have the same distribution as described in \S\ref{sec:heterogeneity_uncertainty}. See the R markdown file on the Github repository for code to reproduce this example.}
 	\label{fig:ar1}
 \end{figure}
 
-Since GBMs return a probability simplex for each draw, which, for each chain, indicates the probability that the draw was generated by it, we can also generate a measure of uncertainty in $R^*$. Algorithm \ref{alg:R_star_uncertainty} describes in detail how this can be done. We demonstrate this idea using two datasets: one generated as described above, where one chain (out of four) has a lower variance than the others (we call this the ``unconverged'' data); and another, where all chains sample from the same distribution (we call this the ``converged'' data). In Fig. \ref{fig:ar1}D, we show the $R^*$ distributions in each case. For the unconverged data, the distribution has its bulk of mass away from 1, indicating lack of convergence. For the converged data, the distribution is centred on 1, indicating convergence. 
+\subsubsection{Uncertainty distribution for $R^*$}\label{sec:heterogeneity_uncertainty}
+Since GBMs return a probability simplex for each draw, which, for each chain, indicates the probability that the draw was generated by it, we can also generate a measure of uncertainty in $R^*$. Algorithm \ref{alg:R_star_uncertainty} describes in detail how this can be done. We demonstrate this idea using two datasets: one generated as described above, where one chain (out of four) has a lower variance than the others (we call this the ``unconverged'' data); and another, where all chains sample from the same distribution (we call this the ``converged'' data). In Fig. \ref{fig:ar1}D, we show the $R^*$ distributions in each case. For the unconverged data, the distribution has its bulk of mass away from 1, indicating lack of convergence. For the converged data, the distribution is centred on 1, indicating convergence. In the converged case, there are many draws where $R^*<1$: these indicate that, in that particular draw from the probability simplex, chain classification is actually worse than selecting a chain identification uniformly at random. Much like how it is possible for $\hat{R}<1$, this is a sample property, driven by the underlying uncertainty when sampling from the categorical distribution defined by the probability simplex.
 
+\subsubsection{Robustness to hyperparameter choice}\label{sec:heterogeneity_robustness}
 The performance of GBM, like all ML methods, depends on its hyperparameters. To investigate the robustness of $R^*$ to the GBM hyperparameter choice, we performed a sensitivity analysis. In this, we fit GBMs with six different sets of hyperparameters to replicates consisting of the same data used to generate Fig. \ref{fig:ar1}. The hyperparameters we varied were the interaction depth (3, 5 or 7) and the number of trees (50, 100 or 200). The resultant $R^*$ point estimates across 200 replicates for each hyperparameter setting are shown in Fig. \ref{fig:ar1_sensitivity}. These show that hyperparameter choice affects $R^*$, with the highest median values obtained for an interaction depth of 3 with 50 trees (our default across all the examples we consider in this paper). This analysis does suggest, however, that this effect is relatively minor: indeed, across the various hyperparameter sets considered, the percentage of replicates where $R^*<1$ did not strongly vary.
 
 \begin{figure}[!htb]
@@ -261,9 +287,9 @@ The performance of GBM, like all ML methods, depends on its hyperparameters. To 
 
 
 \subsection{Diagnosing convergence in joint distributions: multivariate normal models}\label{sec:multivariate_normal}
-To illustrate how $R^*$ can diagnose convergence issues in the joint target distribution, we consider a bivariate normal density. In all 4 chains, we use independent sampling to generate 1000 draws from bivariate normal densities with means of zero; in three of these chains, the covariance matrix is an identity matrix; in one chain, the covariance matrix also has unit diagonal terms but has off-diagonal terms of 0.9, indicating strong covariance between the two dimensions. By construction, all chains target the same marginal distribution in each dimension but the fourth chain has a different joint distribution.
+To illustrate how $R^*$ can diagnose convergence issues in the joint target distribution, we consider a bivariate normal density. In all four chains, we use independent sampling to generate 1000 draws from bivariate normal densities with means of zero; in three of these chains, the covariance matrix is an identity matrix; in one chain, the covariance matrix also has unit diagonal terms but has off-diagonal terms of 0.9, indicating strong covariance between the two dimensions. By construction, all chains target the same marginal distribution in each dimension but the fourth chain has a different joint distribution.
 
-First, we use the code provided in \cite{vehtari2019rank} to calculate rank-normalised $\widehat{R}$ and two different ESS measures, aiming to capture how well certain regions of the posterior have been explored: these are known as bulk-ESS and tail ESS. In all cases, the various quantities were calculated based on chains split into halves. For both dimensions, the two ESS measures were above 3700, and $\widehat{R}<1.001$, indicating no issues with convergence.
+First, we use the code provided in \cite{vehtari2019rank} to calculate rank-normalised $\widehat{R}$ and two different ESS measures, aiming to capture how well certain regions of the posterior have been explored: these are known as bulk-ESS and tail-ESS. In all cases, the various quantities were calculated based on chains split into halves. For both dimensions, the two ESS measures were above 3700, and $\widehat{R}<1.001$, indicating no issues with convergence.
 
 Next, we estimate the $R^*$ distribution using Algorithm \ref{alg:R_star_uncertainty}, which is shown in Fig. \ref{fig:bivariate}. The mean of this distribution is 1.18, and all $R^*$ draws are above 1, indicating that the sampling distribution has not converged. By taking account of all the information in the chains, $R^*$ is able to probe issues in joint distribution convergence which are missed by measures that consider only marginals.
 
@@ -273,6 +299,7 @@ Next, we estimate the $R^*$ distribution using Algorithm \ref{alg:R_star_uncerta
 	\label{fig:bivariate}
 \end{figure}
 
+\subsubsection{250-dimensional model}
 We next consider a more challenging problem -- a 250-dimensional multivariate normal target where its precision matrix, $\boldsymbol{A}\in\mathbb{R}^{250}\times\mathbb{R}^{250}$, is generated from a Wishart distribution \citep{hoffman2014no}. We assume that the Wishart distribution's degrees of freedom is 250, resulting in a distribution with high correlations between dimensions. We use Stan's NUTS algorithm to sample from this target distribution, and run the algorithm for two different iteration counts (each time across 4 chains): 400 and 10,000 (the latter thinned by a factor of 5). First, we used Stan to sample from the ``centered'' parameterisation of this model, which is of the form,
 %
 \begin{equation}\label{eq:mvt_normal_250}
@@ -291,34 +318,16 @@ z_j\sim \mathcal{N}(0, 1), \text{ for } j = 1,2,...,250.
 %
 where $\boldsymbol{L}$ is the Cholesky decomposition of the covariance matrix, $\boldsymbol{A}^{-1}$. Fig. \ref{fig:mvt}A shows the $R^*$ distribution resultant from 10,000 NUTS iterations in this case: now the distribution is closer to $R^*=1$ (mean $R^*=1.00$). Fig. \ref{fig:mvt}B shows the $\widehat{R}$ values for each $x$ parameter in this model, and, echoing the result for $R^*$, $\widehat{R}<1.01$ in all cases; further, bulk- and tail-$\text{ESS}>400$ for all parameters.
 
+\subsubsection{Variable importance}
 In GBMs, it is possible to calculate variable importance (see, for example, \cite{friedman2001greedy} and \cite{greenwell2019package}), and this allows us to determine which variables were most informative for predictions. We now compare these with the more established metrics $\widehat{R}$ and ESS. For a GBM fitted to the centered model with 10,000 MCMC iterations (thinning by a factor of 5) for each chain, we plot in Fig. \ref{fig:mvt}C variable importance (here high values mean a variable is more important) versus $\widehat{R}$ for all dimensions of the target distribution (including Stan's $lp$ quantity, shown as a triangle). From this plot, there was a positive association between GBM's variable importance and $\widehat{R}$ (Spearman's rank correlation: $\rho=0.33, S=1763958, p<0.01$). In Fig.  \ref{fig:mvt}D, we plot variable importance versus two measures: bulk-ESS and tail-ESS, which both exhibited a strong non-linear negative association (Spearman's rank correlation: bulk-ESS: $\rho=-0.57, S=4142470, p<0.01$; tail-ESS: $\rho=-0.56, S=4113709, p<0.01$). Since none of these plots form perfect ``lines'' along which all the plotted points fall, this illustrates that variable importance provides information complementary to $\widehat{R}$ and ESS.
 
 \begin{figure}[!htb]
 	\centerline{\includegraphics[width=1\textwidth]{../output/mvt_three.pdf}}
-	\caption{\textbf{Multivariate normal example with 250 dimensions.} A shows $R^*$ distributions obtained for two MCMC samples (of differing numbers of draws: 400 and 1000) from the centered parameterisation (``cp'') and one from the non-centered version (``ncp''; with 1000 draws); B shows the rank-normalised split-$\widehat{R}$ values for all parameters from the same MCMC runs as in A; C shows variable importance versus $\widehat{R}$ for each parameter; and D shows variable importance versus bulk- and tail-ESS as calculated by \cite{vehtari2019rank}. In A, 1000 $R^*$ draws by Algorithm \ref{alg:R_star_uncertainty} are shown for each MCMC run. In plots B and C, horizontal jitter was added to the points and a loess fit line with standard errors overlaid. See the R markdown file on the Github repository for code to reproduce this example.}
+	\caption{\textbf{Multivariate normal example with 250 dimensions.} A shows $R^*$ distributions obtained for two MCMC samples (of differing numbers of draws: 400 and 10,000) from the centered parameterisation (``cp'') and one from the non-centered version (``ncp''; with 10,000 draws); B shows the rank-normalised split-$\widehat{R}$ values for all parameters from the same MCMC runs as in A; C shows variable importance versus $\widehat{R}$ for each parameter; and D shows variable importance versus bulk- and tail-ESS as calculated by \cite{vehtari2019rank}. In A, 1000 $R^*$ draws by Algorithm \ref{alg:R_star_uncertainty} are shown for each MCMC run. In plots B and C, horizontal jitter was added to the points and a loess fit line with standard errors overlaid. See the R markdown file on the Github repository for code to reproduce this example.}
 	\label{fig:mvt}
 \end{figure}
 
-\subsection{Wide datasets: multivariate normal}\label{sec:wide}
-As the number of parameter dimensions increases, it might be thought that ML algorithms will overfit the data, and, hence, testing set classification would be poor; leading to unreliable determinations of convergence. To test this hypothesis, we investigated two scenarios using a multivariate normal target. In the first of these, we used the 250-dimensional multivariate normal of eq. \eqref{eq:mvt_normal_250} with 250 post-warm-up iterations (after 250 warm-up iterations) for each of 4 chains from Stan's NUTS to calculate $R^*$ distributions as in Algorithm \ref{alg:R_star_uncertainty}. Here, we considered both the centered and non-centered parameterisations, where, in both cases, the number of iterations is comparable to the number of parameters, so the training data is relatively ``wide'': the $R^*$ distribution in each case is shown in Fig. \ref{fig:mvt_wide_both}A. In this figure, it is clear that both $R^*$ distributions are shifted away from 1, indicating non-convergence. The same conclusion is reached if rank-normalised split-$\widehat{R}$ is used instead (Fig. \ref{fig:wide_both_diagnostics}A), since, for both parameterisations, some of the parameters had $\widehat{R}>1.01$. Using bulk- or tail-ESS instead, we conclude that the non-centered parameterisation shows signs of convergence whereas the centered does not (Fig. \ref{fig:wide_both_diagnostics}B\&C). 
-
-\begin{figure}[!htb]
-	\centerline{\includegraphics[width=1\textwidth]{../output/mvt_wide_both.pdf}}
-	\caption{\textbf{Wide data examples.} A shows the $R^*$ distribution for the 250-dimensional example in \S\ref{sec:wide} with 250 post-warm-up iterations per chain from Stan's NUTS algorithm across both model parameterisations; B shows $R^*$ distribution for the 10,000-dimensional example with 400 and 1000 MCMC iterations per chain (although the first half of these were discarded as warm-up). In all cases, 1000 draws of $R^*$ are plotted as generated by Algorithm \ref{alg:R_star_uncertainty} for a single MCMC run composed of 4 chains. See the R markdown file on the Github repository for code to reproduce this example.}
-	\label{fig:mvt_wide_both}
-\end{figure}
-
-\begin{figure}[!htb]
-	\centerline{\includegraphics[width=1\textwidth]{../output/wide_both_diagnostics.pdf}}
-	\caption{\textbf{Wide data 250-dimensional example: established diagnostics.} The top row shows the results for the centered parameterisation; the bottom row for the non-centered. Column A shows split-$\widehat{R}$; columns B and C show the bulk- and tail-ESS; in each case the statistics are displayed for all model parameters and were calculated using 250 post-warm-up draws from Stan's NUTS algorithm. In both cases, the results correspond to a single MCMC run composed of 4 chains. See the R markdown file on the Github repository for code to reproduce this example.}
-	\label{fig:wide_both_diagnostics}
-\end{figure}
-
-We next consider a more challenging example -- a target distribution with 10,000 dimensions. In this case, we assume independent standard normals for each dimension. In Fig. \ref{fig:mvt_wide_both}B, we plot the $R^*$ distribution for two MCMC runs targeting this distribution: one with 400 iterations, the other with 1000. In both cases, the distributions were right of $R^*=1$, indicating non-convergence. These results were also echoed by rank-normalised split-$\widehat{R}$, with 65\% of dimensions having $\widehat{R}>1.01$ for the 400 iteration case and 19\% for the 1000 iteration case.
-
-Overall, the examples in this section suggest that $R^*$ is robust to wide datasets; we also note that the statistic took comparable time to calculate relative to existing convergence diagnostics on a desktop computer.
-
-\subsection{Infinite variance: Cauchy example}
+\subsection{Infinite variance: Cauchy example}\label{sec:cauchy}
 We next explore how $R^*$ can be used to determine convergence for distributions with infinite variance. Like \cite{vehtari2019rank}, we first use Stan to sample from independent standard Cauchy distributions for each element of a 50-dimensional vector $x$,
 %
 \begin{equation}
@@ -347,7 +356,8 @@ Since the $R^*$ distribution indicated non-convergence for both parameterisation
 	\label{fig:cauchy}
 \end{figure}
 
-To illustrate that $R^*$ provides a reliable metric for capturing convergence, we now calculate a quantitative measure that captures how closely a sampling distribution matches the target. One measure of distributional ``closeness'' is the KL-divergence, which, in this case, could be used to measure the divergence from target to sampling distribution: if the target distribution is known, fitting a kernel density estimator (KDE) to samples allows an approximate (typically univariate) measure of KL-divergence to be calculated for each dimension. The trouble is, for distributions like the Cauchy with fat tails, fitting a KDE to the samples provides a noisy measure of the sampling distribution in the tails. This means that approximate KL-divergence is unreliable for these types of model. Additionally, we found that the Anderson-Darling and Cram\'er-Von Mises tests \citep{faraway2019goftest} behaved equally erratically and provided measures that were hard to intuit; instead, we chose a measure of distributional discrepancy based around similarity between target quantiles and sample-estimated equivalents. Specifically, we calculate the $R^2$ for the regression of actual quantile values on sample-estimated quantiles, where, if $R^2\sim 1$, the sampling distribution recapitulates well the target quantities. In our example, we consider all percentiles: 0.1\%, 0.2\%,...,99.8\%, 99.9\% and calculate the mean $R^2$ across all 50 dimensions.
+\subsubsection{Measuring convergence objectively}
+To illustrate that $R^*$ provides a reliable metric for capturing convergence, we now calculate a quantitative measure that captures how closely a sampling distribution matches the target. One measure of distributional ``closeness'' is the KL-divergence, which, in this case, could be used to measure the divergence from target to sampling distribution: if the target distribution is known, fitting a kernel density estimator (KDE) to samples allows an approximate (typically univariate) measure of KL-divergence to be calculated for each dimension. The trouble is, for distributions like the Cauchy with fat tails, fitting a KDE to the samples provides a noisy measure of the sampling distribution in the tails. This means that approximate KL-divergence is unreliable for these types of model. We decided not to use the Kolmogorov-Smirnov (KS) test, since it is most sensitive to differences between distributions around the median, whereas, here, we are interested in the behaviour in the tails. Additionally, we found that the Anderson-Darling and Cram\'er-Von Mises tests \citep{faraway2019goftest}, which do not suffer the same shortcomings as the KS, behaved equally erratically and provided measures that were hard to intuit. The Wasserstein distance was also trialled but had great uncertainty due to the long-tails of the Cauchy. Instead, we chose a measure of distributional discrepancy based around similarity between target quantiles and sample-estimated equivalents. Specifically, we calculate the $R^2$ for the regression of actual quantile values on sample-estimated quantiles, where, if $R^2\sim 1$, the sampling distribution recapitulates well the target quantities. In our example, we consider all percentiles: 0.1\%, 0.2\%,...,99.8\%, 99.9\% and calculate the mean $R^2$ across all 50 dimensions.
 
 In Fig. \ref{fig:cauchy_convergence}A, we plot this ``quantile $R^2$'' as a function of MCMC sample size for both parameterisations of the Cauchy model. This shows that after c.10,000 iterations, the alternative parameterisation approaches $R^2\approx 1$; at the same number of iterations, the nominal parameterisation still provides a poor measure of tail quantiles. Next, in Fig. \ref{fig:cauchy_convergence}B and Fig. \ref{fig:cauchy_convergence}C, we plot two measures of $\widehat{R}$, each calculated from splitting the 4 original chains into two equal halves. The first of these measures is the rank-normalised $\widehat{R}$ \citep{vehtari2019rank}, which provides a separate measurement for each target dimension; in Fig. \ref{fig:cauchy_convergence}B, we show how the maximum of this measurement across all 50 dimensions changes with sample size. After c.550 iterations, the alternative parameterisation achieves $\widehat{R}<1.01$ for all target dimensions, and, after c.10,400 iterations, the nominal model achieves the same maximum $\widehat{R}$ value: in both cases, these suggest convergence. The second measure is multivariate $\widehat{R}$ \citep{brooks1998general}, which, like $R^*$, yields a single measurement across all dimensions; Fig. \ref{fig:cauchy_convergence}C shows how this metric changes with sample size for both Cauchy model parameterisations. After c. 1800 iterations, multivariate $\widehat{R}<1.01$ for the alternative parameterisation, whilst after 25,000 iterations multivariate $\widehat{R}>1.07$ indicating more draws are needed. In Fig. \ref{fig:cauchy_convergence}D, we plot $R^*$ against iteration for both models: these indicate that, after 25,000 iterations, $R^*\approx 1.05$ for the nominal model, and $R^*>2$ for the nominal parameterisation: both these $R^*$ values suggest lack of convergence. Finally, in Figs. \ref{fig:cauchy_convergence}E\&F, we plot the minimum across all the dimensions of tail- and bulk-ESS calculated as described in \cite{vehtari2019rank}. After c.180 iterations, the alternative parameterisation surpassed a tail-ESS of 400; after c.18,700, the nominal parameterisation did the same. Both models were quicker to pass 400 bulk-ESSs.
 
@@ -358,35 +368,6 @@ Comparing our ``omniscient'' measure of convergence shown in Fig. \ref{fig:cauch
 	\caption{\textbf{Measuring convergence for the Cauchy model.} A shows a measure of convergence, the mean quantile $R^2$, that requires knowing the target distribution; B shows the maximum value of split-$\widehat{R}$ across each of the 50 dimensions of the target; C shows the multivariate split-$\widehat{R}$ value; D shows the value of split-$R^*$ as calculated by Algorithm \ref{alg:R_star}; and E and F show tail- and bulk-ESS. Dashed lines indicate recommended thresholds for each convergence statistic. See the R markdown file on the Github repository for code to reproduce this example.}
 	\label{fig:cauchy_convergence}
 \end{figure}
-
-\subsection{Non-stationary marginals}
-To determine whether $R^*$ can detect non-stationary sampling distributions, we recapitulate an example from appendix A in \cite{vehtari2019rank}. This example showed that split-$\widehat{R}$ could detect non-convergence caused by shifts in sampling distributions over time: in their case, they analysed chains with common linear trends in mean. Specifically, they first generated 4 chains by random sampling from a univariate normal distribution, then added a common time trend to each chain, resulting in a univariate distribution whose mean increased during sampling. We first repeat this analysis but using $R^*$ rather than $\widehat{R}$: in Fig. \ref{fig:trends_all_dim}, we show these results. In column A, we show the results for $R^*$ calculated on the 4 chains that ran; column B shows the same calculation but after the chains are split into two equal halves. The rows show the range of sample sizes investigated: 250, 1000 and 4000; the horizontal axis shows the magnitude of time trend added to each sample; for all parameter sets, we run 10 replicates. This plot mirrors Fig. 18 in \cite{vehtari2019rank} and shows that, without splitting the chains, $R^*$ does not increase with trend whereas, after splitting, it does. As expected, split-$R^*$ is more reliably able to detect non-convergence as sample size increases.
-
-These results make intuitive sense: without systematic between-chain variation, it is not possible to reliably determine which of them caused a particular observation. In this case, because all chains exhibited the same secular trends over time, there would not be differences in their marginals. By splitting chains into two -- the first half being the early phase, and the second half being the later phase with higher mean -- this forces differences in the marginals. This meant it was possible to reliably pick whether an observation was caused by an early phase chain or a later one. As such, we recommend that $R^*$ always be calculated using split chains as is recommended for $\widehat{R}$ \citep{carpenter2017stan,vehtari2019rank}.
-
-\begin{figure}[!htb]
-	\centerline{\includegraphics[width=1.0\textwidth]{../output/trends_all_dim.pdf}}
-	\caption{\textbf{Univariate trends example.} Column A represents results for $R^*$ calculated using Algorithm \ref{alg:R_star} on the 4 chains; column B  shows the same calculation after each chain is split into two halves. The rows present the differing sample sizes. The horizontal axis measures (half) the change in mean across the whole sample: so a value ``1'' indicates the mean increases by 2 units from the start to end of sampling. At each parameter set, 10 replicates were run and jitter was added to the points. See the R markdown file on the Github repository for code to reproduce this example.}
-	\label{fig:trends_all_dim}
-\end{figure}
-
-We next consider whether split-$R^*$ can detect non-convergence when only a single dimension trends. In Fig. \ref{fig:trends_one_dim}, we show how $R^*$ performs across a range of target dimensions. In the simulations here, all dimensions bar one are stationary; the remaining dimension has a linear trend added to it. In all cases, split-$R^*$ increased with trend. Indeed, differences in the typical values of this metric were not apparent across the different target dimensions considered. This suggests split-$R^*$ can robustly determine chain identity if only a single dimension has a non-stationary sampling distribution.
-
-
-\begin{figure}[!htb]
-	\centerline{\includegraphics[width=1.0\textwidth]{../output/trends_one_dim.pdf}}
-	\caption{\textbf{Multivariate trends example with split-$R^*$.} The columns present different dimensionalities of the target distribution; the rows present different sample sizes. The horizontal axis measures (half) the change in mean across the single dimension that had a trend added to it: a value ``1'' indicates its mean increases by 2 units from the start to end of sampling; all other dimensions (if dimensions exceeded 1) had stationary distributions. At each parameter set, 10 replicates were run and jitter was added to the points. See the R markdown file on the Github repository for code to reproduce this example.}
-	\label{fig:trends_one_dim}
-\end{figure}
-
-Means that trend over time is one form of non-stationarity; another is a time-varying covariance. Next, we consider a bivariate normal with (constant) standard normal marginals, but where the correlation between dimensions trends over time. Specifically, we allow the correlation to increase linearly from $-\rho$ and $\rho$ throughout the course of simulations, and use i.i.d. draws from the process across 4 ``chains''. Again, as before, $R^*$ calculated on unsplit chains is unable to detect this form of non-stationarity, since there are no inter-chain differences in the sampling distribution. Similarly, split-$\widehat{R}$ does not detect this form of non-convergence since the marginal distribution across chains does not vary over time (Fig. \ref{fig:trends_joint_distribution}A). By contrast, split-$R^*$ can (Fig. \ref{fig:trends_joint_distribution}B), since it uses all information in the samples, including the covariance structure.
-
-\begin{figure}[!htb]
-	\centerline{\includegraphics[width=1.0\textwidth]{../output/trends_joint_distribution.pdf}}
-	\caption{\textbf{Bivariate normal with trending correlation example.} Column A shows the results for split-$\widehat{R}$; column B for $R^*$; the rows present the differing sample sizes. The horizontal axis measures (half) the change in correlation across the whole sample: so a value ``0.5'' indicates the correlation increases by 1 unit (from -0.5 to 0.5) from the start to end of sampling. At each parameter set, 10 replicates were run and jitter was added to the points. See the R markdown file on the Github repository for code to reproduce this example.}
-	\label{fig:trends_joint_distribution}
-\end{figure}
-
 
 \subsection{Hierarchical model: Eight schools model}\label{sec:eight_shools}
 We now examine a simple classic example used to highlight difficulties in performing inference for hierarchical models: referred to as the ``Eight schools'' model (see Section 5.5 in \cite{gelman2013bayesian}), which aimed to determine the effects of coaching on SAT scores in eight schools. 
@@ -423,6 +404,7 @@ It is recommended that $\widehat{R}$, like $R^*$, be calculated using split chai
 	\label{fig:eight_schools}
 \end{figure}
 
+\subsubsection{Understanding chain classification}
 To probe the predictive power of the ML classifier, we investigated how predictive accuracy varies across parameter space. After fitting the GBM model, we group MCMC draws into deciles and draw from the $R^*$ distribution for each decile. In Fig. \ref{fig:eight_schools_r_star_quantiles}, we show the results of this exercise for (A) $\mu$ and (B) $\tau$. In the top row of this figure, we show the path of four MCMC chains (here we did not split chains when calculating $R^*$ to simplify visualisations) across the quantiles of each parameter space. Above the top panel, we show the marginal distributions for each chain. In the bottom row, we show 40 $R^*$ draws for each decile, which were generated according to Algorithm \ref{alg:R_star_uncertainty} using a GBM fit to all draws. In essence, the top rows explain the variation in $R^*$ in the bottom panels: if chains become stuck in regions of parameter space, this causes differences between the marginal distributions of the chains; these differences, in turn, allow a ML model to predict the generative chain in those same sticky regions. For example, for $\mu$, the purple chain became stuck around the middle quantile, forcing a difference in its marginal distribution in that region, which resulted in $R^*>1$ for the corresponding decile. Similarly, for $\tau$, the purple chain became stuck in the lowest quantiles, elevating its marginal distribution there and resulting in improved ML predictive accuracy.
 
 Fig. \ref{fig:eight_schools_r_star_quantiles} also indicates a potential limitation of $R^*$: namely, that as chains are progressively thinned, those regions where chains behave most idiosyncratically can be missed, resulting in a reduction in ML classification accuracy and falsely concluding that convergence has occurred.
@@ -431,25 +413,6 @@ Fig. \ref{fig:eight_schools_r_star_quantiles} also indicates a potential limitat
 	\centerline{\includegraphics[width=1.0\textwidth]{../output/eight_schools_r_star_quantiles.pdf}}
 	\caption{\textbf{Eight schools example: quantile $R^*$ plots.} Column A shows plots for $\mu$; Column B for $\tau$. In each column, we show the path of the four individual chains above and 40 $R^*$ draws for each parameter quantile below. Above the top row, we show the marginal distribution of each chain estimated via kernel density estimation using Gaussian kernels. Note that, in the bottom plots, jitter has been added to the data points. See the R markdown file on the Github repository for code to reproduce this example.}
 	\label{fig:eight_schools_r_star_quantiles}
-\end{figure}
-
-\subsection{Many parameter models: ovarian and prostate analysis}
-In this section, we analyse two Bayesian models [Aki, can you provide some description of these?]. These models have relatively many parameters (4719 for the ``ovarian'' model and 18,105 for the ``prostate'' model) and are known to be challenging to explore with MCMC. For each model, we consider two MCMC runs: one with 4 chains run with 10,000 iterations each (1000 discarded as warm-up and thinned by a factor of 10); another with 16 chains run with 1500 iterations each (500 discarded as warm-up and no thinning).
-
-For the ovarian model, we show the results in Fig. \ref{fig:ovarian}. In Fig. \ref{fig:ovarian}A, we show the $R^*$ distributions for each model run, which show that, whereas the ``long'' model run has converged, the ``short'' one has yet to do so. Whilst it is harder to discern, this pattern is mirrored in Fig. \ref{fig:ovarian}B, since the long model has $\widehat{R}<1.01$ for all parameters, whereas the short model had 139 parameters where this is not the case. Similarly, in Figs. \ref{fig:ovarian}C and \ref{fig:ovarian}D, which show the bulk-ESS and tail-ESS respectively, it is evident that, for the short model, there remain a few parameters with low effective sample sizes, whereas the long model has more consistent values for this metric.
-
-\begin{figure}[!htb]
-	\centerline{\includegraphics[width=1.0\textwidth]{../output/ovarian.pdf}}
-	\caption{\textbf{Ovarian example.} In all plots, we show the results from two model runs: one with 4 chains with 10,000 iterations each (1000 discarded as warm-up and thinned by a factor of 10); another with 16 chains run with 1500 iterations each (500 discarded as warm-up and no thinning). In A, $R^*$ distributions (with 1000 draws each using Algorithm \ref{alg:R_star_uncertainty}) are shown; B shows rank-normalised split-$\widehat{R}$ values across all parameters; C shows bulk-ESS across all parameters; and D shows tail-ESS across parameters. See the R markdown file on the Github repository for code to reproduce this example.}
-	\label{fig:ovarian}
-\end{figure}
-
-For the prostate model, we show the results in Fig. \ref{fig:prostate}. Since this model has nearly four times as many parameters as the ovarian model, it was more computationally expensive to estimate $R^*$ for it. To handle this, we thinned down the parameters by a factor of 5 for the long model, recognising that, of course, this measure will make it more likely that we diagnose convergence. Despite this, both $R^*$ measures indicated that the MCMC runs had yet to converge (Fig. \ref{fig:prostate}A), which was mirrored by the other metrics considered (Figs. \ref{fig:prostate}B,C\&D).
-
-\begin{figure}[!htb]
-	\centerline{\includegraphics[width=1.0\textwidth]{../output/prostate.pdf}}
-	\caption{\textbf{Prostate example.} In all plots, we show the results from two model runs: one with 4 chains with 10,000 iterations each (1000 discarded as warm-up and thinned by a factor of 10); another with 16 chains run with 1500 iterations each (500 discarded as warm-up and no thinning). In A, $R^*$ distributions (with 1000 draws each using Algorithm \ref{alg:R_star_uncertainty}) are shown -- for the long run, these were calculated after thinning the parameters by a factor of 5; B shows rank-normalised split-$\widehat{R}$ values across all parameters; C shows bulk-ESS across all parameters; and D shows tail-ESS across parameters. See the R markdown file on the Github repository for code to reproduce this example.}
-	\label{fig:prostate}
 \end{figure}
 
 \section{Discussion}
@@ -469,5 +432,78 @@ BL conceived of the original idea for $R^*$, carried out all analyses and wrote 
 
 \bibliographystyle{chicago}
 \bibliography{bibliography} 
+
+\beginsupplement
+
+\section{Wide datasets: multivariate normal}\label{sec:wide}
+As the number of parameter dimensions increases, it might be thought that ML algorithms will overfit the data, and, hence, testing set classification would be poor; leading to unreliable determinations of convergence. To test this hypothesis, we investigated two scenarios using a multivariate normal target. In the first of these, we used the 250-dimensional multivariate normal of eq. \eqref{eq:mvt_normal_250} with 250 post-warm-up iterations (after 250 warm-up iterations) for each of 4 chains from Stan's NUTS to calculate $R^*$ distributions as in Algorithm \ref{alg:R_star_uncertainty}. Here, we considered both the centered and non-centered parameterisations, where, in both cases, the number of iterations is comparable to the number of parameters, so the training data is relatively ``wide'': the $R^*$ distribution in each case is shown in Fig. \ref{fig:mvt_wide_both}A. In this figure, it is clear that both $R^*$ distributions are shifted away from 1, indicating non-convergence. The same conclusion is reached if rank-normalised split-$\widehat{R}$ is used instead (Fig. \ref{fig:wide_both_diagnostics}A), since, for both parameterisations, some of the parameters had $\widehat{R}>1.01$. Using bulk- or tail-ESS instead, we conclude that the non-centered parameterisation shows signs of convergence whereas the centered does not (Fig. \ref{fig:wide_both_diagnostics}B\&C). 
+
+\begin{figure}[!htb]
+	\centerline{\includegraphics[width=1\textwidth]{../output/mvt_wide_both.pdf}}
+	\caption{\textbf{Wide data examples.} A shows the $R^*$ distribution for the 250-dimensional example in \S\ref{sec:wide} with 250 post-warm-up iterations per chain from Stan's NUTS algorithm across both model parameterisations; B shows $R^*$ distribution for the 10,000-dimensional example with 400 and 1000 MCMC iterations per chain (although the first half of these were discarded as warm-up). In all cases, 1000 draws of $R^*$ are plotted as generated by Algorithm \ref{alg:R_star_uncertainty} for a single MCMC run composed of 4 chains. See the R markdown file on the Github repository for code to reproduce this example.}
+	\label{fig:mvt_wide_both}
+\end{figure}
+
+\begin{figure}[!htb]
+	\centerline{\includegraphics[width=1\textwidth]{../output/wide_both_diagnostics.pdf}}
+	\caption{\textbf{Wide data 250-dimensional example: established diagnostics.} The top row shows the results for the centered parameterisation; the bottom row for the non-centered. Column A shows split-$\widehat{R}$; columns B and C show the bulk- and tail-ESS; in each case the statistics are displayed for all model parameters and were calculated using 250 post-warm-up draws from Stan's NUTS algorithm. In both cases, the results correspond to a single MCMC run composed of 4 chains. See the R markdown file on the Github repository for code to reproduce this example.}
+	\label{fig:wide_both_diagnostics}
+\end{figure}
+
+We next consider a more challenging example -- a target distribution with 10,000 dimensions. In this case, we assume independent standard normals for each dimension. In Fig. \ref{fig:mvt_wide_both}B, we plot the $R^*$ distribution for two MCMC runs targeting this distribution: one with 400 iterations, the other with 1000. In both cases, the distributions were right of $R^*=1$, indicating non-convergence. These results were also echoed by rank-normalised split-$\widehat{R}$, with 65\% of dimensions having $\widehat{R}>1.01$ for the 400 iteration case and 19\% for the 1000 iteration case.
+
+Overall, the examples in this section suggest that $R^*$ is a conservative measure of convergence: when there are not enough draws, it will tend to diagnose non-convergence. We also note that the statistic took comparable time to calculate relative to existing convergence diagnostics on a desktop computer.
+	
+\section{Non-stationary marginals}\label{sec:non-stationary}
+To determine whether $R^*$ can detect non-stationary sampling distributions, we recapitulate an example from appendix A in \cite{vehtari2019rank}. This example showed that split-$\widehat{R}$ could detect non-convergence caused by shifts in sampling distributions over time: in their case, they analysed chains with common linear trends in mean. Specifically, they first generated 4 chains by random sampling from a univariate normal distribution, then added a common time trend to each chain, resulting in a univariate distribution whose mean increased during sampling. We first repeat this analysis but using $R^*$ rather than $\widehat{R}$: in Fig. \ref{fig:trends_all_dim}, we show these results. In column A, we show the results for $R^*$ calculated on the 4 chains that ran; column B shows the same calculation but after the chains are split into two equal halves. The rows show the range of sample sizes investigated: 250, 1000 and 4000; the horizontal axis shows the magnitude of time trend added to each sample; for all parameter sets, we run 10 replicates. This plot mirrors Fig. 18 in \cite{vehtari2019rank} and shows that, without splitting the chains, $R^*$ does not increase with trend whereas, after splitting, it does. As expected, split-$R^*$ is more reliably able to detect non-convergence as sample size increases.
+
+These results make intuitive sense: without systematic between-chain variation, it is not possible to reliably determine which of them caused a particular observation. In this case, because all chains exhibited the same secular trends over time, there would not be differences in their marginals. By splitting chains into two -- the first half being the early phase, and the second half being the later phase with higher mean -- this forces differences in the marginals. This meant it was possible to reliably pick whether an observation was caused by an early phase chain or a later one. As such, we recommend that $R^*$ always be calculated using split chains as is recommended for $\widehat{R}$ \citep{carpenter2017stan,vehtari2019rank}.
+
+\begin{figure}[!htb]
+	\centerline{\includegraphics[width=1.0\textwidth]{../output/trends_all_dim.pdf}}
+	\caption{\textbf{Univariate trends example.} Column A represents results for $R^*$ calculated using Algorithm \ref{alg:R_star} on the 4 chains; column B  shows the same calculation after each chain is split into two halves. The rows present the differing sample sizes. The horizontal axis measures (half) the change in mean across the whole sample: so a value ``1'' indicates the mean increases by 2 units from the start to end of sampling. At each parameter set, 10 replicates were run and jitter was added to the points. See the R markdown file on the Github repository for code to reproduce this example.}
+	\label{fig:trends_all_dim}
+\end{figure}
+
+We next consider whether split-$R^*$ can detect non-convergence when only a single dimension trends. In Fig. \ref{fig:trends_one_dim}, we show how $R^*$ performs across a range of target dimensions. In the simulations here, all dimensions bar one are stationary; the remaining dimension has a linear trend added to it. In all cases, split-$R^*$ increased with trend. Indeed, differences in the typical values of this metric were not apparent across the different target dimensions considered. This suggests split-$R^*$ can robustly determine chain identity if only a single dimension has a non-stationary sampling distribution.
+
+
+\begin{figure}[!htb]
+	\centerline{\includegraphics[width=1.0\textwidth]{../output/trends_one_dim.pdf}}
+	\caption{\textbf{Multivariate trends example with split-$R^*$.} The columns present different dimensionalities of the target distribution; the rows present different sample sizes. The horizontal axis measures (half) the change in mean across the single dimension that had a trend added to it: a value ``1'' indicates its mean increases by 2 units from the start to end of sampling; all other dimensions (if dimensions exceeded 1) had stationary distributions. At each parameter set, 10 replicates were run and jitter was added to the points. See the R markdown file on the Github repository for code to reproduce this example.}
+	\label{fig:trends_one_dim}
+\end{figure}
+
+Means that trend over time is one form of non-stationarity; another is a time-varying covariance. Next, we consider a bivariate normal with (constant) standard normal marginals, but where the correlation between dimensions trends over time. Specifically, we allow the correlation to increase linearly from $-\rho$ and $\rho$ throughout the course of simulations, and use i.i.d. draws from the process across 4 ``chains''. Again, as before, $R^*$ calculated on unsplit chains is unable to detect this form of non-stationarity, since there are no inter-chain differences in the sampling distribution. Similarly, split-$\widehat{R}$ does not detect this form of non-convergence since the marginal distribution across chains does not vary over time (Fig. \ref{fig:trends_joint_distribution}A). By contrast, split-$R^*$ can (Fig. \ref{fig:trends_joint_distribution}B), since it uses all information in the samples, including the covariance structure.
+
+\begin{figure}[!htb]
+	\centerline{\includegraphics[width=1.0\textwidth]{../output/trends_joint_distribution.pdf}}
+	\caption{\textbf{Bivariate normal with trending correlation example.} Column A shows the results for split-$\widehat{R}$; column B for $R^*$; the rows present the differing sample sizes. The horizontal axis measures (half) the change in correlation across the whole sample: so a value ``0.5'' indicates the correlation increases by 1 unit (from -0.5 to 0.5) from the start to end of sampling. At each parameter set, 10 replicates were run and jitter was added to the points. See the R markdown file on the Github repository for code to reproduce this example.}
+	\label{fig:trends_joint_distribution}
+\end{figure}
+
+\section{Many parameter models: ovarian and prostate analysis}\label{sec:prostate}
+In this section, we analyse two Bayesian models both fit to real data. The first is a logistic regression model fit to microarray ovarian cancer data with 54 data points and 1536 predictor variables; overall, this model has 4719 parameters. Since there are relatively few data points relative to the number of predictors, regularised horseshoe priors are specified on the regression coefficients \cite{piironen2017sparsity} since most are expected to be zero. This dataset has been used for benchmarking in the past (see, for example, \cite{schummer1999comparative,hernandez2010expectation,paananen2019implicitly}) and is known to result in a multimodal posterior.
+
+The other dataset we use is of similar form but for prostate cancer, which is also analysed using logistic regression with regularised horseshoe priors. It has 18,105 parameters in total.
+
+For each model, we consider two MCMC runs: one with 4 chains run with 10,000 iterations each (1000 discarded as warm-up and thinned by a factor of 10); another with 16 chains run with 1500 iterations each (500 discarded as warm-up and no thinning).
+
+For the ovarian model, we show the results in Fig. \ref{fig:ovarian}. In Fig. \ref{fig:ovarian}A, we show the $R^*$ distributions for each model run, which show that, whereas the ``long'' model run has converged, the ``short'' one has yet to do so. Whilst it is harder to discern, this pattern is mirrored in Fig. \ref{fig:ovarian}B, since the long model has $\widehat{R}<1.01$ for all parameters, whereas the short model had 139 parameters where this is not the case. Similarly, in Figs. \ref{fig:ovarian}C and \ref{fig:ovarian}D, which show the bulk-ESS and tail-ESS respectively, it is evident that, for the short model, there remain a few parameters with low effective sample sizes, whereas the long model has more consistent values for this metric.
+
+\begin{figure}[!htb]
+	\centerline{\includegraphics[width=1.0\textwidth]{../output/ovarian.pdf}}
+	\caption{\textbf{Ovarian example.} In all plots, we show the results from two model runs: one with 4 chains with 10,000 iterations each (1000 discarded as warm-up and thinned by a factor of 10); another with 16 chains run with 1500 iterations each (500 discarded as warm-up and no thinning). In A, $R^*$ distributions (with 1000 draws each using Algorithm \ref{alg:R_star_uncertainty}) are shown; B shows rank-normalised split-$\widehat{R}$ values across all parameters; C shows bulk-ESS across all parameters; and D shows tail-ESS across parameters. See the R markdown file on the Github repository for code to reproduce this example.}
+	\label{fig:ovarian}
+\end{figure}
+
+For the prostate model, we show the results in Fig. \ref{fig:prostate}. Since this model has nearly four times as many parameters as the ovarian model, it was more computationally expensive to estimate $R^*$ for it. To handle this, we thinned down the parameters by a factor of 5 for the long model, recognising that, of course, this measure will make it more likely that we diagnose convergence. Despite this, both $R^*$ measures indicated that the MCMC runs had yet to converge (Fig. \ref{fig:prostate}A), which was mirrored by the other metrics considered (Figs. \ref{fig:prostate}B,C\&D).
+
+\begin{figure}[!htb]
+	\centerline{\includegraphics[width=1.0\textwidth]{../output/prostate.pdf}}
+	\caption{\textbf{Prostate example.} In all plots, we show the results from two model runs: one with 4 chains with 10,000 iterations each (1000 discarded as warm-up and thinned by a factor of 10); another with 16 chains run with 1500 iterations each (500 discarded as warm-up and no thinning). In A, $R^*$ distributions (with 1000 draws each using Algorithm \ref{alg:R_star_uncertainty}) are shown -- for the long run, these were calculated after thinning the parameters by a factor of 5; B shows rank-normalised split-$\widehat{R}$ values across all parameters; C shows bulk-ESS across all parameters; and D shows tail-ESS across parameters. See the R markdown file on the Github repository for code to reproduce this example.}
+	\label{fig:prostate}
+\end{figure}
+
 	
 \end{document}

@@ -99,19 +99,20 @@ b_df <- tibble(nominal=r_star_nom,
   bind_rows(tibble(nominal=mon_nom$zfsRhat[1:50],
                 alt=mon_alt$zfsRhat[101:150],
                 source="r_hat")) %>% 
-  mutate(iter=10000)
+  mutate(iter="10,000")
  
-c_df <- a_df %>% mutate(iter=1000) %>% 
+c_df <- a_df %>% mutate(iter="1000") %>% 
   bind_rows(b_df) %>% 
   mutate(source=if_else(source=="r_hat", "split-Rhat", source)) %>% 
   mutate(source=if_else(source=="r_star", "R*", source))
-
+saveRDS(c_df, "cauchy_rhat_rstar.rds")
+c_df <- readRDS("cauchy_rhat_rstar.rds")
 my_lims <- function(x) { if (max(x) < 1.2) c(0.985, 1.03) else c(0.9, 3)}
 
 g <- c_df %>% 
   melt(id.vars=c("source", "iter")) %>% 
   ggplot(aes(x=value, fill=as.factor(variable))) +
-  geom_histogram(position="identity", alpha=0.8) +
+  geom_histogram(bins=50, position="identity", alpha=0.8) +
   scale_fill_grey("Parameterisation", labels=c("nominal", "alternative")) +
   ylab("Count") +
   geom_vline(xintercept = 1, linetype=2) +
