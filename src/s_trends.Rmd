@@ -349,7 +349,7 @@ saveRDS(res, "../output/experiment_trends_rho_nearer1.rds")
 ```{r}
 res <- readRDS("../output/experiment_trends_rho_nearer1.rds")
 
-ggplot(data = res, aes(x = rho, y = Rhat)) + 
+ggplot(data = res, aes(x = rho, y = zsRhat)) + 
   geom_jitter() + 
   facet_grid(vars(iters)) + 
   geom_hline(yintercept = 1) + 

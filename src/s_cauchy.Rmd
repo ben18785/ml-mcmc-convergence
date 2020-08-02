@@ -272,6 +272,8 @@ g2 <-
   theme(text=element_text(size=11, colour="black"),
         axis.text = element_text(size=10, colour="black"),
         legend.position = c(0.8, 0.7),
+        legend.text = element_text(size=12, colour="black"),
+        legend.title = element_text(size=14, colour="black"),
         axis.title.y = element_blank()) +
   geom_hline(yintercept = 1, linetype=2) +
   scale_x_log10() +
@@ -447,7 +449,7 @@ g5 <-
   geom_hline(yintercept = 400, linetype=2) +
   scale_x_log10() +
   scale_y_log10() +
-  ggtitle(TeX("E. Tail ESS"))
+  ggtitle(TeX("E. Tail-ESS"))
 
 g6 <- 
   f_df %>% 
@@ -465,7 +467,7 @@ g6 <-
   geom_hline(yintercept = 400, linetype=2) +
   scale_x_log10() +
   scale_y_log10() +
-  ggtitle(TeX("F. Bulk ESS"))
+  ggtitle(TeX("F. Bulk-ESS"))
 ```
 
 

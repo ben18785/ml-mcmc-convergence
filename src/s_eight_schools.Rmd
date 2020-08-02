@@ -183,6 +183,7 @@ g2 <- plot_r_star_quantiles(2, x, nsim=40, split_chains = F) +
   scale_y_continuous(limits = c(0.6, 1.7), breaks = c(0.6, 0.8, 1, 1.2, 1.4, 1.6))
 
 library(ggExtra)
+library(gridExtra)
 f <- ecdf(x[, , 2])
 p <- x[, , 2] %>% 
   melt(id.vars="NULL") %>% 
@@ -226,7 +227,7 @@ gb <- ggMarginal(p, type="density", margins="x", groupColour = T,
 library(cowplot)
 
 pdf("../output/eight_schools_r_star_quantiles.pdf", width = 6, height = 6)
-plot_grid(arrangeGrob(gb, top="A."), arrangeGrob(ga, top="B."), g1, g2,nrow = 2, rel_heights = c(1/2, 1/4))
+plot_grid(arrangeGrob(gb, top="A. mu"), arrangeGrob(ga, top="B. tau"), g1, g2,nrow = 2, rel_heights = c(1/2, 1/4))
 dev.off()
 ```
 

@@ -48,6 +48,7 @@ saveRDS(fit, "../data/ovarian_long.rds")
 fit <- readRDS("../data/ovarian_long.rds")
 
 x <- rstan::extract(fit, permuted=F)
+
 mon <- monitor_extra(split_data(x))
 saveRDS(mon, "../data/ovarian_long_mon.rds")
 full_data <- rstan::extract(fit, permuted=F)
@@ -81,10 +82,10 @@ mon_shorter <- readRDS("../data/ovarian_short_mon.rds")
 
 g <- tibble(long=r_star_longer, short=r_star_shorter, metric="A. R*") %>% 
   bind_rows(tibble(long=mon_longer$zsRhat, short=mon_shorter$zsRhat, metric="B. split-Rhat")) %>% 
-  bind_rows(tibble(long=mon_longer$zsseff, short=mon_shorter$zsseff, metric="C. Bulk ESS")) %>% 
-  bind_rows(tibble(long=mon_longer$tailseff, short=mon_shorter$tailseff, metric="D. Tail ESS")) %>% 
+  bind_rows(tibble(long=mon_longer$zsseff, short=mon_shorter$zsseff, metric="C. Bulk-ESS")) %>% 
+  bind_rows(tibble(long=mon_longer$tailseff, short=mon_shorter$tailseff, metric="D. Tail-ESS")) %>% 
   melt(id.vars="metric") %>% 
-  mutate(metric=fct_relevel(as.factor(metric), "A. R*", "B. split-Rhat", "C. Bulk ESS", "D. Tail ESS")) %>% 
+  mutate(metric=fct_relevel(as.factor(metric), "A. R*", "B. split-Rhat", "C. Bulk-ESS", "D. Tail-ESS")) %>% 
   ggplot(aes(x=value, fill=as.factor(variable))) +
   geom_histogram(position="identity", alpha=0.6) +
   facet_wrap(~metric, scales="free") +
@@ -128,6 +129,7 @@ saveRDS(fit, "../data/prostate_long.rds")
 fit <- readRDS("../data/prostate_long.rds")
 
 x <- rstan::extract(fit, permuted=F)
+
 mon <- monitor_extra(split_data(x))
 saveRDS(mon, "../data/prostate_long_mon.rds")
 full_data <- rstan::extract(fit, permuted=F)
@@ -165,10 +167,10 @@ my_breaks <- function(x) { if (max(x) < 10) c(0.95, max(x)) else c(0, max(x)) }
 
 g <- tibble(long=r_star_longer, short=r_star_shorter, metric="A. R*") %>% 
   bind_rows(tibble(long=mon_longer$zsRhat, short=mon_shorter$zsRhat, metric="B. split-Rhat")) %>% 
-  bind_rows(tibble(long=mon_longer$zsseff, short=mon_shorter$zsseff, metric="C. Bulk ESS")) %>% 
-  bind_rows(tibble(long=mon_longer$tailseff, short=mon_shorter$tailseff, metric="D. Tail ESS")) %>% 
+  bind_rows(tibble(long=mon_longer$zsseff, short=mon_shorter$zsseff, metric="C. Bulk-ESS")) %>% 
+  bind_rows(tibble(long=mon_longer$tailseff, short=mon_shorter$tailseff, metric="D. Tail-ESS")) %>% 
   melt(id.vars="metric") %>% 
-  mutate(metric=fct_relevel(as.factor(metric), "A. R*", "B. split-Rhat", "C. Bulk ESS", "D. Tail ESS")) %>% 
+  mutate(metric=fct_relevel(as.factor(metric), "A. R*", "B. split-Rhat", "C. Bulk-ESS", "D. Tail-ESS")) %>% 
   ggplot(aes(x=value, fill=as.factor(variable))) +
   geom_histogram(position="identity", alpha=0.6) +
   facet_wrap(~metric, scales="free") +

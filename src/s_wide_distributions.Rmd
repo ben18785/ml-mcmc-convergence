@@ -101,12 +101,12 @@ h <- tibble(bulk_ess=mon$zsseff,
        tail_ess=mon$tailseff,
        rhat=mon$zfsRhat) %>% 
   melt() %>% 
-  mutate(variable=case_when(variable=="bulk_ess"~"Bulk ESS",
-                            variable=="tail_ess"~"Tail ESS",
+  mutate(variable=case_when(variable=="bulk_ess"~"Bulk-ESS",
+                            variable=="tail_ess"~"Tail-ESS",
                             variable=="rhat"~"Split-Rhat")) %>% 
   ggplot(aes(x=value)) +
   geom_histogram() + 
-  facet_wrap(~relevel(as.factor(variable), "Split-Rhat", "Bulk ESS", "Tail ESS"), scales="free") + xlab("Value") +
+  facet_wrap(~relevel(as.factor(variable), "Split-Rhat", "Bulk-ESS", "Tail-ESS"), scales="free") + xlab("Value") +
   ylab("Count") +
   theme(text=element_text(size=12, colour="black"),
         axis.text=element_text(size=12, colour="black"),
@@ -122,8 +122,8 @@ aa_df <- aa_df %>%
 
 h1 <- aa_df %>% 
   melt(id.vars="source") %>% 
-  mutate(variable=case_when(variable=="bulk_ess"~"B. Bulk ESS",
-                            variable=="tail_ess"~"C. Tail ESS",
+  mutate(variable=case_when(variable=="bulk_ess"~"B. Bulk-ESS",
+                            variable=="tail_ess"~"C. Tail-ESS",
                             variable=="rhat"~"A. Split-Rhat")) %>% 
   ggplot(aes(x=value)) +
   geom_histogram() + 

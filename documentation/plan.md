@@ -141,7 +141,7 @@
     performance. In split-Rhat, the first and second half of the chain are also not
     independent, but but only weakly dependent unless the lag when autocorrelation
     goes close to zero is relatively big compared to the size of the split chain.
-* [ ] How well does GBM scale with the number of classes (ie chains in this case)?
+* [x] How well does GBM scale with the number of classes (ie chains in this case)?
 * [x] In section 3.1 text refers to first and second paragraph refer to fig 3. Figure 3 caption starts with text "Autoregressive example" and A-C
   illustrate the case with one chain being different. While I'm looking
   at the figure, I continued checking also what is figure D, and caption
@@ -180,7 +180,8 @@
   are convergence problems, jointly looking at all variables uses more
   information. It would be good to remind about marginals vs. joint and multiple
   testing vs. single test around here.
-* [ ] Figure 8: Wide data 250-dimensional example: established diagnostics. The
+  * [ ] Not sure what Aki means here. Ask him.
+* [x] Figure 8: Wide data 250-dimensional example: established diagnostics. The
   top row shows the results for the centered parameterisation; the bottom row for
   the non-centered. Column A shows b columns B and C show the bulk- and tail-ESS;
   in each case the statistics are displayed split- R; for all model parameters
@@ -190,13 +191,25 @@
   values on sample-estimated quantiles. Did you look at Kolmogorov-Smirnov and Wasserstein (Earth mover's) distances? I
   think quantile R^2 is sensible, but I'm just worried that a hypothetical
   reviewer would request something more common. I think R* is more sensitive to tails than Rhat.
-* [ ] Figure 15 "Column A shows plots for mu; Column B for tau"
+* [x] Figure 15 "Column A shows plots for mu; Column B for tau"
   Could you label these columns directly with mu and tau?
+  * [x] This is figure 11: eight_schools_r_star_quantiles.pdf
 * [ ] Figure 16: "one with 4 chains with 10,000 iterations each (1000 discarded as
   warm-up and thinned by a factor of 10); another with 16 chains run with 1500
-  iterations each (500 discarded as warm-up and no thinning)"
-* [ ] It would be good to tell the total number of post-warmup draws, so that the
-  reader doesn't need to try to do the calculation. Bulk-ESS and Tail-ESS depend
-  on the total number of post-warmup draws and comparison of 4 long chains vs 16
-  short chains is confusing if the total number of post-warmup draws are different.
-  Same for Fig 17.
+  iterations each (500 discarded as warm-up and no thinning)".
+  * It would be good to tell the total number of post-warmup draws, so that the
+    reader doesn't need to try to do the calculation. Bulk-ESS and Tail-ESS depend
+    on the total number of post-warmup draws and comparison of 4 long chains vs 16
+    short chains is confusing if the total number of post-warmup draws are different.
+    Same for Fig 17.
+
+## Ben's thoughts
+
+* [x] Clean up bulk-ESS and tail-ESS across all figures:
+  * [x] Figure 9: cauchy_convergence.
+  * [x] S7: prostate
+  * [x] S6: ovarian
+  * [x] S2: wide_both_diagnostics
+* [ ] Update references to subsections in table (and possibly provide more information about sub examples)
+* [ ] How much stochasticity is there in $R^*$? That is, when we use the same dataset, how much variation do we get in $R^*$ due to the stochastic nature of splitting into training and testing and, to some degree, the training of the machine learning algorithm.
+  * [ ] Does this provide a rationale for using an uncertainty distribution?
