@@ -356,11 +356,42 @@ ggplot(data = res, aes(x = rho, y = zsRhat)) +
   ggtitle('R* without splitting') +
   ylim(0, 6)
 
-ggplot(data = res, aes(x = rho, y = Rstar_split)) + 
+g <- ggplot(data = res, aes(x = rho, y = Rstar_split)) + 
   geom_jitter() + 
   facet_grid(vars(iters)) + 
   geom_hline(yintercept = 1) + 
-  ggtitle('Split-R*') +
-  ylim(0, 6)
+  ylab(TeX("split-R*")) +
+  xlab(TeX("$\\rho$")) +
+  ylim(0, 6) +
+  theme(strip.text.x = element_text(size=12, colour="black"),
+        strip.text.y = element_text(size=12, colour="black"),
+        axis.text.x = element_text(size=10, colour="black"),
+        axis.text.y = element_text(size=10, colour="black"))
+ggsave("../output/trends_ar1.pdf", g, width = 8, height = 6)
+
+
+b_sum <- res %>%
+  group_by(iters, rho) %>% 
+  summarise(lower=quantile(Rstar_split, 0.025),
+            upper=quantile(Rstar_split, 0.975),
+            Rstar_split=median(Rstar_split)) %>% 
+  mutate(type="summary")
+res1 <- res %>%
+  bind_rows(b_sum)
+
+g <- ggplot(data = filter(res1, is.na(type)), aes(x = as.factor(iters), y = Rstar_split, group=rho)) + 
+  geom_jitter(width = 0.2, height = 0, colour="grey") + 
+  geom_pointrange(data=filter(res1, !is.na(type)), aes(ymin=lower, ymax=upper)) +
+  geom_line(data=filter(res1, !is.na(type))) +
+  facet_wrap(~rho, scales="free") + 
+  geom_hline(yintercept = 1) + 
+  ylab(TeX("split-R*")) +
+  xlab("# iterations") +
+  theme(strip.text.x = element_text(size=12, colour="black"),
+        strip.text.y = element_text(size=12, colour="black"),
+        axis.text.x = element_text(size=10, colour="black"),
+        axis.text.y = element_text(size=10, colour="black"))
+
+ggsave("../output/trends_ar1_transposed.pdf", g, width = 8, height = 6)
 ```
 
