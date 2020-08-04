@@ -273,7 +273,7 @@ f_replicate_n <- function(n_chains){
 }
 
 nreplicates <- 50
-lnum_chains <- c(32)
+lnum_chains <- c(2, 4, 6, 8, 16, 32)
 mResults <- matrix(nrow = nreplicates * length(lnum_chains),
                    ncol = 4)
 k <- 1
@@ -284,14 +284,14 @@ for(j in seq_along(lnum_chains)){
     mResults[k, ] <- c(lnum_chains[j], i, temp$r_star, temp$r_hat)
     k <- k + 1
   }
-  # saveRDS(mResults, "../data/ar1_numchains_extra2.rds")
 }
 
 colnames(mResults) <- c("nchains", "iterate", "R*", "split-Rhat")
 mResults <- as.data.frame(mResults) %>% 
   filter(nchains < 64)
 saveRDS(mResults, "../data/ar1_numchains.rds")
-mResults <- readRDS("../data/ar1_numchains.rds")
+mResults <- readRDS("../data/ar1_numchains.rds") %>% 
+  filter(iterate<=50)
 b_sum <- mResults %>% 
   melt(id.vars=c("nchains", "iterate")) %>%
   group_by(nchains, variable) %>% 
@@ -315,6 +315,8 @@ g <- mResults %>%
         strip.text.x = element_text(colour="black", size=14),
         legend.position = "none")
 ggsave("../output/ar1_numchains.pdf", g, width = 8, height = 4)
+
+
 ```
 
 # Investigating stochasticity of R*

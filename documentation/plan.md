@@ -213,7 +213,7 @@
 * [x] Update references to subsections in table (and possibly provide more information about sub examples)
 * [x] How much stochasticity is there in $R^*$? That is, when we use the same dataset, how much variation do we get in $R^*$ due to the stochastic nature of splitting into training and testing and, to some degree, the training of the machine learning algorithm.
   * [x] Does this provide a rationale for using an uncertainty distribution?
-* [ ] Finish supplementary experiments section
+* [x] Finish supplementary experiments section
 * [x] Fig 3D: ar1.pdf: change to "converged" and "unconverged" either in text or figure legend
 * [x] Add in autocorrelation example
-* [ ] Ensure stochasticity experiment has 100 replicates for 32 chain case
+* [x] Ensure stochasticity experiment has 100 replicates for 32 chain case. Changed it to 50 since was having trouble with GBM package memory leaks
