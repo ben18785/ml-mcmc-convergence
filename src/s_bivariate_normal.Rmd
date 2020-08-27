@@ -27,7 +27,7 @@ rmvrnorm2D <- function(n, mux, muy, sigmax, sigmay, rho){
                         ncol = 2)))
 }
 # calling function
-n <- 1000
+n <- 2000
 chain1 <- rmvrnorm2D(n, 0, 0, 1, 1, 0.0) %>% 
   as.data.frame() %>% 
   mutate(chain=1,
@@ -63,8 +63,9 @@ g <-
   xlim(0.9, NA) +
   geom_vline(xintercept = 1, linetype=2) +
   ylab("Count") +
-  theme(text=element_text(size=14, colour="black"))
-# ggsave("../output/bivariate.pdf", g, width = 8, height = 6)
+  theme(text=element_text(size=14, colour="black"),
+        axis.text = element_text(colour="black"))
+ggsave("../output/bivariate.pdf", g, width = 8, height = 6)
 ```
 
 Determine Rhat
@@ -96,7 +97,7 @@ for(i in 1:half_iter){
 
 for(i in 1:half_iter){
   temp <- chains_stacked_second %>% 
-    filter(iter==(i + 500))
+    filter(iter==(i + 1000))
   for(j in 5:8){
     temp1 <- temp %>%
       filter(chain==(j - 4))

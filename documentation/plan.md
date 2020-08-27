@@ -217,3 +217,47 @@
 * [x] Fig 3D: ar1.pdf: change to "converged" and "unconverged" either in text or figure legend
 * [x] Add in autocorrelation example
 * [x] Ensure stochasticity experiment has 100 replicates for 32 chain case. Changed it to 50 since was having trouble with GBM package memory leaks
+
+# Aki's feedback 22nd August
+
+* [x] This one
+  \- Vehtari, A., A. Gelman, D. Simpson, B. Carpenter, and P. Bürkner (2019).
+  Rank-normalization, folding, and localization: An improved R-hat for assessing
+  convergence of mcmc. arXiv preprint arXiv:1903.08008.
+  is now online
+  \- Vehtari, A., A. Gelman, D. Simpson, B. Carpenter, and P. Bürkner (2020).
+  Rank-normalization, folding, and localization: An improved R-hat for assessing
+  convergence of MCMC. Bayesian analysis, doi:10.1214/20-BA1221.
+
+* [x] Note also mcmc -> MCMC
+
+* [x] interpretable in a similar way to R-hat (Gelman et al, 2013).
+
+  maybe cite the new R-hat paper which has more explanation
+
+* [x] Our GBM model
+  * M stands for model, so the second model seems a bit strange.
+* [x] The new Table 1 is good, but the caption is too close to the last line of the
+  table
+* [x] In Figure 4, I think the x-axis label should be "# draws" or "sample size" (as
+  mentioned in the caption)
+* [x] Maybe not all captions need to remind about the Github repo?
+* [x] The nominal parameterisation has some parameters with Rhat > 1.01,
+   \> indicative non-convergence, whereas the alternative has Rhat > 1.01
+   \> for all parameters.
+  * The latter one should have Rhat < 1.01
+* [x] we plot this “quantile R^2 ”
+  * I would drop quotes, and use italics. Maybe add dash: quantile-R^2
+
+* [x] we used settings that reduce the chance of divergent iterations for the NUTS
+  algorithm (Hoffman and Gelman, 2014),
+  * This should refer to dynamic HMC and Betancourt's paper, as that specific
+    setting has different meaning in original NUTS and in the later dynamic HMC
+    variant used in Stan.
+* [x] when the number of dimensions of a distribution is comparable to the
+   \> number of samples
+  * number of samples -> number of draws (or sample size)
+* [x] we found that a default set of hyperparameters (which we report in
+   \> §2) sufficed across all our examples.
+  * I guess this is because the classification boundaries are very unlikley to be
+    very complex compared to for example machine vision tasks.

@@ -81,19 +81,19 @@ mon_shorter <- readRDS("../data/ovarian_short_mon.rds")
 
 
 g <- tibble(long=r_star_longer, short=r_star_shorter, metric="A. R*") %>% 
-  bind_rows(tibble(long=mon_longer$zsRhat, short=mon_shorter$zsRhat, metric="B. split-Rhat")) %>% 
+  bind_rows(tibble(long=mon_longer$zsRhat, short=mon_shorter$zsRhat, metric="B. Split-Rhat")) %>% 
   bind_rows(tibble(long=mon_longer$zsseff, short=mon_shorter$zsseff, metric="C. Bulk-ESS")) %>% 
   bind_rows(tibble(long=mon_longer$tailseff, short=mon_shorter$tailseff, metric="D. Tail-ESS")) %>% 
   melt(id.vars="metric") %>% 
-  mutate(metric=fct_relevel(as.factor(metric), "A. R*", "B. split-Rhat", "C. Bulk-ESS", "D. Tail-ESS")) %>% 
+  mutate(metric=fct_relevel(as.factor(metric), "A. R*", "B. Split-Rhat", "C. Bulk-ESS", "D. Tail-ESS")) %>% 
   ggplot(aes(x=value, fill=as.factor(variable))) +
   geom_histogram(position="identity", alpha=0.6) +
   facet_wrap(~metric, scales="free") +
-  scale_fill_grey("MCMC info.", labels=c("4 chains: long", "16 chains: short")) +
-  theme(strip.text.x = element_text(size = 10, colour="black"),
-        text = element_text(size=12, colour="black"),
-        axis.text = element_text(size=10, colour="black"),
-        legend.text = element_text(size=12, colour="black"),
+  scale_fill_grey("MCMC detail", labels=c("4 chains: long", "16 chains: short")) +
+  theme(strip.text.x = element_text(size = 14, colour="black"),
+        text = element_text(size=14, colour="black"),
+        axis.text = element_text(size=14, colour="black"),
+        legend.text = element_text(size=14, colour="black"),
         axis.title.x = element_blank()) +
   ylab("Count")
 ggsave("../output/ovarian.pdf", g, width = 12, height = 8)
@@ -166,19 +166,19 @@ mon_shorter <- readRDS("../data/prostate_short_mon.rds")
 my_breaks <- function(x) { if (max(x) < 10) c(0.95, max(x)) else c(0, max(x)) }
 
 g <- tibble(long=r_star_longer, short=r_star_shorter, metric="A. R*") %>% 
-  bind_rows(tibble(long=mon_longer$zsRhat, short=mon_shorter$zsRhat, metric="B. split-Rhat")) %>% 
+  bind_rows(tibble(long=mon_longer$zsRhat, short=mon_shorter$zsRhat, metric="B. Split-Rhat")) %>% 
   bind_rows(tibble(long=mon_longer$zsseff, short=mon_shorter$zsseff, metric="C. Bulk-ESS")) %>% 
   bind_rows(tibble(long=mon_longer$tailseff, short=mon_shorter$tailseff, metric="D. Tail-ESS")) %>% 
   melt(id.vars="metric") %>% 
-  mutate(metric=fct_relevel(as.factor(metric), "A. R*", "B. split-Rhat", "C. Bulk-ESS", "D. Tail-ESS")) %>% 
+  mutate(metric=fct_relevel(as.factor(metric), "A. R*", "B. Split-Rhat", "C. Bulk-ESS", "D. Tail-ESS")) %>% 
   ggplot(aes(x=value, fill=as.factor(variable))) +
   geom_histogram(position="identity", alpha=0.6) +
   facet_wrap(~metric, scales="free") +
-  scale_fill_grey("MCMC info.", labels=c("4 chains: long", "16 chains: short")) +
-  theme(strip.text.x = element_text(size = 10, colour="black"),
-        text = element_text(size=12, colour="black"),
-        axis.text = element_text(size=10, colour="black"),
-        legend.text = element_text(size=12, colour="black"),
+  scale_fill_grey("MCMC detail", labels=c("4 chains: long", "16 chains: short")) +
+  theme(strip.text.x = element_text(size = 14, colour="black"),
+        text = element_text(size=14, colour="black"),
+        axis.text = element_text(size=14, colour="black"),
+        legend.text = element_text(size=14, colour="black"),
         axis.title.x = element_blank()) +
   ylab("Count") +
   scale_x_continuous(limits=my_breaks)

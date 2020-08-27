@@ -129,6 +129,7 @@ g1 <-
   geom_vline(xintercept = 1, linetype=2) +
   ggtitle("A.") +
   theme(text = element_text(size=14, colour="black"),
+        axis.text = element_text(colour="black"),
         legend.position = "none")
 g2 <- 
   d_df %>% 
@@ -142,6 +143,7 @@ g2 <-
   geom_vline(xintercept = 1, linetype=2) +
   ggtitle("B.") +
   theme(text = element_text(size=14, colour="black"),
+        axis.text = element_text(colour="black"),
         legend.position = "none")
 # a_df <- readRDS("../output/eight_schools_replicates_4_index.rds")
 ```
@@ -162,10 +164,12 @@ g3 <- e_df %>%
   geom_vline(xintercept = 1.01, linetype=2) +
   geom_hline(yintercept = 1.01, linetype=2) +
   geom_abline(linetype=3) +
-  scale_color_grey("Series", labels=c("centered", "non-centered")) +
+  scale_color_grey("Series", labels=c("Centered", "Non-centered")) +
   ylab("Split chains") +
   xlab("Original chains") +
-  ggtitle("C.")
+  ggtitle("C.") +
+  theme(text = element_text(size=14, colour="black"),
+        axis.text = element_text(colour="black", size=10))
 
 pdf("../output/eight_schools.pdf", width = 12, height = 4)
 multiplot(g1, g2, g3, cols = 3)

@@ -91,7 +91,7 @@ g <-
   select(iters, trend, Rstar, Rstar_split) %>% 
   melt(id.vars=c("iters", "trend")) %>% 
   mutate(variable=case_when(variable=="Rstar"~"A. R*",
-                            variable=="Rstar_split"~"B. split-R*")) %>% 
+                            variable=="Rstar_split"~"B. Split-R*")) %>% 
   ggplot(aes(y = value, x = trend)) + 
   geom_point() + 
   geom_jitter() + 
@@ -268,8 +268,8 @@ g <- readRDS("../output/experiment_trends_joint_distribution.rds") %>%
   unique() %>%
   select(-rep) %>% 
   melt(c("rho", "iters"))  %>% 
-  mutate(variable=case_when(variable=="zsRhat"~"A. split-Rhat",
-                            variable=="Rstar_split"~"B. split-R*")) %>% 
+  mutate(variable=case_when(variable=="zsRhat"~"A. Split-Rhat",
+                            variable=="Rstar_split"~"B. Split-R*")) %>% 
   ggplot(aes(y = value, x = rho)) + 
   geom_jitter() + 
   facet_grid(vars(iters), vars(variable)) + 
@@ -360,7 +360,7 @@ g <- ggplot(data = res, aes(x = rho, y = Rstar_split)) +
   geom_jitter() + 
   facet_grid(vars(iters)) + 
   geom_hline(yintercept = 1) + 
-  ylab(TeX("split-R*")) +
+  ylab(TeX("Split-R*")) +
   xlab(TeX("$\\rho$")) +
   ylim(0, 6) +
   theme(strip.text.x = element_text(size=12, colour="black"),
@@ -385,7 +385,7 @@ g <- ggplot(data = filter(res1, is.na(type)), aes(x = as.factor(iters), y = Rsta
   geom_line(data=filter(res1, !is.na(type))) +
   facet_wrap(~rho, scales="free") + 
   geom_hline(yintercept = 1) + 
-  ylab(TeX("split-R*")) +
+  ylab(TeX("Split-R*")) +
   xlab("# iterations") +
   theme(strip.text.x = element_text(size=12, colour="black"),
         strip.text.y = element_text(size=12, colour="black"),

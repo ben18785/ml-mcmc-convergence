@@ -90,16 +90,20 @@ gc <- b_df %>%
   ggtitle("D.") +
   scale_color_grey("ESS type", labels=c("Bulk", "Tail")) +
   scale_shape("LP param", labels=c("False", "True")) +
-  theme(legend.position = c(0.85, 0.7))
+  theme(legend.position = c(0.85, 0.7),
+        text = element_text(size=14, colour="black"),
+        axis.text = element_text(colour="black"))
 
 gb <- b_df %>%
   ggplot(aes(importance, rhat)) +
   geom_jitter(width = 1, aes(shape=as.factor(lp)), colour='grey') +
   geom_smooth(span=1, colour="black") +
   xlab("Variable importance") +
-  ylab(TeX("split-$\\hat{R}$")) +
+  ylab(TeX("Split-$\\hat{R}$")) +
   ggtitle("C.") +
-  theme(legend.position = "none")
+  theme(legend.position = "none",
+        text = element_text(size=14, colour="black"),
+        axis.text = element_text(colour="black"))
 b_df <- tibble(samples_10000_cp=a_sum$zfsRhat[1:250])
 ```
 
@@ -153,12 +157,13 @@ ga <-
   melt() %>% 
   ggplot(aes(x=value, fill=fct_relevel(as.factor(variable), "samples_400", "samples_10000_cp", "samples_10000_ncp"))) +
   geom_histogram(position="identity", alpha=0.8, bins=50) +
-  scale_fill_grey("# of draws", labels=c("400, cp", "10,000, cp", "10,000, ncp")) +
+  scale_fill_grey("# draws", labels=c("400, cp", "10,000, cp", "10,000, ncp")) +
   xlab(TeX("$R*$")) +
   ylab("Count") +
   geom_vline(xintercept = 1, linetype=2) +
   theme(text = element_text(size=14, colour="black"),
-        legend.position = c(0.8, 0.8)) +
+        legend.position = c(0.8, 0.8),
+        axis.text = element_text(colour="black")) +
   ggtitle("A.")
 
 ga2 <- 
@@ -166,11 +171,12 @@ ga2 <-
   melt() %>% 
   ggplot(aes(x=value, fill=fct_relevel(as.factor(variable), "samples_400", "samples_10000_cp", "samples_10000_ncp"))) +
   geom_histogram(position="identity", alpha=0.8, bins=60) +
-  scale_fill_grey("# of draws", labels=c("400, cp", "10,000, cp", "10,000, ncp")) +
-  xlab(TeX("split-$\\hat{R}$")) +
+  scale_fill_grey("# draws", labels=c("400, cp", "10,000, cp", "10,000, ncp")) +
+  xlab(TeX("Split-$\\hat{R}$")) +
   ylab("Count") +
   geom_vline(xintercept = 1, linetype=2) +
   theme(text = element_text(size=14, colour="black"),
+        axis.text = element_text(colour="black"),
         legend.position = c(0.8, 0.8)) +
   ggtitle("B.")
 

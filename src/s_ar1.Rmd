@@ -76,16 +76,18 @@ g2 <- tibble(accuracy=r_star_vals, iteration=seq(1, nreplicates, 1)) %>%
   xlab(TeX("$R*$")) +
   ylab("Count") +
   ggtitle("B.") +
-  theme(text = element_text(size=14, colour="black")) +
+  theme(text = element_text(size=14, colour="black"),
+        axis.text = element_text(colour="black")) +
   xlim(0.9, NA)
 
 g2a <- tibble(accuracy=r_hat_vals, iteration=seq(1, nreplicates, 1)) %>% 
   ggplot(aes(x=accuracy)) +
   geom_histogram() +
-  xlab(TeX("split-$\\hat{R}$")) +
+  xlab(TeX("Split-$\\hat{R}$")) +
   ylab("Count") +
   ggtitle("C.") +
-  theme(text = element_text(size=14, colour="black")) +
+  theme(text = element_text(size=14, colour="black"),
+        axis.text = element_text(colour="black")) +
   xlim(1, NA)
 ```
 
@@ -118,7 +120,8 @@ g1 <- testing_data %>%
   geom_jitter(height = 0.3) +
   xlab("Value") +
   ylab("Chain classification") +
-  theme(text = element_text(size=14, colour="black")) +
+  theme(text = element_text(size=14, colour="black"),
+        axis.text = element_text(colour="black")) +
   coord_flip() +
   ggtitle("A.")
 ```
@@ -146,12 +149,13 @@ g3 <-
   melt() %>% 
   ggplot(aes(x=value, fill=as.factor(variable))) +
   geom_histogram(position="identity", alpha=0.8) +
-  scale_fill_grey("Series", labels=c("unmixed", "mixed")) +
+  scale_fill_grey("Series", labels=c("Unmixed", "Mixed")) +
   xlab(TeX("$R*$")) +
   ylab("Count") +
   geom_vline(xintercept = 1, linetype=2) +
   ggtitle("D.") +
   theme(text = element_text(size=14, colour="black"),
+        axis.text = element_text(colour="black"),
         legend.position = c(0.8, 0.8))
 
 pdf("../output/ar1.pdf", width = 12, height = 6)
@@ -302,6 +306,7 @@ b_sum <- mResults %>%
 g <- mResults %>% 
   melt(id.vars=c("nchains", "iterate")) %>% 
   left_join(b_sum, by = c("nchains", "variable")) %>% 
+  mutate(variable=if_else(variable=="split-Rhat", "Split-Rhat", as.character(variable))) %>% 
   ggplot(aes(x=as.factor(nchains), y=value)) +
   geom_jitter(width = 0.2, colour="grey") +
   geom_pointrange(aes(ymin=lower, y=middle, ymax=upper)) +
@@ -347,6 +352,7 @@ for(j in seq_along(lsample_sizes)){
 colnames(mResults) <- c("n", "iterate", "R*")
 mResults <- as.data.frame(mResults)
 saveRDS(mResults, "../data/ar1_numsamples.rds")
+mResults <- readRDS("../data/ar1_numsamples.rds")
 
 b_sum <- mResults %>% 
   melt(id.vars=c("n", "iterate")) %>%
@@ -363,8 +369,8 @@ g <- mResults %>%
   geom_jitter(width = 0.2, colour="grey") +
   geom_pointrange(aes(ymin=lower, y=middle, ymax=upper)) +
   scale_x_discrete() +
-  xlab("# samples") +
-  ylab(TeX("split-R*")) +
+  xlab("Sample size") +
+  ylab(TeX("Split-R*")) +
   scale_color_grey() +
   theme(axis.text = element_text(colour="black", size=12),
         axis.title = element_text(colour="black", size=14),

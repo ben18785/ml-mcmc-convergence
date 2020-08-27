@@ -111,9 +111,10 @@ my_lims <- function(x) { if (max(x) < 1.2) c(0.985, 1.03) else c(0.9, 3)}
 
 g <- c_df %>% 
   melt(id.vars=c("source", "iter")) %>% 
+  mutate(source=if_else(source=="split-Rhat", "Split-Rhat", as.character(source))) %>% 
   ggplot(aes(x=value, fill=as.factor(variable))) +
   geom_histogram(bins=50, position="identity", alpha=0.8) +
-  scale_fill_grey("Parameterisation", labels=c("nominal", "alternative")) +
+  scale_fill_grey("Parameterisation", labels=c("Nominal", "Alternative")) +
   ylab("Count") +
   geom_vline(xintercept = 1, linetype=2) +
   facet_wrap(~source+iter, scales="free") +
@@ -189,7 +190,7 @@ g1 <- b_df %>%
         legend.position = "none",
         axis.title.y = element_blank()) +
   scale_x_log10() +
-  ggtitle(TeX("A. Quantile $R^2$"))
+  ggtitle(TeX("A. Quantile-$R^2$"))
 g1
 ```
 
@@ -409,6 +410,7 @@ g4 <-
   scale_x_log10() +
   scale_y_continuous(limits=c(0.99, NA), breaks = seq(1, 6, 0.2)) +
   ggtitle(TeX("C. Multivariate split-$\\hat{R}$"))
+g4
 ```
 
 Tail ESS
