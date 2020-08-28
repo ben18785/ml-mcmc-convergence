@@ -112,18 +112,19 @@ my_lims <- function(x) { if (max(x) < 1.2) c(0.985, 1.03) else c(0.9, 3)}
 g <- c_df %>% 
   melt(id.vars=c("source", "iter")) %>% 
   mutate(source=if_else(source=="split-Rhat", "Split-Rhat", as.character(source))) %>% 
+  mutate(iter=fct_relevel(as.factor(iter), "1000", "10,000")) %>% 
   ggplot(aes(x=value, fill=as.factor(variable))) +
   geom_histogram(bins=50, position="identity", alpha=0.8) +
   scale_fill_grey("Parameterisation", labels=c("Nominal", "Alternative")) +
   ylab("Count") +
   geom_vline(xintercept = 1, linetype=2) +
-  facet_wrap(~source+iter, scales="free") +
+  facet_wrap(~iter+source, scales="free") +
   scale_x_continuous(limits=my_lims) +
   theme(strip.text = element_text(size=14, colour="black"),
         axis.text = element_text(size=12, colour="black"),
         axis.title = element_text(size=14, colour="black"),
         legend.text = element_text(size=14, colour="black"),
-        legend.title = element_text(size=14, colour="black")) +
+        legend.title = element_text(size=16, colour="black")) +
   xlab("Value")
 
 ggsave("../output/cauchy.pdf", g, width = 12, height = 8)

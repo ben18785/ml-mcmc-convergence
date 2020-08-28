@@ -236,6 +236,7 @@
   maybe cite the new R-hat paper which has more explanation
 
 * [x] Our GBM model
+  
   * M stands for model, so the second model seems a bit strange.
 * [x] The new Table 1 is good, but the caption is too close to the last line of the
   table
@@ -245,10 +246,12 @@
 * [x] The nominal parameterisation has some parameters with Rhat > 1.01,
    \> indicative non-convergence, whereas the alternative has Rhat > 1.01
    \> for all parameters.
+  
   * The latter one should have Rhat < 1.01
 * [x] we plot this “quantile R^2 ”
-  * I would drop quotes, and use italics. Maybe add dash: quantile-R^2
-
+  
+* I would drop quotes, and use italics. Maybe add dash: quantile-R^2
+  
 * [x] we used settings that reduce the chance of divergent iterations for the NUTS
   algorithm (Hoffman and Gelman, 2014),
   * This should refer to dynamic HMC and Betancourt's paper, as that specific
@@ -256,8 +259,14 @@
     variant used in Stan.
 * [x] when the number of dimensions of a distribution is comparable to the
    \> number of samples
+  
   * number of samples -> number of draws (or sample size)
 * [x] we found that a default set of hyperparameters (which we report in
    \> §2) sufficed across all our examples.
   * I guess this is because the classification boundaries are very unlikley to be
     very complex compared to for example machine vision tasks.
+
+# Call 28th August
+
+* arXiv
+* BA
