@@ -90,8 +90,8 @@ gc <- b_df %>%
   ggtitle("D.") +
   scale_color_grey("ESS type", labels=c("Bulk", "Tail")) +
   scale_shape("LP param", labels=c("False", "True")) +
-  theme(legend.position = c(0.85, 0.7),
-        text = element_text(size=14, colour="black"),
+  theme(legend.position = c(0.85, 0.6),
+        text = element_text(size=18, colour="black"),
         axis.text = element_text(colour="black"))
 
 gb <- b_df %>%
@@ -102,7 +102,7 @@ gb <- b_df %>%
   ylab(TeX("Split-$\\hat{R}$")) +
   ggtitle("C.") +
   theme(legend.position = "none",
-        text = element_text(size=14, colour="black"),
+        text = element_text(size=18, colour="black"),
         axis.text = element_text(colour="black"))
 b_df <- tibble(samples_10000_cp=a_sum$zfsRhat[1:250])
 ```
@@ -161,8 +161,8 @@ ga <-
   xlab(TeX("$R*$")) +
   ylab("Count") +
   geom_vline(xintercept = 1, linetype=2) +
-  theme(text = element_text(size=14, colour="black"),
-        legend.position = c(0.8, 0.8),
+  theme(text = element_text(size=18, colour="black"),
+        legend.position = c(0.8, 0.75),
         axis.text = element_text(colour="black")) +
   ggtitle("A.")
 
@@ -175,9 +175,9 @@ ga2 <-
   xlab(TeX("Split-$\\hat{R}$")) +
   ylab("Count") +
   geom_vline(xintercept = 1, linetype=2) +
-  theme(text = element_text(size=14, colour="black"),
+  theme(text = element_text(size=18, colour="black"),
         axis.text = element_text(colour="black"),
-        legend.position = c(0.8, 0.8)) +
+        legend.position = c(0.8, 0.75)) +
   ggtitle("B.")
 
 pdf("../output/mvt_three.pdf", width = 12, height = 8)

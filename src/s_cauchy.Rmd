@@ -120,11 +120,12 @@ g <- c_df %>%
   geom_vline(xintercept = 1, linetype=2) +
   facet_wrap(~iter+source, scales="free") +
   scale_x_continuous(limits=my_lims) +
-  theme(strip.text = element_text(size=14, colour="black"),
-        axis.text = element_text(size=12, colour="black"),
-        axis.title = element_text(size=14, colour="black"),
-        legend.text = element_text(size=14, colour="black"),
-        legend.title = element_text(size=16, colour="black")) +
+  theme(strip.text = element_text(size=16, colour="black"),
+        axis.text = element_text(size=16, colour="black"),
+        axis.title = element_text(size=20, colour="black"),
+        legend.text = element_text(size=16, colour="black"),
+        legend.title = element_text(size=16, colour="black"),
+        legend.position = "top") +
   xlab("Value")
 
 ggsave("../output/cauchy.pdf", g, width = 12, height = 8)
@@ -186,13 +187,12 @@ g1 <- b_df %>%
   ylab(TeX("$R^2$")) +
   scale_color_grey("Parameterisation", labels=c("Alternative", "Nominal")) +
   xlab("Iteration") +
-  theme(text=element_text(size=11, colour="black"),
-        axis.text = element_text(size=10, colour="black"),
+  theme(text=element_text(size=16, colour="black"),
+        axis.text = element_text(colour="black"),
         legend.position = "none",
         axis.title.y = element_blank()) +
   scale_x_log10() +
   ggtitle(TeX("A. Quantile-$R^2$"))
-g1
 ```
 
 Cramer Von Mises -- seems very noisy
@@ -271,8 +271,8 @@ g2 <-
   ylab(TeX("$R^*$")) +
   scale_color_grey("Parameterisation", labels=c("Alternative", "Nominal")) +
   xlab("Iteration") +
-  theme(text=element_text(size=11, colour="black"),
-        axis.text = element_text(size=10, colour="black"),
+  theme(text=element_text(size=16, colour="black"),
+        axis.text = element_text(colour="black"),
         legend.position = c(0.8, 0.7),
         legend.text = element_text(size=12, colour="black"),
         legend.title = element_text(size=14, colour="black"),
@@ -306,7 +306,7 @@ ranked <- future_map_dbl(iter, function(i) r_star(x[1:i, , ]))
 cc_df <- cc_df %>% 
   bind_rows(tibble(ranked, unranked, iter, source="alt"))
 saveRDS(cc_df, "../output/cauchy_ranked_unranked.rds")
-
+cc_df <- readRDS("../output/cauchy_ranked_unranked.rds")
 
 g <- cc_df %>% 
   mutate(source=if_else(source=="alt", "alternative", "nominal")) %>% 
@@ -368,8 +368,8 @@ g3 <-
   scale_color_grey("Parameterisation", labels=c("Alternative", "Nominal")) +
   scale_fill_grey("Parameterisation", labels=c("Alternative", "Nominal")) +
   xlab("Iteration") +
-  theme(text=element_text(size=11, colour="black"),
-        axis.text = element_text(size=10, colour="black"),
+  theme(text=element_text(size=16, colour="black"),
+        axis.text = element_text(colour="black"),
         legend.position = "none",
         axis.title.y = element_blank()) +
   geom_hline(yintercept = 1, linetype=2) +
@@ -403,8 +403,8 @@ g4 <-
   scale_color_grey("Parameterisation", labels=c("Alternative", "Nominal")) +
   scale_fill_grey("Parameterisation", labels=c("Alternative", "Nominal")) +
   xlab("Iteration") +
-  theme(text=element_text(size=11, colour="black"),
-        axis.text = element_text(size=10, colour="black"),
+  theme(text=element_text(size=16, colour="black"),
+        axis.text = element_text(colour="black"),
         legend.position = "none",
         axis.title.y = element_blank()) +
   geom_hline(yintercept = 1, linetype=2) +
@@ -445,8 +445,8 @@ g5 <-
   scale_color_grey("Parameterisation", labels=c("Alternative", "Nominal")) +
   scale_fill_grey("Parameterisation", labels=c("Alternative", "Nominal")) +
   xlab("Iteration") +
-  theme(text=element_text(size=11, colour="black"),
-        axis.text = element_text(size=10, colour="black"),
+  theme(text=element_text(size=16, colour="black"),
+        axis.text = element_text(colour="black"),
         legend.position = "none",
         axis.title.y = element_blank()) +
   geom_hline(yintercept = 400, linetype=2) +
@@ -463,8 +463,8 @@ g6 <-
   scale_color_grey("Parameterisation", labels=c("Alternative", "Nominal")) +
   scale_fill_grey("Parameterisation", labels=c("Alternative", "Nominal")) +
   xlab("Iteration") +
-  theme(text=element_text(size=11, colour="black"),
-        axis.text = element_text(size=10, colour="black"),
+  theme(text=element_text(size=16, colour="black"),
+        axis.text = element_text(colour="black"),
         legend.position = "none",
         axis.title.y = element_blank()) +
   geom_hline(yintercept = 400, linetype=2) +

@@ -76,8 +76,8 @@ g2 <- tibble(accuracy=r_star_vals, iteration=seq(1, nreplicates, 1)) %>%
   xlab(TeX("$R*$")) +
   ylab("Count") +
   ggtitle("B.") +
-  theme(text = element_text(size=14, colour="black"),
-        axis.text = element_text(colour="black")) +
+  theme(text = element_text(size=18, colour="black"),
+        axis.text = element_text(colour="black", size=16)) +
   xlim(0.9, NA)
 
 g2a <- tibble(accuracy=r_hat_vals, iteration=seq(1, nreplicates, 1)) %>% 
@@ -86,8 +86,8 @@ g2a <- tibble(accuracy=r_hat_vals, iteration=seq(1, nreplicates, 1)) %>%
   xlab(TeX("Split-$\\hat{R}$")) +
   ylab("Count") +
   ggtitle("C.") +
-  theme(text = element_text(size=14, colour="black"),
-        axis.text = element_text(colour="black")) +
+  theme(text = element_text(size=18, colour="black"),
+        axis.text = element_text(colour="black", size=16)) +
   xlim(1, NA)
 ```
 
@@ -120,7 +120,7 @@ g1 <- testing_data %>%
   geom_jitter(height = 0.3) +
   xlab("Value") +
   ylab("Chain classification") +
-  theme(text = element_text(size=14, colour="black"),
+  theme(text = element_text(size=18, colour="black"),
         axis.text = element_text(colour="black")) +
   coord_flip() +
   ggtitle("A.")
@@ -154,7 +154,7 @@ g3 <-
   ylab("Count") +
   geom_vline(xintercept = 1, linetype=2) +
   ggtitle("D.") +
-  theme(text = element_text(size=14, colour="black"),
+  theme(text = element_text(size=18, colour="black"),
         axis.text = element_text(colour="black"),
         legend.position = c(0.8, 0.8))
 
@@ -205,6 +205,7 @@ for(i in 1:nreplicates){
 }
 
 saveRDS(r_star_vals, "../data/ar1_sensitivity.rds")
+r_star_vals <- readRDS("../data/ar1_sensitivity.rds")
 
 b_sum <-
   r_star_vals %>% 
@@ -246,12 +247,12 @@ g <- r_star_vals %>%
   xlab("Hyperparameters") +
   ylab("R*") +
   geom_hline(yintercept = 1, linetype=2) +
-  annotate("text", x = b_sum$x_pos, y = b_sum$y_pos, label = b_sum$below_per, size=5) +
+  annotate("text", x = b_sum$x_pos, y = b_sum$y_pos, label = b_sum$below_per, size=6) +
   annotate("pointrange", x = 1:6, ymin=b_sum$lower, ymax=b_sum$upper, y = b_sum$middle, colour="black", size=1) +
   coord_flip() +
   scale_color_grey() +
-  theme(axis.text = element_text(colour="black", size=12),
-        axis.title = element_text(colour="black", size=14),
+  theme(axis.text = element_text(colour="black", size=16),
+        axis.title = element_text(colour="black", size=20),
         legend.position = "none")
 ggsave("../output/ar1_sensitivity.pdf", g, width = 12, height = 8)
 ```
@@ -315,9 +316,9 @@ g <- mResults %>%
   xlab("# chains") +
   ylab("Value") +
   scale_color_grey() +
-  theme(axis.text = element_text(colour="black", size=12),
-        axis.title = element_text(colour="black", size=14),
-        strip.text.x = element_text(colour="black", size=14),
+  theme(axis.text = element_text(colour="black", size=16),
+        axis.title = element_text(colour="black", size=16),
+        strip.text.x = element_text(colour="black", size=16),
         legend.position = "none")
 ggsave("../output/ar1_numchains.pdf", g, width = 8, height = 4)
 
@@ -372,9 +373,9 @@ g <- mResults %>%
   xlab("Sample size") +
   ylab(TeX("Split-R*")) +
   scale_color_grey() +
-  theme(axis.text = element_text(colour="black", size=12),
-        axis.title = element_text(colour="black", size=14),
-        strip.text.x = element_text(colour="black", size=14),
+  theme(axis.text = element_text(colour="black", size=16),
+        axis.title = element_text(colour="black", size=20),
+        strip.text.x = element_text(colour="black", size=16),
         legend.position = "none")
 ggsave("../output/ar1_samplesize.pdf", g, width = 8, height = 6)
 ```

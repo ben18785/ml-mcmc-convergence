@@ -56,14 +56,14 @@ full_samples[, 4, ] <- as.matrix(chain4[, 1:2])
 
 # Calculate R* dist
 r_star_vals <- r_star_dist(full_samples)
-
+mean(r_star_vals>1)
 g <- 
   qplot(r_star_vals) +
   xlab(TeX("$R*$")) +
   xlim(0.9, NA) +
   geom_vline(xintercept = 1, linetype=2) +
   ylab("Count") +
-  theme(text=element_text(size=14, colour="black"),
+  theme(text=element_text(size=20, colour="black"),
         axis.text = element_text(colour="black"))
 ggsave("../output/bivariate.pdf", g, width = 8, height = 6)
 ```

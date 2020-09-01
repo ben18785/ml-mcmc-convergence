@@ -90,11 +90,13 @@ g <- tibble(long=r_star_longer, short=r_star_shorter, metric="A. R*") %>%
   geom_histogram(position="identity", alpha=0.6) +
   facet_wrap(~metric, scales="free") +
   scale_fill_grey("MCMC detail", labels=c("4 chains: long", "16 chains: short")) +
-  theme(strip.text.x = element_text(size = 14, colour="black"),
-        text = element_text(size=14, colour="black"),
-        axis.text = element_text(size=14, colour="black"),
-        legend.text = element_text(size=14, colour="black"),
-        axis.title.x = element_blank()) +
+  theme(strip.text.x = element_text(size = 20, colour="black"),
+        text = element_text(size=18, colour="black"),
+        axis.text = element_text(size=18, colour="black"),
+        legend.text = element_text(size=18, colour="black"),
+        axis.title = element_text(size=18, colour="black"),
+        axis.title.x = element_blank(),
+        legend.position = "top") +
   ylab("Count")
 ggsave("../output/ovarian.pdf", g, width = 12, height = 8)
 ```
@@ -175,11 +177,13 @@ g <- tibble(long=r_star_longer, short=r_star_shorter, metric="A. R*") %>%
   geom_histogram(position="identity", alpha=0.6) +
   facet_wrap(~metric, scales="free") +
   scale_fill_grey("MCMC detail", labels=c("4 chains: long", "16 chains: short")) +
-  theme(strip.text.x = element_text(size = 14, colour="black"),
-        text = element_text(size=14, colour="black"),
-        axis.text = element_text(size=14, colour="black"),
-        legend.text = element_text(size=14, colour="black"),
-        axis.title.x = element_blank()) +
+  theme(strip.text.x = element_text(size = 20, colour="black"),
+        text = element_text(size=18, colour="black"),
+        axis.text = element_text(size=18, colour="black"),
+        legend.text = element_text(size=18, colour="black"),
+        axis.title = element_text(size=18, colour="black"),
+        axis.title.x = element_blank(),
+        legend.position = "top") +
   ylab("Count") +
   scale_x_continuous(limits=my_breaks)
 ggsave("../output/prostate.pdf", g, width = 12, height = 8)

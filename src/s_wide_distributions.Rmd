@@ -76,7 +76,7 @@ r_star <- r_star_dist(full_data)
 
 a_df <- a_df %>%
   mutate(samples_ncp=r_star)
-saveRDS(a_df, "../output/mvt_500_all.rds")
+# saveRDS(a_df, "../output/mvt_500_all.rds")
 a_df <- readRDS("../output/mvt_500_all.rds")
 g <- 
   a_df %>% 
@@ -87,7 +87,7 @@ g <-
   xlab(TeX("$R*$")) +
   ylab("Count") +
   geom_vline(xintercept = 1, linetype=2) +
-  theme(text = element_text(size=14, colour="black"),
+  theme(text = element_text(size=20, colour="black"),
         axis.text = element_text(colour="black"),
         legend.position = c(0.8, 0.8)) +
   ggtitle("A.")
@@ -113,7 +113,7 @@ h <- tibble(bulk_ess=mon$zsseff,
         axis.text=element_text(size=12, colour="black"),
         strip.text = element_text(size=12, colour="black"),
         axis.title.x = element_blank())
-ggsave("../output/wide_ncp_diagnostics.pdf", h, width = 12, height = 8)
+# ggsave("../output/wide_ncp_diagnostics.pdf", h, width = 12, height = 8)
 
 aa_df <- aa_df %>%
   bind_rows(tibble(bulk_ess=mon$zsseff,
@@ -130,9 +130,9 @@ h1 <- aa_df %>%
   geom_histogram() + 
   facet_grid(vars(source), vars(relevel(as.factor(variable), "A. Split-Rhat", "B. Bulk ESS", "C. Tail ESS")), scales="free") + xlab("Value") +
   ylab("Count") +
-  theme(text=element_text(size=12, colour="black"),
-        axis.text=element_text(size=12, colour="black"),
-        strip.text = element_text(size=12, colour="black"),
+  theme(text=element_text(size=18, colour="black"),
+        axis.text=element_text(size=18, colour="black"),
+        strip.text = element_text(size=18, colour="black"),
         axis.title.x = element_blank())
 ggsave("../output/wide_both_diagnostics.pdf", h1, width = 12, height = 8)
 ```
@@ -186,7 +186,7 @@ g1 <-
   xlab(TeX("$R*$")) +
   ylab("Count") +
   geom_vline(xintercept = 1, linetype=2) +
-  theme(text = element_text(size=14, colour="black"),
+  theme(text = element_text(size=20, colour="black"),
         axis.text = element_text(colour="black"),
         legend.position = c(0.8, 0.8)) +
   ggtitle("B.")

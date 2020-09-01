@@ -97,10 +97,11 @@ g <-
   geom_jitter() + 
   facet_grid(vars(iters), vars(variable)) + 
   geom_hline(yintercept = 1) +
-  theme(strip.text.x = element_text(size=12, colour="black"),
-        strip.text.y = element_text(size=12, colour="black"),
-        axis.text.x = element_text(size=10, colour="black"),
-        axis.text.y = element_text(size=10, colour="black")) +
+  theme(strip.text.x = element_text(size=16, colour="black"),
+        strip.text.y = element_text(size=16, colour="black"),
+        axis.text.x = element_text(size=16, colour="black"),
+        axis.text.y = element_text(size=16, colour="black"),
+        axis.title = element_text(size=16, colour="black")) +
   xlab("Trend") +
   ylab("Value")
 ggsave("../output/trends_all_dim.pdf", g, width = 8, height = 6)
@@ -181,10 +182,11 @@ g <- readRDS("../output/experiment_trends_one_dim.rds") %>%
   geom_jitter() + 
   facet_grid(vars(iters), vars(dimension)) + 
   geom_hline(yintercept = 1) +
-  theme(strip.text.x = element_text(size=12, colour="black"),
-        strip.text.y = element_text(size=12, colour="black"),
-        axis.text.x = element_text(size=10, colour="black"),
-        axis.text.y = element_text(size=10, colour="black")) +
+  theme(strip.text.x = element_text(size=16, colour="black"),
+        strip.text.y = element_text(size=16, colour="black"),
+        axis.text.x = element_text(size=16, colour="black"),
+        axis.text.y = element_text(size=16, colour="black"),
+        axis.title = element_text(size=16, colour="black")) +
   xlab("Trend") +
   ylab("Value")
 g
@@ -274,10 +276,11 @@ g <- readRDS("../output/experiment_trends_joint_distribution.rds") %>%
   geom_jitter() + 
   facet_grid(vars(iters), vars(variable)) + 
   geom_hline(yintercept = 1) +
-  theme(strip.text.x = element_text(size=12, colour="black"),
-        strip.text.y = element_text(size=12, colour="black"),
-        axis.text.x = element_text(size=10, colour="black"),
-        axis.text.y = element_text(size=10, colour="black")) +
+  theme(strip.text.x = element_text(size=16, colour="black"),
+        strip.text.y = element_text(size=16, colour="black"),
+        axis.text.x = element_text(size=16, colour="black"),
+        axis.text.y = element_text(size=16, colour="black"),
+        axis.title = element_text(size=16, colour="black")) +
   ylab("Value") +
   xlab(TeX("$\\rho$"))
 g
@@ -349,12 +352,12 @@ saveRDS(res, "../output/experiment_trends_rho_nearer1.rds")
 ```{r}
 res <- readRDS("../output/experiment_trends_rho_nearer1.rds")
 
-ggplot(data = res, aes(x = rho, y = zsRhat)) + 
-  geom_jitter() + 
-  facet_grid(vars(iters)) + 
-  geom_hline(yintercept = 1) + 
-  ggtitle('R* without splitting') +
-  ylim(0, 6)
+# ggplot(data = res, aes(x = rho, y = zsRhat)) + 
+#   geom_jitter() + 
+#   facet_grid(vars(iters)) + 
+#   geom_hline(yintercept = 1) + 
+#   ggtitle('R* without splitting') +
+#   ylim(0, 6)
 
 g <- ggplot(data = res, aes(x = rho, y = Rstar_split)) + 
   geom_jitter() + 
@@ -363,10 +366,11 @@ g <- ggplot(data = res, aes(x = rho, y = Rstar_split)) +
   ylab(TeX("Split-R*")) +
   xlab(TeX("$\\rho$")) +
   ylim(0, 6) +
-  theme(strip.text.x = element_text(size=12, colour="black"),
-        strip.text.y = element_text(size=12, colour="black"),
-        axis.text.x = element_text(size=10, colour="black"),
-        axis.text.y = element_text(size=10, colour="black"))
+  theme(strip.text.x = element_text(size=16, colour="black"),
+        strip.text.y = element_text(size=16, colour="black"),
+        axis.text.x = element_text(size=16, colour="black"),
+        axis.text.y = element_text(size=16, colour="black"),
+        axis.title = element_text(size=16, colour="black"))
 ggsave("../output/trends_ar1.pdf", g, width = 8, height = 6)
 
 
@@ -387,10 +391,11 @@ g <- ggplot(data = filter(res1, is.na(type)), aes(x = as.factor(iters), y = Rsta
   geom_hline(yintercept = 1) + 
   ylab(TeX("Split-R*")) +
   xlab("# iterations") +
-  theme(strip.text.x = element_text(size=12, colour="black"),
-        strip.text.y = element_text(size=12, colour="black"),
-        axis.text.x = element_text(size=10, colour="black"),
-        axis.text.y = element_text(size=10, colour="black"))
+  theme(strip.text.x = element_text(size=16, colour="black"),
+        strip.text.y = element_text(size=16, colour="black"),
+        axis.text.x = element_text(size=16, colour="black"),
+        axis.text.y = element_text(size=16, colour="black"),
+        axis.title = element_text(size=16, colour="black"))
 
 ggsave("../output/trends_ar1_transposed.pdf", g, width = 8, height = 6)
 ```
