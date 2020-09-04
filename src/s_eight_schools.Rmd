@@ -182,14 +182,25 @@ dev.off()
 ```{r}
 x <- rstan::extract(fit_cp, permuted=F)
 g1 <- plot_r_star_quantiles(1, x, nsim=40, split_chains = F) +
-  scale_y_continuous(limits = c(0.6, 1.7), breaks = c(0.6, 0.8, 1, 1.2, 1.4, 1.6))
+  scale_y_continuous(limits = c(0.6, 1.7), breaks = c(0.6, 0.8, 1, 1.2, 1.4, 1.6)) +
+  theme(axis.title.y = element_blank(),
+        axis.text.y = element_blank(),
+        axis.text.x = element_blank(),
+        axis.title.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.ticks.y = element_blank()) +
+  coord_flip()
 
 g2 <- plot_r_star_quantiles(2, x, nsim=40, split_chains = F) +
-  scale_y_continuous(limits = c(0.6, 1.7), breaks = c(0.6, 0.8, 1, 1.2, 1.4, 1.6))
+  scale_y_continuous(limits = c(0.6, 1.7), breaks = c(0.6, 0.8, 1, 1.2, 1.4, 1.6)) +
+  theme(axis.title.y = element_blank(),
+        axis.text.y = element_blank(),
+        axis.ticks.y = element_blank()) +
+  coord_flip()
 
 library(ggExtra)
 library(gridExtra)
-f <- ecdf(x[, , 2])
+f <- ecdf(as.vector(x[, , 2]))
 p <- x[, , 2] %>% 
   melt(id.vars="NULL") %>% 
   mutate(value=f(value)) %>% 
@@ -200,16 +211,14 @@ p <- x[, , 2] %>%
   scale_color_brewer(palette = "Dark2") +
   theme(text = element_text(colour="black", size=11),
           axis.text = element_text(colour="black", size=10),
-        legend.position = "none",
-        axis.title.x = element_blank()) +
+        legend.position = "none") +
   xlab("Iteration") +
-  ylab("Quantile") +
-  ylim(0, 1) +
-  coord_flip()
-ga <- ggMarginal(p, type="density", margins="x", groupColour = T,
-                 xparams = list(bw=0.05))
+  ylab(TeX("B. $\\tau$ quantile")) +
+  ylim(0, 1)
+ga <- ggMarginal(p, type="density", margins="y", groupColour = T,
+                 yparams = list(bw=0.05))
 
-f <- ecdf(x[, , 1])
+f <- ecdf(as.vector(x[, , 1]))
 p <- x[, , 1] %>% 
   melt(id.vars="NULL") %>% 
   mutate(value=f(value)) %>% 
@@ -221,18 +230,19 @@ p <- x[, , 1] %>%
   theme(text = element_text(colour="black", size=11),
           axis.text = element_text(colour="black", size=10),
         legend.position = "none",
-        axis.title.x = element_blank()) +
+        axis.title.x = element_blank(),
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank()) +
   xlab("Iteration") +
-  ylab("Quantile") +
-  ylim(0, 1) +
-  coord_flip()
-gb <- ggMarginal(p, type="density", margins="x", groupColour = T,
-                 xparams = list(bw=0.05))
+  ylab(TeX("A. $\\mu$ quantile")) +
+  ylim(0, 1)
+gb <- ggMarginal(p, type="density", margins="y", groupColour = T,
+                 yparams = list(bw=0.05))
 
 library(cowplot)
 
-pdf("../output/eight_schools_r_star_quantiles.pdf", width = 6, height = 6)
-plot_grid(arrangeGrob(gb, top="A. mu"), arrangeGrob(ga, top="B. tau"), g1, g2,nrow = 2, rel_heights = c(1/2, 1/4))
+pdf("../output/eight_schools_r_star_quantiles1.pdf", width = 6, height = 4)
+plot_grid(gb, g1, ga, g2, nrow = 2, rel_widths = c(1, 0.4), rel_heights = c(0.9, 1))
 dev.off()
 ```
 

@@ -270,3 +270,23 @@
 
 * arXiv
 * BA
+
+# Andrew Gelman's suggestions
+
+* [x] p.2, "Unfortunately, anyone who uses MCMC knows that it is full of false dawns: chains can easily become stuck in areas of parameter space, and observation over short intervals mean the sampling distribution appears converged." You can cite this paper from 1992: http://www.stat.columbia.edu/~gelman/research/published/false_sense.pdf
+* [x] p.2, "it should not be possible to predict the chain that caused a draw." I would change this to "it should not be possible to predict which draws come from which chain." I think it will just be confusing to introduce causal language here.
+* [x] p.2, "If Markov chains have not mixed, it is possible to determine to which chain a draw belongs from its value." I would change "determine" to "guess (with more accuracy than chance)"
+* [x] p.13, "omniscient": I think this should be "omnibus"
+  * Changed to, "Comparing our measure of convergence that requires knowing the actual target distribution (\textit{quantile-$R^2$}; in Fig. \ref{fig:cauchy_convergence}A), with the various heuristic measures, all show a similar pattern: as sample size increases, the various statistics tend towards convergence. The rate at which these converge differs though, and $R^*$ (Fig. \ref{fig:cauchy_convergence}D) appears at least, qualitatively, most similar to \textit{quantile-$R^2$}."
+* [x] p.13, 8 schools model: We use the notation N(theta, sigma^2) or normal(theta, sigma). If you write N(theta, sigma), this is not the same as the notation in BDA. Now I usually just write normal(theta, sigma) to be unambiguous. That's for the univiarate normal. For the multivariate normal, I will still write N(mu, Sigma) or MVN(mu, Sigma).
+  * Done throughout the document
+* [x] p.16, on figure 12 I would plot iteration number on the x-axis as these are time series plots (the top 2 graphs on figure 12). It seems weird to me to have time on the y-axis. And that would be fine to have time on the x-axis. Just make the lines of the graphs a little bit thinner and they will fit just fine.
+* [x] Finally, a suggestion about computation. Maybe this is in the article already and I didn't notice it . . . if computation is expensive, then couldn't you compute R* using a thinned series? Similarly, if the problem is high dimensional, you could test on a subset of dimensions. I bet there's a way to do this with random subsets that preserves efficiency. For example, suppose you have a 2000-dimensional problem with 4 chains, each of length 1000. You could run many times on various random subsets of dimensions and iterations and then compute the average of the R* values. This might allow Stan to do something fast and automatic even with large problems.
+  * Added the following to the discussion section on R* runtime: "That said, it is possible to reduce the runtime for R using thinned draws (although this risks losing chain idiosyncracies) and using a subset of dimensions (although this risks losing problematic dimensions). Indeed, in §3.2.2,
+    §3.3 and §S3, we use these strategies and, nonetheless, find that R provides a stringent measure of convergence."
+
+# Notes when reviewer comments arrive
+
+* All submitted files are in the arxiv_submission_aud_2020 folder
+  * Including the submission to the journal
+  * Including the figures (so, if these are updated in outputs, these need to be too).
