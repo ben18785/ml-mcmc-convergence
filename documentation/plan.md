@@ -290,3 +290,5 @@
 * All submitted files are in the arxiv_submission_aud_2020 folder
   * Including the submission to the journal
   * Including the figures (so, if these are updated in outputs, these need to be too).
+* ms_ba is the version submitted to the journal
+  * This has been being updated as comments come in. So, if we resubmit, we will need to explicitly mention these changes.
