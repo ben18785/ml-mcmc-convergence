@@ -120,6 +120,11 @@ r_star_dist <- function(x, split_chains=T, training_percent=0.7, caret_default=N
   r <- m_flattened %>% 
     mutate(chain=as.factor(chain))
   
+  # if only 1 param, add in a column of random noise since gbm requires >1 dims
+  if(nparams==1)
+    r <- r %>% 
+    mutate(V_new=rnorm(nrow(r)))
+  
   rand_samples <- sample(1:nrow(r), training_percent * nrow(r))
   training_data <- r[rand_samples, ]
   testing_data <- r[-rand_samples, ]
