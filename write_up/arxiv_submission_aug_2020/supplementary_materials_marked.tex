@@ -40,6 +40,7 @@
 \usepackage{bbm}
 \usepackage{caption} 
 \usepackage{natbib}
+\usepackage{xcolor}
 
 \usepackage{xr}
 \externaldocument[]{ms_ba_marked}
@@ -255,6 +256,7 @@ For the prostate model, we show the results in Fig. \ref{fig:prostate}. Since th
 	\label{fig:prostate}
 \end{figure}
 
+\color{red}
 \section{Discrete distribution}\label{sec:discrete}
 In this section, we compare the performance of $R^*$ and $\widehat{R}$ on a target distribution with a discrete dimension. To do so, we generate draws from four discrete Markov chains, following a 1st order Markov process with transition probabilities,
 %
@@ -262,8 +264,9 @@ In this section, we compare the performance of $R^*$ and $\widehat{R}$ on a targ
 p_{ij} = \text{Pr}(X_{n+1}=j|X_n=i),
 \end{equation}
 %
-where $p_{ij}$ is the probability of transitioning from state $i\in\{1,2,3,4\}$ at time $n$ to state $j\in\{1,2,3,4\}$ at time $n+1$, and $X(0)=1$. The target distribution is, hence, the stationary distribution of this process.
+where $p_{ij}$ is the probability of transitioning from state $i$ at time $n$ to state $j$ at time $n+1$, and $X(0)=1$. The target distribution is, hence, the stationary distribution of this process.
 
+\subsection{Small state-space}\label{sec:discrete_small}
 In three of the four chains, we generate draws using a transition probability matrix:
 %
 \begin{gather}
@@ -312,11 +315,19 @@ For each of these three cases, we consider a range of sample sizes across each o
 
 This example hints that $R^*$ may be particularly adept at detecting poor convergence in small discrete parameter spaces.
 
+
 \begin{figure}[!htb]
 	\centerline{\includegraphics[width=1.0\textwidth]{discrete.pdf}}
 	\caption{\textbf{Discrete distribution example: convergence diagnostics.} On the horizontal axis, we show the sample size of each set of simulations. The panels within A. and B. indicate the transition probability matrix used for the fourth chain (the other three chains always used $\boldsymbol{P}=\boldsymbol{P}_1$). In panel A, grey points indicate $R^*$ from each replicate calculated using Algorithm \ref{alg:R_star}) , and the black point-ranges indicate 2.5\% , 50\% and 97.5\% quantiles across the 40 replicates. In panel B, we show the same, but for split-$\widehat{R}$. The dashed horizontal lines at 1 indicate the convergence threshold in both cases.}
 	\label{fig:discrete}
 \end{figure}
 
+
+\subsection{Large state-space}\label{sec:discrete_large}
+We next consider a larger discrete parameter space: a univariate distribution with 20 states. As in \S\ref{sec:discrete_small}, we generate draws from three Markov chains that share a common transition probability matrix, $\boldsymbol{P}$. For the fourth (and final) chain, we consider two cases: one where it shares the same matrix, $\boldsymbol{P}_1=\boldsymbol{P}$; the other, when its Markov process has a different matrix, $\boldsymbol{P}_2=\boldsymbol{P}$. Rather than write down a given $\boldsymbol{P}$ and $\boldsymbol{P}_2$, we generated these stochastically: by random sampling from a Dirichlet process with shape vectors consisting of ones  to generate each of its rows. 
+
+Include plot of simulated frequencies (already generated).
+
+\color{black}
 
 \end{document}
