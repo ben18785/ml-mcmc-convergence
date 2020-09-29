@@ -33,7 +33,7 @@ P <- matrix(nrow = 4, ncol = 4)
 P[1, ] <- c(0, 1/2, 1/2, 0)
 P[2, ] <- c(1/2, 0, 1/3, 1/6)
 P[3, ] <- c(1/4, 1/4, 1/4, 1/4)
-P[4, ] <- c(1/2, 0, 0, 1/2)
+P[4, ] <- c(0, 1, 0, 0)
  
 states <- f_simulate_markov_chain(100, P, 1)
 plot(states, type="l")
@@ -53,8 +53,8 @@ P0 <- P
 P1 <- matrix(nrow = 4, ncol = 4)
 P1[1, ] <- c(0, 1/2, 1/2, 0)
 P1[2, ] <- c(1/2, 0, 1/3, 1/6)
-P1[3, ] <- c(1/4, 1/4, 1/4, 1/4)
-P1[4, ] <- c(1/2, 0, 1/6, 1/3)
+P1[3, ] <- c(1, 0, 0, 0)
+P1[4, ] <- c(1, 0, 0, 0)
 
 f_generate_four(1000, P0, P1, 1) %>% 
   as.data.frame() %>% 
@@ -85,20 +85,22 @@ f_replicate <- function(L, P0, P1, state_0){
   return(list(r_star=a_accuracy, r_hat=mon$zfsRhat))
 }
 
-nreplicates <- 20
+nreplicates <- 40
 Ls <- c(1000, 2000, 5000, 10000)
 
 # create P1 matrices
-f_create_P1_example <- function(last_val=1/2){
+f_create_P1_example <- function(per_along){
   P1 <- matrix(nrow = 4, ncol = 4)
   P1[1, ] <- c(0, 1/2, 1/2, 0)
   P1[2, ] <- c(1/2, 0, 1/3, 1/6)
-  P1[3, ] <- c(1/4, 1/4, 1/4, 1/4)
-  P1[4, ] <- c(1/2, 0, (1 - 1/2 - last_val), last_val)
+  v_diff <- c(1, 0, 0, 0) - c(1/4, 1/4, 1/4, 1/4)
+  P1[3, ] <- c(1/4, 1/4, 1/4, 1/4) + v_diff * per_along
+  v_diff <- c(1, 0, 0, 0) - c(0, 1, 0, 0)
+  P1[4, ] <- c(0, 1, 0, 0) + v_diff * per_along
   return(P1)
 }
 
-last_vals <- c(0, 0.25, 0.5)
+last_vals <- c(0, 0.5, 1)
 P1s <- map(last_vals, ~f_create_P1_example(.))
 
 r_star_vals <- matrix(nrow=nreplicates * length(Ls) * length(P1s), ncol=4)
@@ -127,18 +129,122 @@ saveRDS(tibble(r_star=r_star_vals, r_hat=r_hat_vals), "../data/discrete_r_star_h
 
 Plot
 ```{r}
+temp <- readRDS("../data/discrete_r_star_hat.rds")
+r_star_vals <- temp$r_star %>% 
+  mutate(P1=if_else(P1==1, "P1", if_else(P1==2, "P2", "P3"))) %>% 
+  mutate(`sample size`=as.character(`sample size`)) %>% 
+  mutate(`sample size`=if_else(`sample size`=="10000", "10,000", `sample size`)) %>% 
+  mutate(`sample size`=as.factor(`sample size`)) %>% 
+  mutate(`sample size`=fct_relevel(`sample size`, "1000", "2000", "5000", "10,000"))
 a_sum <- r_star_vals %>%
   group_by(P1, `sample size`, type) %>%
   summarise(lower=quantile(value, 0.025),
          upper=quantile(value, 0.975),
          middle=quantile(value, 0.5))
-r_star_vals %>% 
+g1 <- r_star_vals %>% 
   left_join(a_sum) %>% 
   ggplot(aes(x=as.factor(`sample size`), y=value)) +
   geom_jitter(width = 0.2, colour="grey") +
   geom_pointrange(aes(ymin=lower, y=middle, ymax=upper)) +
   facet_grid(vars(P1)) +
   geom_hline(yintercept = 1, linetype=2) +
-  scale_y_continuous(limits=c(0.9, 1.2))
+  scale_y_continuous(limits=c(NA, NA)) +
+  xlab("Sample size") +
+  ylab(TeX("$R*$")) +
+  theme(axis.text = element_text(colour="black", size=16),
+        axis.title = element_text(colour="black", size=16),
+        strip.text.y = element_text(colour="black", size=16),
+        legend.position = "none",
+        title = element_text(colour="black", size=16)) +
+  ggtitle("A.")
+r_star_vals <- temp$r_hat %>% 
+  mutate(P1=if_else(P1==1, "P1", if_else(P1==2, "P2", "P3"))) %>% 
+  mutate(`sample size`=as.character(`sample size`)) %>% 
+  mutate(`sample size`=if_else(`sample size`=="10000", "10,000", `sample size`)) %>% 
+  mutate(`sample size`=as.factor(`sample size`)) %>% 
+  mutate(`sample size`=fct_relevel(`sample size`, "1000", "2000", "5000", "10,000"))
+a_sum <- r_star_vals %>%
+  group_by(P1, `sample size`, type) %>%
+  summarise(lower=quantile(value, 0.025),
+         upper=quantile(value, 0.975),
+         middle=quantile(value, 0.5))
+g2 <- r_star_vals %>% 
+  left_join(a_sum) %>% 
+  ggplot(aes(x=as.factor(`sample size`), y=value)) +
+  geom_jitter(width = 0.2, colour="grey") +
+  geom_pointrange(aes(ymin=lower, y=middle, ymax=upper)) +
+  facet_grid(vars(P1)) +
+  geom_hline(yintercept = 1, linetype=2) +
+  scale_y_continuous(limits=c(NA, NA)) +
+  xlab("Sample size") +
+  ylab(TeX("Split-$\\hat{R}$")) +
+  theme(axis.text = element_text(colour="black", size=16),
+        axis.title = element_text(colour="black", size=16),
+        strip.text.y = element_text(colour="black", size=16),
+        legend.position = "none",
+        title = element_text(colour="black", size=16)) +
+  ggtitle("B.")
+
+multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
+  library(grid)
+
+  # Make a list from the ... arguments and plotlist
+  plots <- c(list(...), plotlist)
+
+  numPlots = length(plots)
+
+  # If layout is NULL, then use 'cols' to determine layout
+  if (is.null(layout)) {
+    # Make the panel
+    # ncol: Number of columns of plots
+    # nrow: Number of rows needed, calculated from # of cols
+    layout <- matrix(seq(1, cols * ceiling(numPlots/cols)),
+                    ncol = cols, nrow = ceiling(numPlots/cols))
+  }
+
+ if (numPlots==1) {
+    print(plots[[1]])
+
+  } else {
+    # Set up the page
+    grid.newpage()
+    pushViewport(viewport(layout = grid.layout(nrow(layout), ncol(layout))))
+
+    # Make each plot, in the correct location
+    for (i in 1:numPlots) {
+      # Get the i,j matrix positions of the regions that contain this subplot
+      matchidx <- as.data.frame(which(layout == i, arr.ind = TRUE))
+
+      print(plots[[i]], vp = viewport(layout.pos.row = matchidx$row,
+                                      layout.pos.col = matchidx$col))
+    }
+  }
+}
+
+pdf("../output/discrete.pdf", width = 12, height = 8)
+multiplot(g1, g2, cols = 1)
+dev.off()
+```
+
+Plotting stationary distributions
+```{r}
+m_stationary <- matrix(c(11/46, 15/46, 14/46, 6/46, 71/198, 17/66, 10/33, 8/99, 4/9, 2/9, 8/27, 1/27), nrow = 3, byrow = T) %>% 
+  as.data.frame() %>% 
+  mutate(matrix=c("P1", "P2", "P3"))
+colnames(m_stationary)[1:4] <- c("1", "2", "3", "4")
+g <- m_stationary %>% 
+  melt(id.vars="matrix") %>% 
+  ggplot(aes(x=as.factor(variable), y=value, fill=as.factor(matrix))) +
+  geom_col(position = position_dodge()) +
+  xlab("State") +
+  ylab("Probability") +
+  scale_fill_brewer("Transition\nprobability\nmatrix", palette = "Dark2", labels=unname(TeX(c("P_1", "P_2", "P_3")))) +
+  theme(axis.text = element_text(colour="black", size=16),
+        axis.title = element_text(colour="black", size=16),
+        strip.text.x = element_text(colour="black", size=16),
+        legend.text = element_text(colour="black", size=16),
+        legend.title = element_text(colour="black", size=16),
+        legend.position = c(0.85, 0.7))
+ggsave("../output/discrete_stationary.pdf", g, width = 10, height = 6)
 ```
 
