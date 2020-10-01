@@ -1,5 +1,5 @@
 ---
-title: "R Notebook"
+title: "Discrete target distribution examples"
 output: html_notebook
 ---
 
@@ -256,10 +256,13 @@ f_construct_random_matrix <- function(n_dim, alpha){
   return(P)
 }
 
-P0 <- f_construct_random_matrix(20, rep(1, 20))
-P1 <- f_construct_random_matrix(20, rep(1, 20))
+# P0 <- f_construct_random_matrix(20, rep(1, 20))
+# P1 <- f_construct_random_matrix(20, rep(1, 20))
 
 saveRDS(list(P0=P0, P1=P1), "../data/discrete_higherd_matrices.rds")
+temp <- readRDS("../data/discrete_higherd_matrices.rds")
+P0 <- temp$P0
+P1 <- temp$P1
 # show first few stationary frequencies for the chains
 g <- f_generate_four(100000, P0, P1, 1) %>% 
   as.data.frame() %>% 
@@ -272,6 +275,7 @@ g <- f_generate_four(100000, P0, P1, 1) %>%
             "3"=mean(value==3),
             "4"=mean(value==4)) %>% 
   pivot_longer(cols="1":"4") %>% 
+  mutate(variable=if_else(variable=="chain_1", "1", if_else(variable=="chain_2", "2", if_else(variable=="chain_3", "3", "4")))) %>% 
   ggplot(aes(x=as.factor(name), fill=as.factor(variable), y=value)) +
   geom_col(position = position_dodge()) +
   xlab("State") +
