@@ -281,7 +281,7 @@ x_ncp[,,11] %>%
 
 Looking into rf performance on 8 schools model more closely
 ```{r}
-x <- x_cp
+x <- x_ncp
 x <- split_data(x)
   
 nparams <- dim(x)[3]
@@ -319,14 +319,14 @@ a_accuracy <-
 a_accuracy * n_distinct(training_data$chain)
 varImp(gbmFit)
 
-x[ , , 9] %>%
-  as.data.frame() %>%
-  mutate(iter=seq(1,1000,1)) %>%
-  melt(id.vars="iter") %>%
-  ggplot(aes(x=value, fill=as.factor(variable))) +
-  stat_density(position="identity", alpha=0.2)
+# x[ , , 9] %>%
+#   as.data.frame() %>%
+#   mutate(iter=seq(1,1000,1)) %>%
+#   melt(id.vars="iter") %>%
+#   ggplot(aes(x=value, fill=as.factor(variable))) +
+#   stat_density(position="identity", alpha=0.2)
 
-tibble(var1=testing_data$V1, var2=testing_data$V9, chain=plda) %>% 
+tibble(var1=testing_data$V6, var2=testing_data$V10, chain=plda) %>% 
   ggplot(aes(x=var1, y=var2, colour=as.factor(chain))) +
   geom_jitter()
 ```
@@ -444,6 +444,7 @@ x <- array(dim=c(nrow(x1), 2, ncol(x1)))
 x[, 1, ] <- x1
 x[, 2, ] <- x2
 r_star(x, split_chains = T)
+tmp <- monitor(x)
 
 f_replicate_ml_variety_simple <- function(x, method_, caretGrid_=NULL){
   temp <- x
