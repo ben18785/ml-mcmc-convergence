@@ -184,7 +184,7 @@ fit_cp <- sampling(
 
 fit_ncp <- sampling(
   model_ncp, data = eight_schools,
-  iter = 2000, chains = 4, seed = 483892929, refresh = 0,
+  iter = 40000, chains = 4, seed = 483892929, refresh = 0,
   control = list(adapt_delta = 0.95)
 )
 
@@ -326,28 +326,188 @@ varImp(gbmFit)
 #   ggplot(aes(x=value, fill=as.factor(variable))) +
 #   stat_density(position="identity", alpha=0.2)
 
-tibble(var1=testing_data$V6, var2=testing_data$V10, chain=plda) %>% 
+tibble(var1=testing_data$V7, var2=testing_data$V15, chain=plda) %>% 
   ggplot(aes(x=var1, y=var2, colour=as.factor(chain))) +
-  geom_jitter()
+  geom_jitter() +
+  geom_smooth(method="lm", se=F)
+
+tibble(var1=testing_data$V7, var2=testing_data$V15, chain=plda) %>% 
+  ggplot(aes(x=var1, colour=as.factor(chain))) +
+  stat_density(fill="none", position="identity")
+
+hist(map_dbl(seq(1, 8, 1), function(i) cor(testing_data %>% filter(chain==i) %>% select(-chain) %>% as.matrix())[7, 15]))
+```
+
+Visualise between-chain correlation
+```{r}
+x <- split_data(x_ncp)
+cors <- map(seq(1, dim(x)[2], 1), ~cor(x[, ., ]))
+m_sd <- matrix(nrow = 19, ncol = 19)
+for(i in 1:19)
+  for(j in 1:19)
+    m_sd[i, j] <- sd(map_dbl(seq(1, dim(x)[2], 1), ~cors[[.]][i, j]))
+tmp <- which(m_sd == max(m_sd), arr.ind = TRUE)
+a <- tmp[1,1]
+b <- tmp[1,2]
+m_sd[a, b]
+colnames(r)[a] <- "a"
+colnames(r)[b] <- "b"
+
+r %>% 
+  ggplot(aes(x=a, y=b, colour=as.factor(chain))) +
+  geom_jitter(alpha=0.1) +
+  geom_smooth(method="lm", se=F)
+
+r %>% 
+  select(chain, a, b) %>% 
+  melt(id.vars="chain") %>% 
+  ggplot(aes(x=value, colour=as.factor(chain), group=as.factor(chain))) +
+  stat_density(fill="none", position = "identity") +
+  facet_wrap(~variable)
+
+r %>% 
+  select(chain, a, b) %>% 
+  melt(id.vars="chain") %>% 
+  group_by(variable, chain) %>% 
+  summarise(value=mean(value)) %>% 
+  ggplot(aes(x=as.factor(chain), y=value)) +
+  geom_point() +
+  facet_wrap(~variable)
+
+r %>% 
+  select(chain, a, b) %>% 
+  melt(id.vars="chain") %>% 
+  group_by(variable, chain) %>% 
+  summarise(value=quantile(value, 0.95)) %>% 
+  ggplot(aes(x=as.factor(chain), y=value)) +
+  geom_point() +
+  facet_wrap(~variable)
 ```
 
 
-Cauchy model
+
+How R* varies with hyperparameters
 ```{r}
-fit_nom <- stan(file = 'cauchy_nom.stan', seed = 7878,
-                refresh = 0)
-x <- rstan::extract(fit_nom, permuted=F)
-temp1 <- f_replicate_ml_simple(x, "gbm", tunegrid_gbm)
-temp <- f_replicate_ml_simple_gridded(x, "rf", tibble(mtry=1))
-temp$a_accuracy
+x <- x_ncp
+
+f_run_gbm <- function(x, n.trees_, int.depth_){
+  return(f_replicate_ml_simple(x, "gbm", expand.grid(interaction.depth=c(int.depth_), 
+                             n.trees = n.trees_,
+                             shrinkage=c(0.1),
+                             n.minobsinnode=10)))
+}
+
+hypers <- tibble(
+       n.trees=c(50, 50, 100, 200, 200, 200, 200, 400, 400, 1000),
+       int.depth=c(3,5,3,3,5,7,9,5,9,11))
+k <- 1
+niter <- 20
+m_results <- matrix(nrow = nrow(hypers) * niter, ncol=4)
+for(i in 1:nrow(hypers)){
+  for(j in 1:niter){
+    tree <- hypers$n.trees[i]
+    depth <- hypers$int.depth[i]
+    temp <- f_run_gbm(x, tree, depth)
+    m_results[k, ] <- c(tree, depth, j, temp)
+    k <- k + 1
+  }
+}
+colnames(m_results) <- c("n.tree", "int.depth", "iter", "r_star")
+m_results <- m_results %>% 
+  as.data.frame()
+saveRDS(m_results, "../data/8_schools_gbm_hyper.rds")
+m_results %>% 
+  group_by(n.tree, int.depth) %>% 
+  summarise(lower=quantile(r_star, 0.25),
+            middle=median(r_star),
+            upper=quantile(r_star, 0.75)) %>% 
+  ggplot(aes(x=as.factor(n.tree), y=middle, color=as.factor(int.depth))) +
+  geom_pointrange(aes(ymin=lower, ymax=upper), position = position_dodge2(width=0.2)) +
+  ylim(0.95, NA) +
+  geom_hline(yintercept = 1, linetype=2) +
+  scale_color_brewer("Int.depth", palette = "Dark2") +
+  xlab("# tree") +
+  ylab("R*")
+```
+
+Try gbm function itself to optimise hyperparameters
+```{r}
+x <- x_ncp
+x <- split_data(x)
+  
+nparams <- dim(x)[3]
+nchains <- dim(x)[2]
+niter <- dim(x)[1]
+m_flattened <- matrix(nrow = nrow(x) * nchains,
+                      ncol = (nparams + 1))
+k <- 1
+for(i in 1:nchains){
+  for(j in 1:nrow(x)){
+    m_flattened[k, 1:nparams] <- x[j, i, ]
+    m_flattened[k, (nparams + 1)] <- i
+    k <- k + 1
+  }
+}
+m_flattened <- m_flattened %>% 
+  as.data.frame()
+colnames(m_flattened)[nparams + 1] <- "chain"
+r <- m_flattened %>% 
+  mutate(chain=as.factor(chain))
+  
+rand_samples <- sample(1:nrow(r), 0.7 * nrow(r))
+training_data <- r[rand_samples, ]
+testing_data <- r[-rand_samples, ]
+
+gbmFit <- train(chain ~ ., data = training_data, 
+               method="gbm",
+               tuneGrid = expand.grid(
+       n.trees=c(50, 200, 2000),
+       interaction.depth=c(3,11, 17),
+       shrinkage=c(0.1),
+             n.minobsinnode=c(10)))
+plda <- predict(object=gbmFit, newdata=testing_data)
+a_accuracy <- 
+  tibble(predicted=plda, actual=testing_data$chain) %>%
+  mutate(correct=if_else(predicted==actual, 1, 0)) %>% 
+  summarise(mean(correct)) %>% 
+  pull()
+a_accuracy * n_distinct(training_data$chain)
+varImp(gbmFit)
+```
+
+
+# Cauchy model
+```{r}
+# fit_nom <- stan(file = 'cauchy_nom.stan', seed = 7878,
+#                 refresh = 0)
+# x <- rstan::extract(fit_nom, permuted=F)
+# temp1 <- f_replicate_ml_simple(x, "gbm", tunegrid_gbm)
+# temp <- f_replicate_ml_simple_gridded(x, "rf", tibble(mtry=1))
+# temp$a_accuracy
 
 
 fit_alt1 <- stan(file = 'cauchy_alt_1.stan',
                  seed = 7878, refresh = 0)
 x <- rstan::extract(fit_alt1, permuted=F)
-temp1 <- f_replicate_ml_simple(x, "gbm", tunegrid_gbm)
-temp <- f_replicate_ml_simple_gridded(x, "rf", tibble(mtry=1))
-temp$a_accuracy
+# temp1 <- f_replicate_ml_simple(x, "gbm", tunegrid_gbm)
+# temp <- f_replicate_ml_simple_gridded(x, "rf", tibble(mtry=1))
+# temp$a_accuracy
+
+hypers <- tibble(
+       n.trees=c(50, 50, 100, 200, 200, 200, 200, 400, 400, 1000),
+       int.depth=c(3,5,3,3,5,7,9,5,9,11))
+k <- 1
+niter <- 3
+m_results <- matrix(nrow = nrow(hypers) * niter, ncol=4)
+for(i in 1:nrow(hypers)){
+  for(j in 1:niter){
+    tree <- hypers$n.trees[i]
+    depth <- hypers$int.depth[i]
+    temp <- f_run_gbm(x, tree, depth)
+    m_results[k, ] <- c(tree, depth, j, temp)
+    k <- k + 1
+  }
+}
 ```
 
 AR1 vs independent
