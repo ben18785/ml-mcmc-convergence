@@ -70,10 +70,19 @@ r_star_ml_variety <- function(x, split_chains=T, training_percent=0.7, method_="
   testing_data <- r[-rand_samples, ]
   
   if(!is.null(caretGrid))
-    gbmFit <- train(chain ~ ., data = training_data, 
+    if(method_!="multinom")
+      gbmFit <- train(chain ~ ., data = training_data, 
                    trControl = trainControl(method = 'none'),
                    method=method_,
                    tuneGrid = caretGrid)
+    else
+      gbmFit <- train(chain ~ ., data = training_data, 
+                   trControl = trainControl(method = 'none'),
+                   method=method_,
+                   tuneGrid = caretGrid,
+                   MaxNWts=10000
+                   )
+      
   else
     gbmFit <- train(chain ~ ., data = training_data, 
                    trControl = trainControl(method = 'none'),
@@ -152,14 +161,14 @@ for(i in 1:niterates){
   m_res[i, 7] <- temp$a_accuracy
 }
 
-colnames(m_res) <- c("gbm", "rhat", "rf", "knn", "svm", "nnet")
+colnames(m_res) <- c("gbm", "rhat", "rf", "knn", "svm", "nnet", "multinom")
 m_res1 <- m_res %>%
   as.data.frame() %>% 
   mutate(iter=seq_along(gbm))
 saveRDS(m_res1, "../data/ml_comparison.rds")
 m_res1 <- readRDS("../data/ml_comparison.rds")
 g <- m_res1 %>% 
-  dplyr::select(-one_of("rhat")) %>% 
+  dplyr::select(-one_of("rhat", "nnet")) %>% 
   melt(id.vars="iter") %>% 
   ggplot(aes(x=fct_reorder(as.factor(variable), value), y=value)) +
   geom_boxplot() +
@@ -184,7 +193,7 @@ fit_cp <- sampling(
 
 fit_ncp <- sampling(
   model_ncp, data = eight_schools,
-  iter = 40000, chains = 4, seed = 483892929, refresh = 0,
+  iter = 2000, chains = 4, seed = 483892929, refresh = 0,
   control = list(adapt_delta = 0.95)
 )
 
@@ -353,19 +362,22 @@ m_sd[a, b]
 colnames(r)[a] <- "a"
 colnames(r)[b] <- "b"
 
-r %>% 
+g <- r %>% 
   ggplot(aes(x=a, y=b, colour=as.factor(chain))) +
   geom_jitter(alpha=0.1) +
-  geom_smooth(method="lm", se=F)
+  geom_smooth(method="lm", se=F) +
+  scale_color_brewer("Chain", palette = "Dark2")
+ggsave("../output/ml_comparison_8_schools_ncp_1.pdf", g, width = 12, height = 8)
 
-r %>% 
+g <- r %>% 
   select(chain, a, b) %>% 
   melt(id.vars="chain") %>% 
   ggplot(aes(x=value, colour=as.factor(chain), group=as.factor(chain))) +
   stat_density(fill="none", position = "identity") +
   facet_wrap(~variable)
+ggsave("../output/ml_comparison_8_schools_ncp_2.pdf", g, width = 12, height = 8)
 
-r %>% 
+g <- r %>% 
   select(chain, a, b) %>% 
   melt(id.vars="chain") %>% 
   group_by(variable, chain) %>% 
@@ -373,8 +385,9 @@ r %>%
   ggplot(aes(x=as.factor(chain), y=value)) +
   geom_point() +
   facet_wrap(~variable)
+ggsave("../output/ml_comparison_8_schools_ncp_3.pdf", g, width = 12, height = 8)
 
-r %>% 
+g <- r %>% 
   select(chain, a, b) %>% 
   melt(id.vars="chain") %>% 
   group_by(variable, chain) %>% 
@@ -382,6 +395,7 @@ r %>%
   ggplot(aes(x=as.factor(chain), y=value)) +
   geom_point() +
   facet_wrap(~variable)
+ggsave("../output/ml_comparison_8_schools_ncp_4.pdf", g, width = 12, height = 8)
 ```
 
 
@@ -416,7 +430,8 @@ colnames(m_results) <- c("n.tree", "int.depth", "iter", "r_star")
 m_results <- m_results %>% 
   as.data.frame()
 saveRDS(m_results, "../data/8_schools_gbm_hyper.rds")
-m_results %>% 
+m_results <- readRDS("../data/8_schools_gbm_hyper.rds")
+g <- m_results %>% 
   group_by(n.tree, int.depth) %>% 
   summarise(lower=quantile(r_star, 0.25),
             middle=median(r_star),
@@ -428,6 +443,7 @@ m_results %>%
   scale_color_brewer("Int.depth", palette = "Dark2") +
   xlab("# tree") +
   ylab("R*")
+ggsave("../output/ml_comparison_8_schools_hyper.pdf", g, width = 12, height = 8)
 ```
 
 Try gbm function itself to optimise hyperparameters
@@ -478,36 +494,110 @@ varImp(gbmFit)
 
 # Cauchy model
 ```{r}
-# fit_nom <- stan(file = 'cauchy_nom.stan', seed = 7878,
-#                 refresh = 0)
-# x <- rstan::extract(fit_nom, permuted=F)
-# temp1 <- f_replicate_ml_simple(x, "gbm", tunegrid_gbm)
-# temp <- f_replicate_ml_simple_gridded(x, "rf", tibble(mtry=1))
-# temp$a_accuracy
+fit_nom <- stan(file = 'cauchy_nom.stan', seed = 7878,
+                refresh = 0)
+x <- rstan::extract(fit_nom, permuted=F)
 
+tunegrid_rf <- tibble(mtry = 1:2)
+tunegrid_gbm <- expand.grid(interaction.depth=c(3), 
+                             n.trees = 50,
+                             shrinkage=c(0.1),
+                             n.minobsinnode=10)
+tunegrid_knn <- tibble(k = c(5, 10, 15, 20, 40))
+tunegrid_svm <- tibble(C = c(0.25, 0.5, 0.75))
+tunegrid_nnet <- tibble(size=c(2, 3, 4, 5), decay=c(0.5, 0.5, 0.5, 0.5))
+tunegrid_multinom <- tibble(decay=c(0.1, 0.2, 0.5, 1))
+niterates <- 10
+m_res <- matrix(nrow=niterates, ncol = 6)
+l_rf_hyper <- vector(length = niterates, mode="list")
+l_knn_hyper <- vector(length = niterates, mode="list")
+l_svm_hyper <- vector(length = niterates, mode="list")
+l_nnet_hyper <- vector(length = niterates, mode="list")
+l_multinom_hyper <- vector(length = niterates, mode="list")
+for(i in 1:niterates){
+  m_res[i, 1] <- f_replicate_ml_simple(x, "gbm", tunegrid_gbm)
+  m_res[i, 2] <- max(f_replicate_rhat_simple(x))
+  temp <- f_replicate_ml_simple_gridded(x, method_="rf", caretGrids_ = tunegrid_rf)
+  l_rf_hyper[[i]] <- temp$hyper
+  m_res[i, 3] <- temp$a_accuracy
+  temp <- f_replicate_ml_simple_gridded(x, "knn", tunegrid_knn)
+  l_knn_hyper[[i]] <- temp$hyper
+  m_res[i, 4] <- temp$a_accuracy
+  temp <- f_replicate_ml_simple_gridded(x, "svmLinear", tunegrid_svm)
+  l_svm_hyper[[i]] <- temp$hyper
+  m_res[i, 5] <- temp$a_accuracy
+  temp <- f_replicate_ml_simple_gridded(x, "multinom", tunegrid_multinom)
+  l_nnet_hyper[[i]] <- temp$hyper
+  m_res[i, 6] <- temp$a_accuracy
+}
+
+colnames(m_res) <- c("gbm", "rhat", "rf", "knn", "svm", "multinom")
+m_res1 <- m_res %>%
+  as.data.frame() %>% 
+  mutate(iter=seq_along(gbm))
+saveRDS(m_res1, "../data/ml_comparison_cauchy_nom.rds")
+
+g <- m_res1 %>% 
+  dplyr::select(-one_of("rhat")) %>% 
+  melt(id.vars="iter") %>% 
+  ggplot(aes(x=fct_reorder(as.factor(variable), value), y=value)) +
+  geom_boxplot() +
+  xlab("ML model") +
+  ylab("R*") +
+  theme(text=element_text(colour="black", size=14))
+ggsave("../output/ml_comparison_cauchy_nom.pdf", g, width = 12, height = 8)
 
 fit_alt1 <- stan(file = 'cauchy_alt_1.stan',
                  seed = 7878, refresh = 0)
 x <- rstan::extract(fit_alt1, permuted=F)
-# temp1 <- f_replicate_ml_simple(x, "gbm", tunegrid_gbm)
-# temp <- f_replicate_ml_simple_gridded(x, "rf", tibble(mtry=1))
-# temp$a_accuracy
 
-hypers <- tibble(
-       n.trees=c(50, 50, 100, 200, 200, 200, 200, 400, 400, 1000),
-       int.depth=c(3,5,3,3,5,7,9,5,9,11))
-k <- 1
-niter <- 3
-m_results <- matrix(nrow = nrow(hypers) * niter, ncol=4)
-for(i in 1:nrow(hypers)){
-  for(j in 1:niter){
-    tree <- hypers$n.trees[i]
-    depth <- hypers$int.depth[i]
-    temp <- f_run_gbm(x, tree, depth)
-    m_results[k, ] <- c(tree, depth, j, temp)
-    k <- k + 1
-  }
+m_res <- matrix(nrow=niterates, ncol = 6)
+l_rf_hyper <- vector(length = niterates, mode="list")
+l_knn_hyper <- vector(length = niterates, mode="list")
+l_svm_hyper <- vector(length = niterates, mode="list")
+l_nnet_hyper <- vector(length = niterates, mode="list")
+l_multinom_hyper <- vector(length = niterates, mode="list")
+for(i in 1:niterates){
+  m_res[i, 1] <- f_replicate_ml_simple(x, "gbm", tunegrid_gbm)
+  m_res[i, 2] <- max(f_replicate_rhat_simple(x))
+  temp <- f_replicate_ml_simple_gridded(x, method_="rf", caretGrids_ = tunegrid_rf)
+  l_rf_hyper[[i]] <- temp$hyper
+  m_res[i, 3] <- temp$a_accuracy
+  temp <- f_replicate_ml_simple_gridded(x, "knn", tunegrid_knn)
+  l_knn_hyper[[i]] <- temp$hyper
+  m_res[i, 4] <- temp$a_accuracy
+  temp <- f_replicate_ml_simple_gridded(x, "svmLinear", tunegrid_svm)
+  l_svm_hyper[[i]] <- temp$hyper
+  m_res[i, 5] <- temp$a_accuracy
+  temp <- f_replicate_ml_simple_gridded(x, "multinom", tunegrid_multinom)
+  l_multinom_hyper[[i]] <- temp$hyper
+  m_res[i, 6] <- temp$a_accuracy
 }
+
+colnames(m_res) <- c("gbm", "rhat", "rf", "knn", "svm", "multinom")
+m_res1 <- m_res %>%
+  as.data.frame() %>% 
+  mutate(iter=seq_along(gbm))
+saveRDS(m_res1, "../data/ml_comparison_cauchy_alt.rds")
+m_res1 <- readRDS("../data/ml_comparison_cauchy_alt.rds")
+m_res2 <- readRDS("../data/ml_comparison_cauchy_nom.rds") %>% 
+  mutate(type="nominal")
+
+g <- m_res1 %>% 
+  mutate(type="alternative") %>% 
+  bind_rows(m_res2) %>% 
+  dplyr::select(-one_of("rhat")) %>% 
+  melt(id.vars=c("iter", "type")) %>% 
+  mutate(value=as.numeric(as.character(value))) %>% 
+  ggplot(aes(x=fct_reorder(as.factor(variable), value), y=value, fill=as.factor(type))) +
+  geom_boxplot() +
+  xlab("ML model") +
+  ylab("R*") +
+  theme(text=element_text(colour="black", size=14)) +
+  scale_fill_brewer("Parameterisation", palette = "Dark2") +
+  scale_y_continuous(limits=c(0.8, NA)) +
+  geom_hline(yintercept = 1, linetype=2)
+ggsave("../output/ml_comparison_cauchy.pdf", g, width = 12, height = 8)
 ```
 
 AR1 vs independent
