@@ -87,6 +87,21 @@ f_data_cauchy <- function(){
   return(x)
 }
 
+f_data_normal <- function(){
+  N <- 250
+  A <- rWishart(1, 250, diag(N))[,,1]
+  model <- stan_model("mvt_250_ncp.stan")
+  fit <- sampling(model, data=list(N=N, A=A), iter=1000, chains=4)
+  x <- rstan::extract(fit, permuted=F)
+  return(x)
+}
+
+f_data_normal_10000 <- function(){
+  fit <- readRDS("../output/mvt_wide_1000.rds")
+  x <- rstan::extract(fit, permuted=F)
+  return(x)
+}
+
 r_star_ml_variety <- function(x, method_, caretGrid){
   
   split_chains=T
@@ -143,17 +158,30 @@ r_star_ml_variety <- function(x, method_, caretGrid){
 
 f_replicate_gridded <- function(x, method_, caretGrids_){
   r_stars <- vector(length = nrow(caretGrids_))
-  for(i in 1:nrow(caretGrids_))
+  times <- vector(length = nrow(caretGrids_))
+  for(i in 1:nrow(caretGrids_)){
+    start.time <- Sys.time()
     r_stars[i] <- r_star_ml_variety(x, method_, caretGrids_[i, ])
-  return(r_stars)
+    end.time <- Sys.time()
+    times[i] <- end.time - start.time
+  }
+  return(list(r_star=r_stars, time=times))
 }
 
 f_run_all <- function(methods, list_of_caret_grids, f_data_generator){
   x <- f_data_generator()
   r_stars <- vector(length = length(methods))
-  for(i in seq_along(r_stars))
-    r_stars[i] <- max(f_replicate_gridded(x, methods[i], list_of_caret_grids[[i]]))
-  return(tibble(r_star=r_stars, method=methods))
+  times <- vector(length = length(methods))
+  hypers <- vector(length = length(methods), mode="list")
+  for(i in seq_along(r_stars)){
+    a_grid <- list_of_caret_grids[[i]]
+    a <- f_replicate_gridded(x, methods[i], a_grid)
+    r_stars[i] <- max(a$r_star)
+    a_ind <- which.max(a$star)
+    times[i] <- a$times[a_ind]
+    hypers[[i]] <- a_grid[a_ind, ]
+  }
+  return(tibble(r_star=r_stars, method=methods, time=times, hyper=hypers))
 }
 
 f_run_all_replicates <- function(niterations, methods, list_of_caret_grids, f_data_generator){
@@ -168,14 +196,21 @@ f_run_all_replicates <- function(niterations, methods, list_of_caret_grids, f_da
   return(big_df)
 }
 
-tunegrid_gbm <- expand.grid(interaction.depth=3, 
-                            n.trees = 50,
+tunegrid_gbm <- expand.grid(interaction.depth=c(3, 7), 
+                            n.trees = c(50, 100),
                             shrinkage=0.1,
                             n.minobsinnode=10)
 tunegrid_rf <- tibble(mtry = 1:2)
 tunegrid_knn <- tibble(k = c(5, 10, 15, 20, 40))
 tunegrid_svm <- tibble(C = c(0.25, 0.5, 0.75))
 tunegrid_multinom <- tibble(decay=c(0.1, 0.2, 0.5, 1))
+tunegrid_xgbtree <- expand_grid(nrounds = c(1, 10),
+                                max_depth = c(1, 4),
+                                eta = c(.1, .4),
+                                gamma = 0,
+                                colsample_bytree = .7,
+                                min_child_weight = 1,
+                                subsample = c(.8, 1))
 
 # command line arguments ------
 args <- commandArgs(trailingOnly=TRUE)
@@ -191,9 +226,15 @@ if(model_num==1){
 }else if(model_num==3){
   f_data_gen <- f_data_cauchy
   name <- "cauchy"
+} else if(model_num==4){
+  f_data_gen <- f_data_normal
+  name <- "normal_250"
+} else if(model_num==5){
+  f_data_gen <- f_data_normal_10000
+  name <- "normal_10000"
 }
 
-temp_df <- f_run_all_replicates(num_iter, c("gbm", "rf", "knn", "svmLinear", "multinom"),
-                                list(tunegrid_gbm, tunegrid_rf, tunegrid_knn, tunegrid_svm, tunegrid_multinom),
+temp_df <- f_run_all_replicates(num_iter, c("gbm", "xgbTree", "rf", "knn", "svmLinear", "multinom"),
+                                list(tunegrid_gbm, tunegrid_xgbtree, tunegrid_rf, tunegrid_knn, tunegrid_svm, tunegrid_multinom),
                                 f_data_gen)
 saveRDS(temp_df, paste0("../data/ml_comp_", name, ".rds"))

@@ -103,8 +103,8 @@ if(model_num==1){
   f_data_gen <- f_data_8_schools
   name <- "8_schools"
 }else if(model_num==3){
-  m_parameters <- expand_grid(int.depth=c(3, 7, 11),
-                              n.trees=c(50, 100, 400))
+  m_parameters <- expand_grid(int.depth=c(3, 7, 11, 13),
+                              n.trees=c(50, 100, 400, 1000))
   f_data_gen <- f_data_cauchy
   name <- "cauchy"
 }

@@ -83,8 +83,10 @@ f_replicate_gridded <- function(x, method_, caretGrids_){
 f_run_all <- function(methods, list_of_caret_grids, f_data_generator){
   x <- f_data_generator()
   r_stars <- vector(length = length(methods))
-  for(i in seq_along(r_stars))
+  for(i in seq_along(r_stars)){
+    print(methods[i])
     r_stars[i] <- max(f_replicate_gridded(x, methods[i], list_of_caret_grids[[i]]))
+  }
   return(tibble(r_star=r_stars, method=methods))
 }
 
@@ -108,6 +110,13 @@ tunegrid_rf <- tibble(mtry = 1:2)
 tunegrid_knn <- tibble(k = c(5, 10, 15, 20, 40))
 tunegrid_svm <- tibble(C = c(0.25, 0.5, 0.75))
 tunegrid_multinom <- tibble(decay=c(0.1, 0.2, 0.5, 1))
+tunegrid_xgbtree <- expand_grid(nrounds = c(1, 10),
+                       max_depth = c(1, 4),
+                       eta = c(.1, .4),
+                       gamma = 0,
+                       colsample_bytree = .7,
+                       min_child_weight = 1,
+                       subsample = c(.8, 1))
 ```
 
 
@@ -141,6 +150,10 @@ f_data_ar1 <- function(){
 temp_df <- f_run_all_replicates(2, c("gbm", "rf", "knn", "svmLinear", "multinom"),
           list(tunegrid_gbm, tunegrid_rf, tunegrid_knn, tunegrid_svm, tunegrid_multinom),
           f_data_ar1)
+temp_df <- readRDS("../data/ml_comp_ar1.rds")
+temp_df %>%
+  ggplot(aes(x=as.factor(method), y=r_star)) +
+  geom_boxplot()
 ```
 
 # 8 schools
@@ -163,6 +176,11 @@ f_data_8_schools <- function(){
 temp_df <- f_run_all_replicates(2, c("gbm", "rf", "knn", "svmLinear", "multinom"),
           list(tunegrid_gbm, tunegrid_rf, tunegrid_knn, tunegrid_svm, tunegrid_multinom),
           f_data_8_schools)
+
+temp_df <- readRDS("../data/ml_comp_8_schools.rds")
+temp_df %>%
+  ggplot(aes(x=as.factor(method), y=r_star)) +
+  geom_boxplot()
 ```
 
 # Cauchy
@@ -177,10 +195,29 @@ f_data_cauchy <- function(){
 temp_df <- f_run_all_replicates(2, c("gbm", "rf", "knn", "svmLinear", "multinom"),
           list(tunegrid_gbm, tunegrid_rf, tunegrid_knn, tunegrid_svm, tunegrid_multinom),
           f_data_cauchy)
+temp_df <- readRDS("../data/ml_comp_cauchy.rds")
+temp_df %>%
+  ggplot(aes(x=as.factor(method), y=r_star)) +
+  geom_boxplot()
 ```
 
 # Multivariate normal
 ```{r}
+f_data_normal <- function(){
+  N <- 250
+  A <- rWishart(1, 250, diag(N))[,,1]
+  model <- stan_model("mvt_250_ncp.stan")
+  fit <- sampling(model, data=list(N=N, A=A), iter=1000, chains=4)
+  x <- rstan::extract(fit, permuted=F)
+  return(x)
+}
 
+temp_df <- f_run_all_replicates(20, c("xgbTree", "rf", "gbm"),
+          list(tunegrid_xgbtree, tunegrid_rf, tunegrid_gbm),
+          f_data_normal)
 ```
+
+
+
+
 
