@@ -75,19 +75,31 @@ r_star_ml_variety <- function(x, method_, caretGrid){
 
 f_replicate_gridded <- function(x, method_, caretGrids_){
   r_stars <- vector(length = nrow(caretGrids_))
-  for(i in 1:nrow(caretGrids_))
+  times <- vector(length = nrow(caretGrids_))
+  for(i in 1:nrow(caretGrids_)){
+    start.time <- Sys.time()
     r_stars[i] <- r_star_ml_variety(x, method_, caretGrids_[i, ])
-  return(r_stars)
+    end.time <- Sys.time()
+    times[i] <- end.time - start.time
+  }
+  return(list(r_star=r_stars, time=times))
 }
 
 f_run_all <- function(methods, list_of_caret_grids, f_data_generator){
   x <- f_data_generator()
   r_stars <- vector(length = length(methods))
+  times <- vector(length = length(methods))
+  hypers <- vector(length = length(methods), mode="list")
   for(i in seq_along(r_stars)){
     print(methods[i])
-    r_stars[i] <- max(f_replicate_gridded(x, methods[i], list_of_caret_grids[[i]]))
+    a_grid <- list_of_caret_grids[[i]]
+    a <- f_replicate_gridded(x, methods[i], a_grid)
+    r_stars[i] <- max(a$r_star)
+    a_ind <- which.max(a$r_star)
+    times[i] <- a$time[a_ind]
+    hypers[[i]] <- a_grid[a_ind, ]
   }
-  return(tibble(r_star=r_stars, method=methods))
+  return(tibble(r_star=r_stars, method=methods, time=times, hyper=hypers))
 }
 
 f_run_all_replicates <- function(niterations, methods, list_of_caret_grids, f_data_generator){
@@ -102,11 +114,11 @@ f_run_all_replicates <- function(niterations, methods, list_of_caret_grids, f_da
   return(big_df)
 }
 
-tunegrid_gbm <- expand.grid(interaction.depth=3, 
-                             n.trees = 50,
-                             shrinkage=0.1,
-                             n.minobsinnode=10)
-tunegrid_rf <- tibble(mtry = 1:2)
+tunegrid_gbm <- expand.grid(interaction.depth=1, 
+                             n.trees = c(400),
+                             shrinkage=c(0.1),
+                             n.minobsinnode=c(1))
+tunegrid_rf <- tibble(mtry = c(1, 5, 15))
 tunegrid_knn <- tibble(k = c(5, 10, 15, 20, 40))
 tunegrid_svm <- tibble(C = c(0.25, 0.5, 0.75))
 tunegrid_multinom <- tibble(decay=c(0.1, 0.2, 0.5, 1))
@@ -150,7 +162,7 @@ f_data_ar1 <- function(){
 temp_df <- f_run_all_replicates(2, c("gbm", "rf", "knn", "svmLinear", "multinom"),
           list(tunegrid_gbm, tunegrid_rf, tunegrid_knn, tunegrid_svm, tunegrid_multinom),
           f_data_ar1)
-temp_df <- readRDS("../data/ml_comp_ar1.rds")
+temp_df <- readRDS("../data/ml_comp_hypers_set_ar1.rds")
 temp_df %>%
   ggplot(aes(x=as.factor(method), y=r_star)) +
   geom_boxplot()
@@ -177,10 +189,13 @@ temp_df <- f_run_all_replicates(2, c("gbm", "rf", "knn", "svmLinear", "multinom"
           list(tunegrid_gbm, tunegrid_rf, tunegrid_knn, tunegrid_svm, tunegrid_multinom),
           f_data_8_schools)
 
-temp_df <- readRDS("../data/ml_comp_8_schools.rds")
+temp_df <- readRDS("../data/ml_comp_hypers_set_8_schools.rds")
 temp_df %>%
   ggplot(aes(x=as.factor(method), y=r_star)) +
   geom_boxplot()
+temp_df %>%
+  ggplot(aes(x=time, y=r_star, colour=as.factor(method))) +
+  geom_jitter()
 ```
 
 # Cauchy
@@ -195,10 +210,13 @@ f_data_cauchy <- function(){
 temp_df <- f_run_all_replicates(2, c("gbm", "rf", "knn", "svmLinear", "multinom"),
           list(tunegrid_gbm, tunegrid_rf, tunegrid_knn, tunegrid_svm, tunegrid_multinom),
           f_data_cauchy)
-temp_df <- readRDS("../data/ml_comp_cauchy.rds")
+temp_df <- readRDS("../data/ml_comp_hypers_set_cauchy.rds")
 temp_df %>%
   ggplot(aes(x=as.factor(method), y=r_star)) +
   geom_boxplot()
+temp_df %>%
+  ggplot(aes(x=time, y=r_star, colour=as.factor(method))) +
+  geom_jitter()
 ```
 
 # Multivariate normal
@@ -212,12 +230,45 @@ f_data_normal <- function(){
   return(x)
 }
 
-temp_df <- f_run_all_replicates(20, c("xgbTree", "rf", "gbm"),
-          list(tunegrid_xgbtree, tunegrid_rf, tunegrid_gbm),
-          f_data_normal)
+temp_df <- f_replicate_gridded(x, "rf", tunegrid_rf)
+
+temp_df <- readRDS("../data/ml_comp_hypers_set_normal_250.rds")
+temp_df %>%
+  ggplot(aes(x=as.factor(method), y=r_star)) +
+  geom_boxplot()
+temp_df %>%
+  ggplot(aes(x=as.factor(method), y=time)) +
+  geom_boxplot()
+
+temp_df %>%
+  ggplot(aes(x=time, y=r_star, colour=as.factor(method))) +
+  geom_jitter()
 ```
 
+# Check for false positives with random forests
+```{r}
+f_data_converged <- function(){
+  d <- 10
+  n <- 2000
+  nchain <- 4
+  
+  x <- rnorm(d * n * nchain)
+  x <- array(x, dim=c(n, nchain, d))
+  return(x)
+}
 
+temp_df <- f_run_all_replicates(10, c("gbm", "rf"),
+          list(tunegrid_gbm, tunegrid_rf),
+          f_data_converged)
+temp_df %>% 
+  ggplot(aes(x=as.factor(method), y=r_star)) +
+  geom_boxplot()
+```
 
+# Setting hyperparameters for random forest:
+"Influence of Hyperparameters on Random Forest Accuracy"
+Simon Bernard, Laurent Heutte, Sebastien Adam, 2009
+Use mtry=sqrt(number features)
 
+whereas for gbms / xgboost, performance depends on lots of things
 

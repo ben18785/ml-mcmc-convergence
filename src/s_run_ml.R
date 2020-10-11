@@ -174,11 +174,12 @@ f_run_all <- function(methods, list_of_caret_grids, f_data_generator){
   times <- vector(length = length(methods))
   hypers <- vector(length = length(methods), mode="list")
   for(i in seq_along(r_stars)){
+    print(methods[i])
     a_grid <- list_of_caret_grids[[i]]
     a <- f_replicate_gridded(x, methods[i], a_grid)
     r_stars[i] <- max(a$r_star)
-    a_ind <- which.max(a$star)
-    times[i] <- a$times[a_ind]
+    a_ind <- which.max(a$r_star)
+    times[i] <- a$time[a_ind]
     hypers[[i]] <- a_grid[a_ind, ]
   }
   return(tibble(r_star=r_stars, method=methods, time=times, hyper=hypers))
@@ -204,7 +205,7 @@ tunegrid_rf <- tibble(mtry = 1:2)
 tunegrid_knn <- tibble(k = c(5, 10, 15, 20, 40))
 tunegrid_svm <- tibble(C = c(0.25, 0.5, 0.75))
 tunegrid_multinom <- tibble(decay=c(0.1, 0.2, 0.5, 1))
-tunegrid_xgbtree <- expand_grid(nrounds = c(1, 10),
+tunegrid_xgbtree <- expand_grid(nrounds = c(1, 10, 100),
                                 max_depth = c(1, 4),
                                 eta = c(.1, .4),
                                 gamma = 0,
