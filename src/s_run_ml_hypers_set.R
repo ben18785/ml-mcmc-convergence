@@ -145,7 +145,7 @@ r_star_ml_variety <- function(x, method_, caretGrid){
                     trControl = trainControl(method = 'none'),
                     method=method_,
                     tuneGrid = caretGrid,
-                    MaxNWts=10000
+                    MaxNWts=100000
     )
   plda <- predict(object=gbmFit, newdata=testing_data)
   a_accuracy <- 

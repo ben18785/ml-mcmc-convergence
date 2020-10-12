@@ -1,0 +1,202 @@
+---
+title: "Comparing xgbtree vs rf (default parameterisations)"
+output: html_notebook
+---
+
+```{r}
+rm(list=ls())
+library(tidyverse)
+library(reshape2)
+library(rstan)
+library(latex2exp)
+library(caret)
+library(gbm)
+options(mc.cores=4)
+rstan_options(auto_write = TRUE)
+source("monitornew.R")
+source("r_star_monitor.R")
+```
+
+
+Generate a large correlation matrix
+```{r}
+rlkj <- function(n, nu, d){
+  r_list <- vector(length = n, mode = 'list')
+  for(i in 1:n){
+    if(d==1)
+      r = as.array(1)
+    else if(d==2){
+      rho <- 2 * rbeta(1, nu, nu) - 1
+      r <- matrix(c(1, rho, rho, 1), ncol = 2)
+    }else{
+      beta <- nu + (d - 2) / 2
+      u <- rbeta(1, beta, beta)
+      r_12 <- 2 * u - 1
+      r <- matrix(c(1, r_12, r_12, 1), ncol = 2)
+      for(m in 2:(d - 1)){
+        beta <- beta - 0.5
+        y <- rbeta(1, m / 2, beta)
+        a <- rnorm(m)
+        anorm <- sqrt(sum(a^2))
+        u <- a / anorm
+        w <- sqrt(y) * u
+        A <- chol(r)
+        z <- w%*%A
+        r <-cbind(r, t(z))
+        r <- rbind(r, c(z, 1))
+      }
+    }
+    r_list[[i]] <- r
+  }
+  return(r_list)
+}
+# d <- 32
+# A0 <- rlkj(1, 1, d)[[1]]
+# A1 <- rlkj(1, 1, d)[[1]]
+# saveRDS(list(A0=A0, A1=A1), "../data/xgbTree_vs_rf_normals.rds")
+temp <- readRDS("../data/xgbTree_vs_rf_normals.rds")
+A0 <- temp$A0
+A1 <- temp$A1
+
+library(mvtnorm)
+f_data_normals <- function(A0, A1, d, niter=2000){
+  x <- array(dim=c(niter, 4, d))
+  if(d > 1){
+    for(i in 1:3)
+      x[, i, ] <- rmvnorm(niter, rep(0, d), A0[1:d, 1:d])
+    x[ , 4, ] <- rmvnorm(niter, rep(0, d), A1[1:d, 1:d])
+  }else{
+    for(i in 1:3)
+      x[, i, ] <- rnorm(niter, rep(0, d), A0[1:d, 1:d])
+    x[ , 4, ] <- rnorm(niter, rep(0, d), A1[1:d, 1:d])
+  }
+  return(x)
+}
+
+f_compare_rf_xgbtree <- function(d, A0, A1){
+  lrstar <- vector(length=2)
+  ltimes <- vector(length=2)
+  x <- f_data_normals(A0, A1, d)
+  start <- Sys.time()
+  lrstar[1] <- r_star(x, method="rf")
+  end <- Sys.time()
+  ltimes[1] <- end-start
+  start <- Sys.time()
+  lrstar[2] <- r_star(x, method="xgbTree")
+  end <- Sys.time()
+  ltimes[2] <- end-start
+  return(list(rstar=lrstar, time=ltimes))
+}
+
+f_compare_iter <- function(nreplicate, d, A0, A1){
+  m_res <- matrix(nrow=nreplicate, ncol=6)
+  for(i in 1:nreplicate){
+    temp <- f_compare_rf_xgbtree(d, A0, A1)
+    rstars <- temp$rstar
+    times <- temp$time
+    m_res[i, ] <- c(i, d, rstars[1], rstars[2], times[1], times[2])
+  }
+  colnames(m_res) <- c("iter", "d", "rstar_rf", "rstar_xgbTree", "time_rf", "time_xgbTree")
+  m_res <- m_res %>% 
+    as.data.frame()
+  return(m_res)
+}
+
+nreplicates <- 20
+ds <- c(1, 2, 4, 8, 16, 32)
+for(i in seq_along(ds)){
+  print(i)
+  temp_df <- f_compare_iter(nreplicates, ds[i], A0, A1)
+  if(i==1)
+    big_df <- temp_df
+  else
+    big_df <- big_df %>% bind_rows(temp_df)
+}
+saveRDS(big_df, "../data/xgbTree_vs_rf_normals_results.rds")
+
+big_df %>%
+  select(-contains("time")) %>% 
+  melt(id.vars=c("iter", "d")) %>% 
+  ggplot(aes(x=as.factor(d), y=value, fill=as.factor(variable))) +
+  geom_boxplot(position = position_dodge2(width=0.3)) +
+  geom_hline(yintercept = 1, linetype=2)
+```
+
+Same but increase fatness of tails
+```{r}
+library(LaplacesDemon)
+f_data_student_ts <- function(nu1, nu2, d, A0, niter=2000){
+  x <- array(dim=c(niter, 4, d))
+  # ensures variance stays same
+  sigma1 <- A0[1:d, 1:d] * (nu1 - 2) / nu1
+  sigma2 <- A0[1:d, 1:d] * (nu2 - 2) / nu2
+  if(d > 1){
+    for(i in 1:3)
+      x[, i, ] <- mvtnorm::rmvt(niter, sigma=sigma1, df=nu1, delta=rep(0, d))
+    x[ , 4, ] <- mvtnorm::rmvt(niter, sigma=sigma2, df=nu2, delta=rep(0, d))
+  }else{
+    for(i in 1:3)
+      x[, i, ] <- LaplacesDemon::rst(niter, 0, sqrt(sigma1), nu1)
+    x[ , 4, ] <- LaplacesDemon::rst(niter, 0, sqrt(sigma2), nu2)
+  }
+  return(x)
+}
+
+# x <- f_data_student_ts(3, 100, 1, A0, niter=10000)
+library(e1071)   
+# kurtosis(x[, 2, 1])
+# kurtosis(x[, 1, 1])
+# kurtosis(x[, 3, 1])
+# kurtosis(x[, 4, 1])
+# sd(x[, 2, 1])
+# sd(x[, 1, 1])
+# sd(x[, 3, 1])
+# sd(x[, 4, 1])
+
+f_compare_rf_xgbtree_student_ts <- function(nu1, nu2, d, A0){
+  lrstar <- vector(length=2)
+  ltimes <- vector(length=2)
+  x <- f_data_student_ts(nu1, nu2, d, A0)
+  start <- Sys.time()
+  lrstar[1] <- r_star(x, method="rf")
+  end <- Sys.time()
+  ltimes[1] <- end-start
+  start <- Sys.time()
+  lrstar[2] <- r_star(x, method="xgbTree")
+  end <- Sys.time()
+  ltimes[2] <- end-start
+  return(list(rstar=lrstar, time=ltimes))
+}
+
+f_compare_iter_student_t <- function(nreplicate, nu1, nu2, d, A0){
+  m_res <- matrix(nrow=nreplicate, ncol=8)
+  for(i in 1:nreplicate){
+    temp <- f_compare_rf_xgbtree_student_ts(nu1, nu2, d, A0)
+    temp <- f_compare_rf_xgbtree(d, A0, A1)
+    rstars <- temp$rstar
+    times <- temp$time
+    m_res[i, ] <- c(i, d, nu1, nu2, rstars[1], rstars[2], times[1], times[2])
+  }
+  colnames(m_res) <- c("iter", "d", "nu1", "nu2", "rstar_rf", "rstar_xgbTree", "time_rf", "time_xgbTree")
+  m_res <- m_res %>% 
+    as.data.frame()
+  return(m_res)
+}
+
+nreplicates <- 20
+nu1 <- 3
+nu2 <- c(4, 8, 16, 32)
+ds <- c(1, 2, 4, 8, 16, 32)
+m_parameters <- expand_grid(nu2, ds)
+
+for(i in 1:nrow(m_parameters)){
+  print(i)
+  temp_df <- f_compare_iter_student_t(nreplicates, nu1, m_parameters$nu2[i], m_parameters$ds[i], A0)
+  if(i==1)
+    big_df <- temp_df
+  else
+    big_df <- big_df %>% bind_rows(temp_df)
+}
+saveRDS(big_df, "../data/xgbTree_vs_rf_studentts_results.rds")
+```
+

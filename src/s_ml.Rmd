@@ -162,10 +162,35 @@ f_data_ar1 <- function(){
 temp_df <- f_run_all_replicates(2, c("gbm", "rf", "knn", "svmLinear", "multinom"),
           list(tunegrid_gbm, tunegrid_rf, tunegrid_knn, tunegrid_svm, tunegrid_multinom),
           f_data_ar1)
-temp_df <- readRDS("../data/ml_comp_hypers_set_ar1.rds")
-temp_df %>%
+
+temp_df <- readRDS("../data/ml_comp_hypers_set_ar1.rds") %>% 
+  mutate(method=as.factor(method)) %>% 
+  mutate(method=fct_relevel(method, orders))
+g1 <- temp_df %>%
   ggplot(aes(x=as.factor(method), y=r_star)) +
-  geom_boxplot()
+  geom_boxplot() +
+  xlab("Method") +
+  ylab("R*") +
+  theme(text=element_text(size=16, colour="black"),
+        axis.text = element_text(colour="black"),
+        legend.position = c(0.83, 0.79),
+        legend.text = element_text(size=12, colour="black"),
+        legend.title = element_text(size=14, colour="black")) +
+  ggtitle("A.")
+g2 <- temp_df %>%
+  ggplot(aes(x=as.factor(method), y=time)) +
+  geom_boxplot() +
+  xlab("Method") +
+  ylab("Time") +
+  theme(text=element_text(size=16, colour="black"),
+        axis.text = element_text(colour="black"),
+        legend.position = c(0.83, 0.79),
+        legend.text = element_text(size=12, colour="black"),
+        legend.title = element_text(size=14, colour="black")) +
+  ggtitle("B.")
+pdf("../output/ml_comparison_ar1.pdf", width = 12, height = 8)
+multiplot(g1, g2, cols = 2)
+dev.off()
 ```
 
 # 8 schools
@@ -189,13 +214,34 @@ temp_df <- f_run_all_replicates(2, c("gbm", "rf", "knn", "svmLinear", "multinom"
           list(tunegrid_gbm, tunegrid_rf, tunegrid_knn, tunegrid_svm, tunegrid_multinom),
           f_data_8_schools)
 
-temp_df <- readRDS("../data/ml_comp_hypers_set_8_schools.rds")
-temp_df %>%
+temp_df <- readRDS("../data/ml_comp_hypers_set_8_schools.rds") %>% 
+  mutate(method=as.factor(method)) %>% 
+  mutate(method=fct_relevel(method, orders))
+g1 <- temp_df %>%
   ggplot(aes(x=as.factor(method), y=r_star)) +
-  geom_boxplot()
-temp_df %>%
-  ggplot(aes(x=time, y=r_star, colour=as.factor(method))) +
-  geom_jitter()
+  geom_boxplot() +
+  xlab("Method") +
+  ylab("R*") +
+  theme(text=element_text(size=16, colour="black"),
+        axis.text = element_text(colour="black"),
+        legend.position = c(0.83, 0.79),
+        legend.text = element_text(size=12, colour="black"),
+        legend.title = element_text(size=14, colour="black")) +
+  ggtitle("A.")
+g2 <- temp_df %>%
+  ggplot(aes(x=as.factor(method), y=time)) +
+  geom_boxplot() +
+  xlab("Method") +
+  ylab("Time") +
+  theme(text=element_text(size=16, colour="black"),
+        axis.text = element_text(colour="black"),
+        legend.position = c(0.83, 0.79),
+        legend.text = element_text(size=12, colour="black"),
+        legend.title = element_text(size=14, colour="black")) +
+  ggtitle("B.")
+pdf("../output/ml_comparison_8_schools.pdf", width = 12, height = 8)
+multiplot(g1, g2, cols = 2)
+dev.off()
 ```
 
 # Cauchy
@@ -210,13 +256,34 @@ f_data_cauchy <- function(){
 temp_df <- f_run_all_replicates(2, c("gbm", "rf", "knn", "svmLinear", "multinom"),
           list(tunegrid_gbm, tunegrid_rf, tunegrid_knn, tunegrid_svm, tunegrid_multinom),
           f_data_cauchy)
-temp_df <- readRDS("../data/ml_comp_hypers_set_cauchy.rds")
-temp_df %>%
+temp_df <- readRDS("../data/ml_comp_hypers_set_cauchy.rds") %>% 
+  mutate(method=as.factor(method)) %>% 
+  mutate(method=fct_relevel(method, orders))
+g1 <- temp_df %>%
   ggplot(aes(x=as.factor(method), y=r_star)) +
-  geom_boxplot()
-temp_df %>%
-  ggplot(aes(x=time, y=r_star, colour=as.factor(method))) +
-  geom_jitter()
+  geom_boxplot() +
+  xlab("Method") +
+  ylab("R*") +
+  theme(text=element_text(size=16, colour="black"),
+        axis.text = element_text(colour="black"),
+        legend.position = c(0.83, 0.79),
+        legend.text = element_text(size=12, colour="black"),
+        legend.title = element_text(size=14, colour="black")) +
+  ggtitle("A.")
+g2 <- temp_df %>%
+  ggplot(aes(x=as.factor(method), y=time)) +
+  geom_boxplot() +
+  xlab("Method") +
+  ylab("Time") +
+  theme(text=element_text(size=16, colour="black"),
+        axis.text = element_text(colour="black"),
+        legend.position = c(0.83, 0.79),
+        legend.text = element_text(size=12, colour="black"),
+        legend.title = element_text(size=14, colour="black")) +
+  ggtitle("B.")
+pdf("../output/ml_comparison_cauchy.pdf", width = 12, height = 8)
+multiplot(g1, g2, cols = 2)
+dev.off()
 ```
 
 # Multivariate normal
@@ -232,17 +299,36 @@ f_data_normal <- function(){
 
 temp_df <- f_replicate_gridded(x, "rf", tunegrid_rf)
 
-temp_df <- readRDS("../data/ml_comp_hypers_set_normal_250.rds")
-temp_df %>%
-  ggplot(aes(x=as.factor(method), y=r_star)) +
-  geom_boxplot()
-temp_df %>%
-  ggplot(aes(x=as.factor(method), y=time)) +
-  geom_boxplot()
+orders <- c("rf", "xgbTree", "gbm", "knn", "multinom", "svmLinear")
 
-temp_df %>%
-  ggplot(aes(x=time, y=r_star, colour=as.factor(method))) +
-  geom_jitter()
+temp_df <- readRDS("../data/ml_comp_hypers_set_normal_250.rds") %>% 
+  mutate(method=as.factor(method)) %>% 
+  mutate(method=fct_relevel(method, orders))
+g1 <- temp_df %>%
+  ggplot(aes(x=as.factor(method), y=r_star)) +
+  geom_boxplot() +
+  xlab("Method") +
+  ylab("R*") +
+  theme(text=element_text(size=16, colour="black"),
+        axis.text = element_text(colour="black"),
+        legend.position = c(0.83, 0.79),
+        legend.text = element_text(size=12, colour="black"),
+        legend.title = element_text(size=14, colour="black")) +
+  ggtitle("A.")
+g2 <- temp_df %>%
+  ggplot(aes(x=as.factor(method), y=time)) +
+  geom_boxplot() +
+  xlab("Method") +
+  ylab("Time") +
+  theme(text=element_text(size=16, colour="black"),
+        axis.text = element_text(colour="black"),
+        legend.position = c(0.83, 0.79),
+        legend.text = element_text(size=12, colour="black"),
+        legend.title = element_text(size=14, colour="black")) +
+  ggtitle("B.")
+pdf("../output/ml_comparison_mvt_normal_250.pdf", width = 12, height = 8)
+multiplot(g1, g2, cols = 2)
+dev.off()
 ```
 
 # Check for false positives with random forests

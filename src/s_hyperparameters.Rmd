@@ -80,27 +80,13 @@ m_parameters <- expand_grid(int.depth=seq(1, 7, 2),
                             n.trees=c(1, 10, 50, 100))
 r_star_vals <- f_replicate_r_star(2, m_parameters, f_data_ar1)
 
-saveRDS(r_star_vals, "../data/ar1_sensitivity.rds")
-r_star_vals <- readRDS("../data/ar1_sensitivity.rds")
-
-
-b_sum <-
-  r_star_vals %>% 
-  as.data.frame() %>% 
-  mutate(iterate=seq(1, nreplicates, 1)) %>%
-  melt(id.vars="iterate") %>% 
-  mutate(below=if_else(value < 1, 1, 0)) %>% 
-  group_by(variable) %>% 
-  summarise(below_per=round(mean(below)*100, 1),
-            lower=quantile(value, 0.25),
-            upper=quantile(value, 0.75),
-            middle=median(value)) %>%
-  mutate(below_per=paste0(below_per, "%")) %>% 
-  mutate(x_pos=seq(1, nrow(m_parameters), 1)) %>% 
-  mutate(y_pos=0.95)
-
-g <- b_sum %>% 
-  cbind(m_parameters) %>% 
+# saveRDS(r_star_vals, "../data/ar1_sensitivity.rds")
+g <- readRDS("../data/hypers_ar1.rds")$r_star %>% 
+  melt(id.vars=c("int.depth", "n.trees")) %>% 
+  group_by(int.depth, n.trees) %>% 
+  summarise(lower=quantile(value, 0.25),
+            middle=quantile(value, 0.5),
+            upper=quantile(value, 0.75)) %>% 
   ggplot(aes(x=as.factor(n.trees), y=middle, colour=as.factor(int.depth), group=as.factor(int.depth))) +
   geom_pointrange(aes(ymin=lower, ymax=upper), position=position_dodge2(width=0.1)) +
   geom_line() +
@@ -113,7 +99,7 @@ g <- b_sum %>%
   geom_hline(yintercept = 1, linetype=2) +
   scale_color_brewer("Int. depth", palette = "Dark2") +
   guides(colour = guide_legend(nrow = 2, byrow = T))
-ggsave("../output/ar1_sensitivity.pdf", g, width = 12, height = 8)
+ggsave("../output/hypers_ar1.pdf", g, width = 12, height = 8)
 ```
 
 
@@ -138,12 +124,12 @@ m_parameters <- expand_grid(int.depth=c(1, 3, 5),
 r_star_vals <- f_replicate_r_star(20, m_parameters, f_data_ar1)
 
 
-r_star_vals %>% 
-  melt(id.vars=c("n.trees", "int.depth")) %>% 
-  group_by(n.trees, int.depth) %>% 
+readRDS("../data/hypers_8_schools.rds")$r_star %>% 
+  melt(id.vars=c("int.depth", "n.trees")) %>% 
+  group_by(int.depth, n.trees) %>% 
   summarise(lower=quantile(value, 0.25),
-            upper=quantile(value, 0.75),
-            middle=median(value)) %>% 
+            middle=quantile(value, 0.5),
+            upper=quantile(value, 0.75)) %>% 
   ggplot(aes(x=as.factor(n.trees), y=middle, colour=as.factor(int.depth), group=as.factor(int.depth))) +
   geom_pointrange(aes(ymin=lower, ymax=upper), position=position_dodge2(width=0.1)) +
   geom_line() +
@@ -152,7 +138,7 @@ r_star_vals %>%
   theme(text = element_text(size=16, colour="black"),
         axis.text = element_text(colour="black"),
         legend.position = c(0.7, 0.25)) +
-  scale_y_continuous(limits=c(0.98, NA)) +
+  scale_y_continuous(limits=c(0.95, NA)) +
   geom_hline(yintercept = 1, linetype=2) +
   scale_color_brewer("Int. depth", palette = "Dark2") +
   guides(colour = guide_legend(nrow = 2, byrow = T))
@@ -170,5 +156,163 @@ f_data_cauchy <- function(){
 m_parameters <- expand_grid(int.depth=c(3, 7, 11),
                             n.trees=c(50, 100, 400))
 r_star_vals <- f_replicate_r_star(2, m_parameters, f_data_cauchy)
+
+readRDS("../data/hypers_cauchy.rds")$r_star %>% 
+  melt(id.vars=c("int.depth", "n.trees")) %>% 
+  group_by(int.depth, n.trees) %>% 
+  summarise(lower=quantile(value, 0.25),
+            middle=quantile(value, 0.5),
+            upper=quantile(value, 0.75)) %>% 
+  ggplot(aes(x=as.factor(n.trees), y=middle, colour=as.factor(int.depth), group=as.factor(int.depth))) +
+  geom_pointrange(aes(ymin=lower, ymax=upper), position=position_dodge2(width=0.1)) +
+  geom_line() +
+  xlab("# trees") +
+  ylab("R*") +
+  theme(text = element_text(size=16, colour="black"),
+        axis.text = element_text(colour="black"),
+        legend.position = c(0.7, 0.25)) +
+  scale_y_continuous(limits=c(0.95, NA)) +
+  geom_hline(yintercept = 1, linetype=2) +
+  scale_color_brewer("Int. depth", palette = "Dark2") +
+  guides(colour = guide_legend(nrow = 2, byrow = T))
 ```
 
+# RF hyperparameters
+AR1
+```{r}
+temp <- readRDS("../data/hypers_rf_ar1.rds")$r_star
+temp %>%
+  melt(id.vars="mtry") %>%
+  group_by(mtry) %>%
+  summarise(lower=quantile(value, 0.25),
+            middle=quantile(value, 0.5),
+            upper=quantile(value, 0.75)) %>%
+  ggplot(aes(x=as.factor(mtry), y=middle)) +
+  geom_pointrange(aes(ymin=lower, ymax=upper), position=position_dodge2(width=0.1)) +
+  geom_line() +
+  xlab("# features") +
+  ylab("R*") +
+  theme(text = element_text(size=16, colour="black"),
+        axis.text = element_text(colour="black"),
+        legend.position = c(0.7, 0.25)) +
+  scale_y_continuous(limits=c(0.95, NA)) +
+  geom_hline(yintercept = 1, linetype=2) +
+  scale_color_brewer("Int. depth", palette = "Dark2") +
+  guides(colour = guide_legend(nrow = 2, byrow = T))
+```
+
+8 schools
+```{r}
+temp <- readRDS("../data/hypers_rf_8_schools.rds")$r_star
+temp %>%
+  melt(id.vars="mtry") %>%
+  group_by(mtry) %>%
+  summarise(lower=quantile(value, 0.25),
+            middle=quantile(value, 0.5),
+            upper=quantile(value, 0.75)) %>%
+  ggplot(aes(x=as.factor(mtry), y=middle)) +
+  geom_pointrange(aes(ymin=lower, ymax=upper), position=position_dodge2(width=0.1)) +
+  geom_line() +
+  xlab("# features") +
+  ylab("R*") +
+  theme(text = element_text(size=16, colour="black"),
+        axis.text = element_text(colour="black"),
+        legend.position = c(0.7, 0.25)) +
+  scale_y_continuous(limits=c(0.95, NA)) +
+  geom_hline(yintercept = 1, linetype=2) +
+  scale_color_brewer("Int. depth", palette = "Dark2") +
+  guides(colour = guide_legend(nrow = 2, byrow = T))
+```
+Cauchy
+```{r}
+temp <- readRDS("../data/hypers_rf_cauchy.rds")$r_star
+temp %>%
+  melt(id.vars="mtry") %>%
+  group_by(mtry) %>%
+  summarise(lower=quantile(value, 0.25),
+            middle=quantile(value, 0.5),
+            upper=quantile(value, 0.75)) %>%
+  ggplot(aes(x=as.factor(mtry), y=middle)) +
+  geom_pointrange(aes(ymin=lower, ymax=upper), position=position_dodge2(width=0.1)) +
+  geom_line() +
+  xlab("# features") +
+  ylab("R*") +
+  theme(text = element_text(size=16, colour="black"),
+        axis.text = element_text(colour="black"),
+        legend.position = c(0.7, 0.25)) +
+  scale_y_continuous(limits=c(0.95, NA)) +
+  geom_hline(yintercept = 1, linetype=2) +
+  scale_color_brewer("Int. depth", palette = "Dark2") +
+  guides(colour = guide_legend(nrow = 2, byrow = T))
+```
+
+Normal
+```{r}
+temp <- readRDS("../data/hypers_rf_")$r_star
+temp %>%
+  melt(id.vars="mtry") %>%
+  group_by(mtry) %>%
+  summarise(lower=quantile(value, 0.25),
+            middle=quantile(value, 0.5),
+            upper=quantile(value, 0.75)) %>%
+  ggplot(aes(x=as.factor(mtry), y=middle)) +
+  geom_pointrange(aes(ymin=lower, ymax=upper), position=position_dodge2(width=0.1)) +
+  geom_line() +
+  xlab("# features") +
+  ylab("R*") +
+  theme(text = element_text(size=16, colour="black"),
+        axis.text = element_text(colour="black"),
+        legend.position = c(0.7, 0.25)) +
+  scale_y_continuous(limits=c(0.95, NA)) +
+  geom_hline(yintercept = 1, linetype=2) +
+  scale_color_brewer("Int. depth", palette = "Dark2") +
+  guides(colour = guide_legend(nrow = 2, byrow = T))
+```
+
+# xgbtree
+AR1
+```{r}
+temp <- readRDS("../data/hypers_xgbtree_ar1.rds")$r_star
+temp %>%
+  select(-one_of("gamma", "colsample_bytree", "min_child_weight", "subsample")) %>% 
+  melt(id.vars=c("nrounds", "max_depth", "eta")) %>%
+  group_by(nrounds, max_depth, eta) %>%
+  summarise(lower=quantile(value, 0.25),
+            middle=quantile(value, 0.5),
+            upper=quantile(value, 0.75)) %>%
+  ggplot(aes(x=as.factor(nrounds), y=middle, colour=as.factor(max_depth), group=as.factor(max_depth))) +
+  geom_pointrange(aes(ymin=lower, ymax=upper), position=position_dodge2(width=0.1)) +
+  geom_line() +
+  xlab("# rounds") +
+  ylab("R*") +
+  theme(text = element_text(size=16, colour="black"),
+        axis.text = element_text(colour="black")) +
+  scale_y_continuous(limits=c(0.95, NA)) +
+  geom_hline(yintercept = 1, linetype=2) +
+  scale_color_brewer("Int. depth", palette = "Dark2") +
+  guides(colour = guide_legend(nrow = 2, byrow = T)) +
+  facet_wrap(~eta)
+```
+
+```{r}
+temp <- readRDS("../data/hypers_xgbtree_8_schools.rds")$r_star
+temp %>%
+  select(-one_of("gamma", "colsample_bytree", "min_child_weight", "subsample")) %>% 
+  melt(id.vars=c("nrounds", "max_depth", "eta")) %>%
+  group_by(nrounds, max_depth, eta) %>%
+  summarise(lower=quantile(value, 0.25),
+            middle=quantile(value, 0.5),
+            upper=quantile(value, 0.75)) %>%
+  ggplot(aes(x=as.factor(nrounds), y=middle, colour=as.factor(max_depth), group=as.factor(max_depth))) +
+  geom_pointrange(aes(ymin=lower, ymax=upper), position=position_dodge2(width=0.1)) +
+  geom_line() +
+  xlab("# rounds") +
+  ylab("R*") +
+  theme(text = element_text(size=16, colour="black"),
+        axis.text = element_text(colour="black")) +
+  scale_y_continuous(limits=c(0.95, NA)) +
+  geom_hline(yintercept = 1, linetype=2) +
+  scale_color_brewer("Int. depth", palette = "Dark2") +
+  guides(colour = guide_legend(nrow = 2, byrow = T)) +
+  facet_wrap(~eta)
+```
