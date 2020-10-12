@@ -114,12 +114,63 @@ for(i in seq_along(ds)){
 }
 saveRDS(big_df, "../data/xgbTree_vs_rf_normals_results.rds")
 
-big_df %>%
+# work out optimal classification rates
+f_optimal_normals <- function(niter, A0, A1, d){
+  x <- f_data_normals(A0, A1, d, niter)
+  A0_temp <- A0[1:d, 1:d]
+  A1_temp <- A1[1:d, 1:d]
+  if(d > 1){
+    f_first <- function(x) dmvnorm(x, rep(0, d), A0_temp)
+    f_second <- function(x) dmvnorm(x, rep(0, d), A1_temp)
+  }else{
+    f_first <- function(x) dnorm(x, 0, A0_temp)
+    f_second <- function(x) dnorm(x, 0, A1_temp)
+  }
+  m_class <- matrix(nrow = dim(x)[1], ncol = dim(x)[2])
+  for(i in 1:dim(x)[1]){
+    for(j in 1:dim(x)[2]){
+      prob0 <- f_first(x[i, j,])
+      prob1 <- f_second(x[i, j,])
+      if(prob0 > prob1)
+        m_class[i, j] <- 0
+      else
+        m_class[i, j] <- 1
+    }
+  }
+  a0 <- 1/3 * 1/3 * (mean(m_class[, 1]==0) + mean(m_class[, 2]==0) + mean(m_class[, 3]==0))
+  a1 <- mean(m_class[, 4]==1)
+  return(1/4 * (3 * a0 + a1) / 0.25)
+}
+
+r_star_opts <- map_dbl(ds[2:length(ds)], ~f_optimal_normals(10000, A0, A1, .))
+r_star_opts <- c(1, r_star_opts)
+r_star_opts <- tibble(d=ds, optimal=r_star_opts)
+temp_df <- 
+  big_df %>%
+  left_join(r_star_opts) %>% 
   select(-contains("time")) %>% 
   melt(id.vars=c("iter", "d")) %>% 
-  ggplot(aes(x=as.factor(d), y=value, fill=as.factor(variable))) +
-  geom_boxplot(position = position_dodge2(width=0.3)) +
-  geom_hline(yintercept = 1, linetype=2)
+  group_by(variable, d) %>% 
+  summarise(lower=quantile(value, 0.25),
+            middle=quantile(value, 0.5),
+            upper=quantile(value, 0.75)) %>% 
+  ungroup() %>% 
+  mutate(variable=as.character(variable)) %>% 
+  mutate(variable=if_else(variable=="rstar_rf", "rf", if_else(variable=="rstar_xgbTree", "xgbtree", "optimal")))
+saveRDS(temp_df, "../data/xgbTree_vs_rf_normals_results_optimals.rds")
+temp_df <- readRDS("../data/xgbTree_vs_rf_normals_results_optimals.rds")
+g <- ggplot(data=filter(temp_df, variable!="optimal"),
+       aes(x=as.factor(d), y=middle, colour=as.factor(variable))) +
+  geom_pointrange(aes(ymin=lower, ymax=upper),
+                  position = position_dodge2(width=0.3)) +
+  geom_hline(yintercept = 1, linetype=2) +
+  geom_point(data=filter(temp_df, variable=="optimal")) +
+  scale_color_brewer("Method", palette = "Dark2") +
+  xlab("# dimensions") +
+  ylab("R*") +
+  theme(text = element_text(size=16, colour="black"),
+        axis.text = element_text(colour="black"))
+ggsave("../output/xgbtree_vs_rf_normal.pdf", g, width = 10, height = 6)
 ```
 
 Same but increase fatness of tails
@@ -172,7 +223,6 @@ f_compare_iter_student_t <- function(nreplicate, nu1, nu2, d, A0){
   m_res <- matrix(nrow=nreplicate, ncol=8)
   for(i in 1:nreplicate){
     temp <- f_compare_rf_xgbtree_student_ts(nu1, nu2, d, A0)
-    temp <- f_compare_rf_xgbtree(d, A0, A1)
     rstars <- temp$rstar
     times <- temp$time
     m_res[i, ] <- c(i, d, nu1, nu2, rstars[1], rstars[2], times[1], times[2])
@@ -198,5 +248,65 @@ for(i in 1:nrow(m_parameters)){
     big_df <- big_df %>% bind_rows(temp_df)
 }
 saveRDS(big_df, "../data/xgbTree_vs_rf_studentts_results.rds")
+
+
+f_optimal_studentts <- function(niter, nu1, nu2, d, A0){
+  x <- f_data_student_ts(nu1, nu2, d, A0, niter = niter)
+  sigma1 <- A0[1:d, 1:d] * (nu1 - 2) / nu1
+  sigma2 <- A0[1:d, 1:d] * (nu2 - 2) / nu2
+  if(d > 1){
+    f_first <- function(x) dmvt(x, rep(0, d), sigma1, nu1)
+    f_second <- function(x) dmvt(x, rep(0, d), sigma2, nu2)
+  }else{
+    f_first <- function(x) dst(x, 0, sigma1, nu1)
+    f_second <- function(x) dst(x, 0, sigma2, nu2)
+  }
+  m_class <- matrix(nrow = dim(x)[1], ncol = dim(x)[2])
+  for(i in 1:dim(x)[1]){
+    for(j in 1:dim(x)[2]){
+      prob0 <- f_first(x[i, j,])
+      prob1 <- f_second(x[i, j,])
+      if(prob0 > prob1)
+        m_class[i, j] <- 0
+      else
+        m_class[i, j] <- 1
+    }
+  }
+  a0 <- 1/3 * 1/3 * (mean(m_class[, 1]==0) + mean(m_class[, 2]==0) + mean(m_class[, 3]==0))
+  a1 <- mean(m_class[, 4]==1)
+  return(1/4 * (3 * a0 + a1) / 0.25)
+}
+
+r_star_opts1 <- map_dbl(seq(1, nrow(m_parameters), 1), ~f_optimal_studentts(1000, nu1, m_parameters$nu2[.], m_parameters$ds[.], A0))
+
+r_star_opts <- tibble(d=m_parameters$ds, nu2=m_parameters$nu2, optimal=r_star_opts1)
+temp_df <- 
+  big_df %>%
+  left_join(r_star_opts) %>% 
+  select(-contains("time")) %>% 
+  select(-one_of("nu1")) %>% 
+  melt(id.vars=c("iter", "d", "nu2")) %>% 
+  group_by(variable, d, nu2) %>% 
+  summarise(lower=quantile(value, 0.25),
+            middle=quantile(value, 0.5),
+            upper=quantile(value, 0.75)) %>% 
+  ungroup() %>% 
+  mutate(variable=as.character(variable)) %>% 
+  mutate(variable=if_else(variable=="rstar_rf", "rf", if_else(variable=="rstar_xgbTree", "xgbtree", "optimal")))
+saveRDS(temp_df, "../data/xgbTree_vs_rf_studentts_results_optimal.rds")
+temp_df <- readRDS("../data/xgbTree_vs_rf_studentts_results_optimal.rds")
+g2 <- ggplot(data=filter(temp_df, variable!="optimal"),
+       aes(x=as.factor(nu2), y=middle, colour=as.factor(variable))) +
+  geom_pointrange(aes(ymin=lower, ymax=upper),
+                  position = position_dodge2(width=0.3)) +
+  geom_hline(yintercept = 1, linetype=2) +
+  geom_point(data=filter(temp_df, variable=="optimal")) +
+  scale_color_brewer("Method", palette = "Dark2") +
+  xlab("# degrees of freedom") +
+  ylab("R*") +
+  theme(text = element_text(size=16, colour="black"),
+        axis.text = element_text(colour="black")) +
+  facet_wrap(~d)
+ggsave("../output/xgbtree_vs_rf_studentt.pdf", g2, width = 12, height = 8)
 ```
 

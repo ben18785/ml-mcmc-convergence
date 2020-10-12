@@ -23,7 +23,7 @@ library(tidyverse)
 #' diagnostic with uncertainty using gradient-boosted machines
 #' \emph{arXiv preprint} \code{arXiv:TBD}
 r_star <- function(x, split_chains=T, training_percent=0.7, caret_default=NULL, method=NULL,
-                   uncertainty=F){
+                   uncertainty=F, nsim=1000){
   
   if(split_chains)
     x <- split_data(x)
@@ -55,6 +55,8 @@ r_star <- function(x, split_chains=T, training_percent=0.7, caret_default=NULL, 
   training_data <- r[rand_samples, ]
   testing_data <- r[-rand_samples, ]
   
+  if(is.null(method))
+    method <- "rf"
   if(is.null(caret_default)&&method=="xgbTree")
     caretGrid <- tibble(nrounds = c(100),
                         max_depth = c(4),
@@ -67,16 +69,14 @@ r_star <- function(x, split_chains=T, training_percent=0.7, caret_default=NULL, 
     caretGrid <- tibble(mtry=floor(sqrt(nparams)))
   else
     caretGrid <- expand.grid(caret_default)
-  if(is.null(method))
-    method <- "rf"
 
-  gbmFit <- train(chain ~ ., data = training_data, 
+  fit <- train(chain ~ ., data = training_data, 
                     method = method,
                     trControl = trainControl(method = 'none'), 
                     tuneGrid = caretGrid, verbose=FALSE)
   
   if(uncertainty){
-    plda <- predict(object=gbmFit1, newdata=testing_data, type = "prob")
+    plda <- predict(object=fit, newdata=testing_data, type = "prob")
     
     mAccuracy <- matrix(nrow = nrow(plda),
                         ncol = nsim)
@@ -86,7 +86,7 @@ r_star <- function(x, split_chains=T, training_percent=0.7, caret_default=NULL, 
     }
     return(colMeans(mAccuracy) * n_distinct(testing_data$chain))
   } else{
-    plda <- predict(object=gbmFit, newdata=testing_data)
+    plda <- predict(object=fit, newdata=testing_data)
     a_accuracy <- 
       tibble(predicted=plda, actual=testing_data$chain) %>%
       mutate(correct=if_else(predicted==actual, 1, 0)) %>% 

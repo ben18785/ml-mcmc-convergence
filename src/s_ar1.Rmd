@@ -39,18 +39,18 @@ f_generate_lower_var_four <- function(var_ratio, rho, sigma, L){
 }
 ```
 
-Calculate R* and Rhat across 1000 replicates
+Calculate R* and Rhat across 200 replicates
 ```{r}
 f_replicate <- function(){
   temp <- f_generate_lower_var_four(1/3, 0.3, 1, 2000)
   a_array <- array(dim=c(2000, 4, 1))
   a_array[,,1] <- temp
-  a_accuracy <- r_star(a_array)
+  a_accuracy <- r_star(a_array, method = "xgbTree")
   mon <- monitor_extra(split_data(a_array))
   return(list(r_star=a_accuracy, r_hat=mon$zfsRhat))
 }
 
-nreplicates <- 100
+nreplicates <- 200
 r_star_vals <- vector(length = nreplicates)
 r_hat_vals <- vector(length = nreplicates)
 for(i in 1:nreplicates){
@@ -61,12 +61,12 @@ for(i in 1:nreplicates){
   r_hat_vals[i] <- temp$r_hat
 }
 
-# saveRDS(tibble(r_star=r_star_vals, r_hat=r_hat_vals), "../data/ar1_r_star_hat.rds")
+saveRDS(tibble(r_star=r_star_vals, r_hat=r_hat_vals), "../data/ar1_r_star_hat.rds")
 ```
 
 Plot results
 ```{r}
-# reses <- readRDS("../data/ar1_r_star_hat.rds")
+reses <- readRDS("../data/ar1_r_star_hat.rds")
 r_star_vals <- reses$r_star 
 r_hat_vals <- reses$r_hat 
 g2 <- tibble(accuracy=r_star_vals, iteration=seq(1, nreplicates, 1)) %>% 
@@ -99,16 +99,21 @@ full_data <- f_generate_lower_var_four(1/3, 0.3, 1, 2000) %>%
   rename(chain=Var2) %>% 
   mutate(ran_val=rnorm(8000)) %>% 
   mutate(chain=as.factor(chain))
-
-caretGrid <- tibble(mtry=2)
+caretGrid <- tibble(nrounds = c(100),
+                        max_depth = c(4),
+                        eta = c(.4),
+                        gamma = 0,
+                        colsample_bytree = .7,
+                        min_child_weight = 1,
+                        subsample = 0.8)
 
 rand_samples <- sample(1:nrow(full_data), 0.7 * nrow(full_data))
 training_data <- full_data[rand_samples, ]
 testing_data <- full_data[-rand_samples, ]
 gbmFit1 <- train(chain ~ ., data = training_data, 
-                 method = "rf",
+                 method = "xgbTree",
                  trControl = trainControl(method = 'none'), 
-                    tuneGrid = caretGrid, verbose=FALSE)
+                 verbose=FALSE, tuneGrid = caretGrid)
 
 g1 <- testing_data %>% 
   arrange(value) %>% 
@@ -131,14 +136,14 @@ temp1 <- matrix(rnorm(8000), nrow = 2000)
 a_array <- array(dim=c(2000, 4, 2))
 a_array[,,1] <- temp
 a_array[,,2] <- temp1
-unmixed <- r_star_dist(a_array)
+unmixed <- r_star(a_array, uncertainty = T, method = "xgbTree")
 
 temp <- f_generate_lower_var_four(1, 0.3, 1, 2000)
 temp1 <- matrix(rnorm(8000), nrow = 1000)
 a_array <- array(dim=c(2000, 4, 2))
 a_array[,,1] <- temp
 a_array[,,2] <- temp1
-mixed <- r_star_dist(a_array)
+mixed <- r_star(a_array, uncertainty = T, method = "xgbTree")
 
 mAR1 <- tibble(unmixed, mixed)
 g3 <- 
@@ -175,7 +180,7 @@ f_replicate_n <- function(n_chains){
   temp <- f_generate_lower_var_n(n_chains, 1/3, 0.3, 1, 2000)
   a_array <- array(dim=c(2000, n_chains, 1))
   a_array[,,1] <- temp
-  a_accuracy <- r_star(a_array)
+  a_accuracy <- r_star(a_array, method="xgbTree")
   mon <- monitor_extra(split_data(a_array))
   return(list(r_star=a_accuracy, r_hat=mon$zfsRhat))
 }

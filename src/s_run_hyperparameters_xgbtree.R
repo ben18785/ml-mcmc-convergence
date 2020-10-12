@@ -35,8 +35,8 @@ f_generate_lower_var_four <- function(var_ratio, rho, sigma, L){
 }
 
 f_data_ar1 <- function(){
-  temp <- f_generate_lower_var_four(1/3, 0.3, 1, 1000)
-  a_array <- array(dim=c(1000, 4, 1))
+  temp <- f_generate_lower_var_four(1/3, 0.3, 1, 2000)
+  a_array <- array(dim=c(2000, 4, 1))
   a_array[,,1] <- temp
   return(a_array)
 }

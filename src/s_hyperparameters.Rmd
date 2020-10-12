@@ -316,3 +316,27 @@ temp %>%
   guides(colour = guide_legend(nrow = 2, byrow = T)) +
   facet_wrap(~eta)
 ```
+
+```{r}
+temp <- readRDS("../data/hypers_xgbtree_cauchy.rds")$r_star
+temp %>%
+  select(-one_of("gamma", "colsample_bytree", "min_child_weight", "subsample")) %>% 
+  melt(id.vars=c("nrounds", "max_depth", "eta")) %>%
+  group_by(nrounds, max_depth, eta) %>%
+  summarise(lower=quantile(value, 0.25),
+            middle=quantile(value, 0.5),
+            upper=quantile(value, 0.75)) %>%
+  ggplot(aes(x=as.factor(nrounds), y=middle, colour=as.factor(max_depth), group=as.factor(max_depth))) +
+  geom_pointrange(aes(ymin=lower, ymax=upper), position=position_dodge2(width=0.1)) +
+  geom_line() +
+  xlab("# rounds") +
+  ylab("R*") +
+  theme(text = element_text(size=16, colour="black"),
+        axis.text = element_text(colour="black")) +
+  scale_y_continuous(limits=c(0.95, NA)) +
+  geom_hline(yintercept = 1, linetype=2) +
+  scale_color_brewer("Int. depth", palette = "Dark2") +
+  guides(colour = guide_legend(nrow = 2, byrow = T)) +
+  facet_wrap(~eta)
+```
+
