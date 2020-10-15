@@ -36,7 +36,7 @@ fit_ncp <- sampling(
   control = list(adapt_delta = 0.95)
 )
 ```
-
+# Random forest
 ## Break each chain into two then make flattened data
 ```{r}
 # Centered
@@ -61,9 +61,6 @@ c1_df <- tibble(centered=mon_cp$zfsRhat[1:10],
 
 ## Look at GBM fitted to data for variable importance
 ```{r}
-caretGrid <- expand.grid(interaction.depth=c(3), n.trees = 50,
-                   shrinkage=c(0.1),
-                   n.minobsinnode=10)
 x <- rstan::extract(fit_cp, permuted=F)
 x <- split_data(x)
 # Reshape data into form for R* estimation
@@ -87,11 +84,11 @@ training_data <- full_data[rand_samples, ]
 testing_data <- full_data[-rand_samples, ]
 
 # Fit gradient-boosed model
-gbmFit1 <- train(chain ~ ., data = training_data, 
-                 method = "gbm",
+fit <- train(chain ~ ., data = training_data, 
+                 method = "rf",
                  trControl = trainControl(method = 'none'), 
-                    tuneGrid = caretGrid, verbose=FALSE)
-varImp(gbmFit1)
+                 verbose=FALSE)
+varImp(fit)
 ```
 
 
@@ -176,6 +173,7 @@ pdf("../output/fig_10.pdf", width = 12, height = 4)
 multiplot(g1, g2, g3, cols = 3)
 dev.off()
 ```
+# xgbTree
 
 
 # Plot R* versus quantiles

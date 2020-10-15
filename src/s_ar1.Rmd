@@ -42,7 +42,7 @@ f_generate_lower_var_four <- function(var_ratio, rho, sigma, L){
 Calculate R* and Rhat across 200 replicates
 ```{r}
 f_replicate <- function(){
-  temp <- f_generate_lower_var_four(1/3, 0.3, 1, 2000)
+  temp <- f_generate_lower_var_four(1/4, 0.3, 1, 2000)
   a_array <- array(dim=c(2000, 4, 1))
   a_array[,,1] <- temp
   a_accuracy <- r_star(a_array, method = "xgbTree")
@@ -93,7 +93,7 @@ g2a <- tibble(accuracy=r_hat_vals, iteration=seq(1, nreplicates, 1)) %>%
 Look at predictions of model
 ```{r}
 # add in a column of noise since gbm requires >1 variables
-full_data <- f_generate_lower_var_four(1/3, 0.3, 1, 2000) %>% 
+full_data <- f_generate_lower_var_four(1/4, 0.3, 1, 2000) %>% 
   melt() %>% 
   select(-Var1) %>% 
   rename(chain=Var2) %>% 
@@ -131,7 +131,7 @@ g1 <- testing_data %>%
 
 Generate R* distribution based on 2000 iterations for run where chain has lower variance and another where all four chains have same variance
 ```{r}
-temp <- f_generate_lower_var_four(1/3, 0.3, 1, 2000) 
+temp <- f_generate_lower_var_four(1/4, 0.3, 1, 2000) 
 temp1 <- matrix(rnorm(8000), nrow = 2000)
 a_array <- array(dim=c(2000, 4, 2))
 a_array[,,1] <- temp
@@ -177,7 +177,7 @@ f_generate_lower_var_n <- function(n_chains, var_ratio, rho, sigma, L){
 }
 
 f_replicate_n <- function(n_chains){
-  temp <- f_generate_lower_var_n(n_chains, 1/3, 0.3, 1, 2000)
+  temp <- f_generate_lower_var_n(n_chains, 1/4, 0.3, 1, 2000)
   a_array <- array(dim=c(2000, n_chains, 1))
   a_array[,,1] <- temp
   a_accuracy <- r_star(a_array, method="xgbTree")
@@ -186,7 +186,7 @@ f_replicate_n <- function(n_chains){
 }
 
 nreplicates <- 50
-lnum_chains <- c(2, 4, 6, 8, 16, 32)
+lnum_chains <- c(2, 4, 6, 8, 16, 32, 64)
 mResults <- matrix(nrow = nreplicates * length(lnum_chains),
                    ncol = 4)
 k <- 1
@@ -200,11 +200,9 @@ for(j in seq_along(lnum_chains)){
 }
 
 colnames(mResults) <- c("nchains", "iterate", "R*", "split-Rhat")
-mResults <- as.data.frame(mResults) %>% 
-  filter(nchains < 64)
+mResults <- as.data.frame(mResults)
 saveRDS(mResults, "../data/ar1_numchains.rds")
-mResults <- readRDS("../data/ar1_numchains.rds") %>% 
-  filter(iterate<=50)
+mResults <- readRDS("../data/ar1_numchains.rds")
 b_sum <- mResults %>% 
   melt(id.vars=c("nchains", "iterate")) %>%
   group_by(nchains, variable) %>% 
@@ -229,8 +227,6 @@ g <- mResults %>%
         strip.text.x = element_text(colour="black", size=16),
         legend.position = "none")
 ggsave("../output/ar1_numchains.pdf", g, width = 8, height = 4)
-
-
 ```
 
 # Investigating stochasticity of R*
@@ -250,7 +246,7 @@ mResults <- matrix(nrow = nreplicates * length(lsample_sizes),
 k <- 1
 for(j in seq_along(lsample_sizes)){
   print(j)
-  x <- f_generate_lower_var_four(1/3, 0.3, 1, lsample_sizes[j])
+  x <- f_generate_lower_var_four(1/4, 0.3, 1, lsample_sizes[j])
   for(i in 1:nreplicates){
     temp <- f_replicate_samplesize(x, lsample_sizes[j])
     mResults[k, ] <- c(lsample_sizes[j], i, temp$r_star)

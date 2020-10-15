@@ -65,6 +65,11 @@ r_star <- function(x, split_chains=T, training_percent=0.7, caret_default=NULL, 
                         colsample_bytree = .7,
                         min_child_weight = 1,
                         subsample = 0.8)
+  if(is.null(caret_default)&&method=="gbm")
+    caretGrid <- tibble(interaction.depth=c(3), 
+                             n.trees = 50,
+                             shrinkage=c(0.1),
+                             n.minobsinnode=10)
   else if(is.null(caret_default))
     caretGrid <- tibble(mtry=floor(sqrt(nparams)))
   else

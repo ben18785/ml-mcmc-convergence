@@ -258,6 +258,22 @@ a_df <-
          alt=laccuracy1,
        nom=laccuracy)
 saveRDS(a_df, "../output/cauchy_r_star_rf.rds")
+
+fit <- readRDS("../output/fit_nominal_50000.rds")
+x <- rstan::extract(fit, permuted=F, pars="x")
+
+laccuracy <- future_map_dbl(iter, function(i) r_star(x[1:i, , ], method="xgbTree"))
+
+fit <- readRDS("../output/fit_alt_50000.rds")
+x <- rstan::extract(fit, permuted=F, pars="x")
+
+laccuracy1 <- future_map_dbl(iter, function(i) r_star(x[1:i, , ], method="xgbTree"))
+
+a_df <- 
+  tibble(iteration=iter,
+         alt=laccuracy1,
+       nom=laccuracy)
+saveRDS(a_df, "../output/cauchy_r_star_xgbtree.rds")
 ```
 
 ```{r}
@@ -286,7 +302,7 @@ g2
 
 Add in GBM R*
 ```{r}
-a_df <- readRDS("../output/cauchy_r_star.rds") %>% 
+a_df <- readRDS("../output/cauchy_r_star_xgbtree.rds") %>% 
   mutate(model="gbm")
 a_df1 <- readRDS("../output/cauchy_r_star_rf.rds") %>% 
   mutate(model="rf")
