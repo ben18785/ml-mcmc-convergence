@@ -125,25 +125,24 @@ saveRDS(res, "../output/experiment_trends_all_dim.rds")
 ```
 
 ```{r}
-# res <- readRDS("../output/experiment_trends_all_dim.rds")
-# g <- 
-#   res %>%
-#   select(iters, trend, Rstar, Rstar_split) %>% 
-#   melt(id.vars=c("iters", "trend")) %>% 
-#   mutate(variable=case_when(variable=="Rstar"~"A. R*",
-#                             variable=="Rstar_split"~"B. Split-R*")) %>% 
-#   ggplot(aes(y = value, x = trend)) + 
-#   geom_point() + 
-#   geom_jitter() + 
-#   facet_grid(vars(iters), vars(variable)) + 
-#   geom_hline(yintercept = 1) +
-#   theme(strip.text.x = element_text(size=16, colour="black"),
-#         strip.text.y = element_text(size=16, colour="black"),
-#         axis.text.x = element_text(size=16, colour="black"),
-#         axis.text.y = element_text(size=16, colour="black"),
-#         axis.title = element_text(size=16, colour="black")) +
-#   xlab("Trend") +
-#   ylab("Value")
+res <- readRDS("../output/experiment_trends_all_dim.rds")
+g <-
+  res %>%
+  select(iters, trend, Rstar, Rstar_split, method) %>%
+  melt(id.vars=c("iters", "trend", "method")) %>%
+  mutate(variable=case_when(variable=="Rstar"~"A. R*",
+                            variable=="Rstar_split"~"B. Split-R*")) %>%
+  ggplot(aes(y = value, x = trend)) +
+  geom_jitter(aes(colour=as.factor(method))) +
+  facet_grid(vars(iters), vars(variable)) +
+  geom_hline(yintercept = 1) +
+  theme(strip.text.x = element_text(size=16, colour="black"),
+        strip.text.y = element_text(size=16, colour="black"),
+        axis.text.x = element_text(size=16, colour="black"),
+        axis.text.y = element_text(size=16, colour="black"),
+        axis.title = element_text(size=16, colour="black")) +
+  xlab("Trend") +
+  ylab("Value")
 # ggsave("../output/trends_all_dim.pdf", g, width = 8, height = 6)
 ```
 
