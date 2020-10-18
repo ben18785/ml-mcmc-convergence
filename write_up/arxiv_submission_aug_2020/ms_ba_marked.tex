@@ -335,6 +335,22 @@ The decline of both of these measures when more chains are used hints that perha
 	\label{fig:ar1_numchains}
 \end{figure}
 
+\subsection{Comparing GBMs and RFs}
+In section SX, we perform a series of experiments using popular ML methods and find that GBMs and RFs perform most consistently across them. In this section, we compare $R^*$ derived from using a GBM classifier with that from a RF classifier. In these experiments, we fix the hyperparameters of each as given in \S\ref{sec:method}. In \S\ref{sec:joint_distribution}, we compare how both methods are able to diagnose lack of convergence in a joint distribution. In \S\ref{sec:tail_fatness}, we compare the ability of both approaches to diagnose differences in the tails of the marginal distributions between chains. Since we use independent sampling to generate draws, we are also able to calculate the Bayes optimal classification accuracy, which is the classifier that minimises the probability of misclassification error \citep{devroye2013probabilistic}. In this classifier, categories are assigned according to the one which has the maximum posterior probability of having generated the data. Here, we assume that \textit{a priori} all chains are equally likely to have generated the data, so the classifier categorises draws according only to which chain maximises the likelihood of that observation.
+
+\subsubsection{Convergence in joint distribution}\label{sec:joint_distribution}
+Here, we consider a multivariate normal target distribution over a range of target dimensions ranging from 1-32. For three 'chains', we generate draws by independently sampling from a multivariate normal with zero mean and given covariance matrix; for the fourth chain, draws are generated in the same way except the covariance matrix differs. To generate the covariance matrices, we randomly sampled two 32-dimensional covariance matrices from the LKJ distribution with degrees of freedom 1 \citep{lewandowski2009generating}: note, that this results in matrices with unit diagonal values, meaning the marginal distributions of each dimension are standard normals. To obtain covariance matrices for the targets with dimensions, $d<32$, submatrices, $A^d$, were constructed from the 32-dimensional covariance matrices by taking leading blocks from them: $A^d=A^{32}_{1:d, 1:d}$. For each target, we performed 20 replicates, where in each case, $R^*$ was calculated using GBM and RF classifiers.
+
+The results of these experiments are shown in Fig. X.
+
+\begin{figure}[!htb]
+	\centerline{\includegraphics[width=0.6\textwidth]{gbm_vs_rf_normal.pdf}}
+	\caption{\textbf{GBM versus RF: multivariate normal.} The horizontal axis gives the dimensions of the target distribution; the vertical axis gives the value of $R*$ as calculated by Algorithm \ref{alg:R_star} using GBM}
+	\label{fig:gbm_vs_rf_normal}
+\end{figure}
+
+\subsubsection{Fat tails}\label{sec:tail_fatness}
+
 \subsection{Diagnosing convergence in joint distributions: multivariate normal models}\label{sec:multivariate_normal}
 In this section, we illustrate how $R^*$ can diagnose convergence issues in the joint target distribution.
 

@@ -126,6 +126,20 @@ g1 <- testing_data %>%
   ggtitle("A.")
 ```
 
+Examine probability calibration
+```{r}
+predict(object=gbmFit1, newdata=testing_data, type = "prob") %>% 
+  select(`4`) %>% 
+  rename(prob_4=`4`) %>% 
+  mutate(actual=testing_data$chain) %>% 
+  mutate(prob_4_cat=cut(prob_4, seq(0, 1, 0.05), ordered_result = T)) %>% 
+  group_by(prob_4_cat) %>% 
+  summarise(prob_4_actual=mean(actual==4)) %>% 
+  ggplot(aes(x=prob_4_cat, y=prob_4_actual)) +
+  geom_point()
+```
+
+
 
 Generate R* distribution based on 2000 iterations for run where chain has lower variance and another where all four chains have same variance
 ```{r}
@@ -286,8 +300,4 @@ g <- mResults %>%
 ggsave("../output/ar1_samplesize.pdf", g, width = 8, height = 6)
 ```
 
-Examine probability calibration
-```{r}
-
-```
 

@@ -158,14 +158,19 @@ temp_df <-
   mutate(variable=as.character(variable)) %>% 
   mutate(variable=if_else(variable=="rstar_rf", "rf", if_else(variable=="rstar_gbm", "gbm", "optimal")))
 saveRDS(temp_df, "../data/gbm_vs_rf_normals_results_optimals.rds")
-temp_df <- readRDS("../data/gbm_vs_rf_normals_results_optimals.rds")
-g <- ggplot(data=filter(temp_df, variable!="optimal"),
-       aes(x=as.factor(d), y=middle, colour=as.factor(variable))) +
+temp_df <- readRDS("../data/gbm_vs_rf_normals_results_optimals.rds") %>% 
+  mutate(variable=as.character(variable)) %>% 
+  mutate(variable=if_else(variable=="gbm", "GBM",
+                          if_else(variable=="rf", "RF", "Optimal"))) %>% 
+  mutate(variable=fct_relevel(as.factor(variable), "GBM", "RF", "Optimal"))
+g <- ggplot(temp_df,
+       aes(x=as.factor(d), y=middle, colour=as.factor(variable),
+           shape=as.factor(variable))) +
   geom_pointrange(aes(ymin=lower, ymax=upper),
                   position = position_dodge2(width=0.3)) +
   geom_hline(yintercept = 1, linetype=2) +
-  geom_point(data=filter(temp_df, variable=="optimal")) +
-  scale_color_brewer("Method", palette = "Dark2") +
+  scale_color_grey("Method", start=0.8, end=0) +
+  scale_shape("Method") +
   xlab("# dimensions") +
   ylab("R*") +
   theme(text = element_text(size=16, colour="black"),
@@ -294,14 +299,19 @@ temp_df <-
   mutate(variable=as.character(variable)) %>% 
   mutate(variable=if_else(variable=="rstar_rf", "rf", if_else(variable=="rstar_gbm", "gbm", "optimal")))
 saveRDS(temp_df, "../data/gbm_vs_rf_studentts_results_optimal.rds")
-temp_df <- readRDS("../data/gbm_vs_rf_studentts_results_optimal.rds")
-g2 <- ggplot(data=filter(temp_df, variable!="optimal"),
-       aes(x=as.factor(nu2), y=middle, colour=as.factor(variable))) +
+temp_df <- readRDS("../data/gbm_vs_rf_studentts_results_optimal.rds") %>% 
+  mutate(variable=as.character(variable)) %>% 
+  mutate(variable=if_else(variable=="gbm", "GBM",
+                          if_else(variable=="rf", "RF", "Optimal"))) %>% 
+  mutate(variable=fct_relevel(as.factor(variable), "GBM", "RF", "Optimal"))
+g2 <- ggplot(data=temp_df,
+       aes(x=as.factor(nu2), y=middle, colour=as.factor(variable),
+           shape=as.factor(variable))) +
   geom_pointrange(aes(ymin=lower, ymax=upper),
                   position = position_dodge2(width=0.3)) +
   geom_hline(yintercept = 1, linetype=2) +
-  geom_point(data=filter(temp_df, variable=="optimal")) +
-  scale_color_brewer("Method", palette = "Dark2") +
+  scale_color_grey("Method", start=0.8, end=0) +
+  scale_shape("Method") +
   xlab("# degrees of freedom") +
   ylab("R*") +
   theme(text = element_text(size=16, colour="black"),
