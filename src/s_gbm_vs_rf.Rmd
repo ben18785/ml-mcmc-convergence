@@ -282,9 +282,10 @@ f_optimal_studentts <- function(niter, nu1, nu2, d, A0){
   return(1/4 * (3 * a0 + a1) / 0.25)
 }
 
-r_star_opts1 <- map_dbl(seq(1, nrow(m_parameters), 1), ~f_optimal_studentts(1000, nu1, m_parameters$nu2[.], m_parameters$ds[.], A0))
+r_star_opts1 <- map_dbl(seq(1, nrow(m_parameters), 1), ~f_optimal_studentts(10000, nu1, m_parameters$nu2[.], m_parameters$ds[.], A0))
 
 r_star_opts <- tibble(d=m_parameters$ds, nu2=m_parameters$nu2, optimal=r_star_opts1)
+big_df <- readRDS("../data/gbm_vs_rf_studentts_results.rds")
 temp_df <- 
   big_df %>%
   left_join(r_star_opts) %>% 
