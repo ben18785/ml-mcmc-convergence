@@ -88,7 +88,7 @@ f_data_normal <- function(){
   N <- 250
   A <- rWishart(1, 250, diag(N))[,,1]
   model <- stan_model("mvt_250_ncp.stan")
-  fit <- sampling(model, data=list(N=N, A=A), iter=1000, chains=4)
+  fit <- sampling(model, data=list(N=N, A=A), iter=10, chains=4)
   x <- rstan::extract(fit, permuted=F)
   return(x)
 }
@@ -103,7 +103,7 @@ if(model_num==1){
   f_data_gen <- f_data_ar1
   name <- "ar1"
 }else if(model_num==2){
-  m_parameters <- expand_grid(mtry=c(2, 4, 8, 16, 32, 64))
+  m_parameters <- expand_grid(mtry=c(2, 4, 8, 16, 19))
   f_data_gen <- f_data_8_schools
   name <- "8_schools"
 }else if(model_num==3){

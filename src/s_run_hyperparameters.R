@@ -47,7 +47,7 @@ f_replicate_hyper <- function(m_parameters, f_data_generator){
   
   laccuracy <- vector(length = nrow(m_parameters))
   for(i in 1:nrow(m_parameters))
-    laccuracy[i] <- r_star(a_array,
+    laccuracy[i] <- r_star(a_array, method="gbm",
                            caret_default=expand.grid(interaction.depth=m_parameters$int.depth[i],
                                                      n.trees = m_parameters$n.trees[i],
                                                      shrinkage=0.1,
@@ -87,6 +87,16 @@ f_data_cauchy <- function(){
   return(x)
 }
 
+f_data_normal <- function(){
+  N <- 250
+  A <- rWishart(1, 250, diag(N))[,,1]
+  model <- stan_model("mvt_250_ncp.stan")
+  fit <- sampling(model, data=list(N=N, A=A), iter=10, chains=4)
+  x <- rstan::extract(fit, permuted=F)
+  return(x)
+}
+
+
 # command line arguments ------
 args <- commandArgs(trailingOnly=TRUE)
 model_num <- as.numeric(args[1])
@@ -107,6 +117,11 @@ if(model_num==1){
                               n.trees=c(50, 100, 400, 1000))
   f_data_gen <- f_data_cauchy
   name <- "cauchy"
+}else if(model_num==4){
+  m_parameters <- expand_grid(int.depth=c(3, 7, 11),
+                              n.trees=c(50, 100, 400))
+  f_data_gen <- f_data_cauchy
+  name <- "normal_250"
 }
 
 r_star_vals <- f_replicate_r_star(num_iter, m_parameters, f_data_gen)
