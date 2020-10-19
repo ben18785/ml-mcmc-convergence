@@ -81,7 +81,7 @@ m_parameters <- expand_grid(int.depth=seq(1, 7, 2),
 r_star_vals <- f_replicate_r_star(2, m_parameters, f_data_ar1)
 
 # saveRDS(r_star_vals, "../data/ar1_sensitivity.rds")
-g <- readRDS("../data/hypers_ar1.rds")$r_star %>% 
+g1 <- readRDS("../data/hypers_ar1.rds")$r_star %>% 
   melt(id.vars=c("int.depth", "n.trees")) %>% 
   group_by(int.depth, n.trees) %>% 
   summarise(lower=quantile(value, 0.25),
@@ -95,11 +95,11 @@ g <- readRDS("../data/hypers_ar1.rds")$r_star %>%
   theme(text = element_text(size=16, colour="black"),
         axis.text = element_text(colour="black"),
         legend.position = c(0.7, 0.25)) +
-  scale_y_continuous(limits=c(0.98, NA)) +
+  scale_y_continuous(limits=c(0.95, 1.3)) +
   geom_hline(yintercept = 1, linetype=2) +
   scale_color_brewer("Int. depth", palette = "Dark2") +
-  guides(colour = guide_legend(nrow = 2, byrow = T))
-ggsave("../output/hypers_ar1.pdf", g, width = 12, height = 8)
+  guides(colour = guide_legend(nrow = 2, byrow = T)) +
+  ggtitle("A. GBM")
 ```
 
 
@@ -124,7 +124,7 @@ m_parameters <- expand_grid(int.depth=c(1, 3, 5),
 r_star_vals <- f_replicate_r_star(20, m_parameters, f_data_ar1)
 
 
-readRDS("../data/hypers_8_schools.rds")$r_star %>% 
+g1a <- readRDS("../data/hypers_8_schools.rds")$r_star %>% 
   melt(id.vars=c("int.depth", "n.trees")) %>% 
   group_by(int.depth, n.trees) %>% 
   summarise(lower=quantile(value, 0.25),
@@ -137,11 +137,12 @@ readRDS("../data/hypers_8_schools.rds")$r_star %>%
   ylab("R*") +
   theme(text = element_text(size=16, colour="black"),
         axis.text = element_text(colour="black"),
-        legend.position = c(0.7, 0.25)) +
-  scale_y_continuous(limits=c(0.95, NA)) +
+        legend.position = c(0.7, 0.6)) +
+  scale_y_continuous(limits=c(0.95, 1.6)) +
   geom_hline(yintercept = 1, linetype=2) +
   scale_color_brewer("Int. depth", palette = "Dark2") +
-  guides(colour = guide_legend(nrow = 2, byrow = T))
+  guides(colour = guide_legend(nrow = 2, byrow = T)) +
+  ggtitle("A. GBM")
 ```
 
 # Cauchy
@@ -181,30 +182,34 @@ readRDS("../data/hypers_cauchy.rds")$r_star %>%
 AR1
 ```{r}
 temp <- readRDS("../data/hypers_rf_ar1.rds")$r_star
-temp %>%
+g2 <- temp %>%
   melt(id.vars="mtry") %>%
   group_by(mtry) %>%
   summarise(lower=quantile(value, 0.25),
             middle=quantile(value, 0.5),
             upper=quantile(value, 0.75)) %>%
-  ggplot(aes(x=as.factor(mtry), y=middle)) +
+  ggplot(aes(x=mtry, y=middle)) +
   geom_pointrange(aes(ymin=lower, ymax=upper), position=position_dodge2(width=0.1)) +
   geom_line() +
-  xlab("# features") +
+  xlab(TeX("$m_{try}$")) +
   ylab("R*") +
   theme(text = element_text(size=16, colour="black"),
         axis.text = element_text(colour="black"),
         legend.position = c(0.7, 0.25)) +
-  scale_y_continuous(limits=c(0.95, NA)) +
+  scale_y_continuous(limits=c(0.95, 1.3)) +
+  scale_x_continuous(breaks=c(1, 2), limits = c(0.5, 2.5)) +
   geom_hline(yintercept = 1, linetype=2) +
   scale_color_brewer("Int. depth", palette = "Dark2") +
-  guides(colour = guide_legend(nrow = 2, byrow = T))
+  guides(colour = guide_legend(nrow = 2, byrow = T)) +
+  ggtitle("B. RF")
+pdf("../output/hypers_ar1.pdf", width = 12, height = 6)
+multiplot(g1, g2, cols=2)
+dev.off()
 ```
 
 8 schools
 ```{r}
-temp <- readRDS("../data/hypers_rf_8_schools.rds")$r_star
-temp %>%
+g2a <- readRDS("../data/hypers_rf_8_schools.rds")$r_star %>%
   melt(id.vars="mtry") %>%
   group_by(mtry) %>%
   summarise(lower=quantile(value, 0.25),
@@ -212,16 +217,21 @@ temp %>%
             upper=quantile(value, 0.75)) %>%
   ggplot(aes(x=as.factor(mtry), y=middle)) +
   geom_pointrange(aes(ymin=lower, ymax=upper), position=position_dodge2(width=0.1)) +
-  geom_line() +
+  geom_line(aes(group=1)) +
   xlab("# features") +
   ylab("R*") +
   theme(text = element_text(size=16, colour="black"),
         axis.text = element_text(colour="black"),
         legend.position = c(0.7, 0.25)) +
-  scale_y_continuous(limits=c(0.95, NA)) +
+  scale_y_continuous(limits=c(0.95, 1.6)) +
   geom_hline(yintercept = 1, linetype=2) +
   scale_color_brewer("Int. depth", palette = "Dark2") +
-  guides(colour = guide_legend(nrow = 2, byrow = T))
+  guides(colour = guide_legend(nrow = 2, byrow = T)) +
+  ggtitle("B. RF")
+
+pdf("../output/hypers_8_schools.pdf", width = 12, height = 6)
+multiplot(g1a, g2a, cols=2)
+dev.off()
 ```
 Cauchy
 ```{r}
@@ -269,74 +279,4 @@ temp %>%
   guides(colour = guide_legend(nrow = 2, byrow = T))
 ```
 
-# xgbtree
-AR1
-```{r}
-temp <- readRDS("../data/hypers_xgbtree_ar1.rds")$r_star
-temp %>%
-  select(-one_of("gamma", "colsample_bytree", "min_child_weight", "subsample")) %>% 
-  melt(id.vars=c("nrounds", "max_depth", "eta")) %>%
-  group_by(nrounds, max_depth, eta) %>%
-  summarise(lower=quantile(value, 0.25),
-            middle=quantile(value, 0.5),
-            upper=quantile(value, 0.75)) %>%
-  ggplot(aes(x=as.factor(nrounds), y=middle, colour=as.factor(max_depth), group=as.factor(max_depth))) +
-  geom_pointrange(aes(ymin=lower, ymax=upper), position=position_dodge2(width=0.1)) +
-  geom_line() +
-  xlab("# rounds") +
-  ylab("R*") +
-  theme(text = element_text(size=16, colour="black"),
-        axis.text = element_text(colour="black")) +
-  scale_y_continuous(limits=c(0.95, NA)) +
-  geom_hline(yintercept = 1, linetype=2) +
-  scale_color_brewer("Int. depth", palette = "Dark2") +
-  guides(colour = guide_legend(nrow = 2, byrow = T)) +
-  facet_wrap(~eta)
-```
-
-```{r}
-temp <- readRDS("../data/hypers_xgbtree_8_schools.rds")$r_star
-temp %>%
-  select(-one_of("gamma", "colsample_bytree", "min_child_weight", "subsample")) %>% 
-  melt(id.vars=c("nrounds", "max_depth", "eta")) %>%
-  group_by(nrounds, max_depth, eta) %>%
-  summarise(lower=quantile(value, 0.25),
-            middle=quantile(value, 0.5),
-            upper=quantile(value, 0.75)) %>%
-  ggplot(aes(x=as.factor(nrounds), y=middle, colour=as.factor(max_depth), group=as.factor(max_depth))) +
-  geom_pointrange(aes(ymin=lower, ymax=upper), position=position_dodge2(width=0.1)) +
-  geom_line() +
-  xlab("# rounds") +
-  ylab("R*") +
-  theme(text = element_text(size=16, colour="black"),
-        axis.text = element_text(colour="black")) +
-  scale_y_continuous(limits=c(0.95, NA)) +
-  geom_hline(yintercept = 1, linetype=2) +
-  scale_color_brewer("Int. depth", palette = "Dark2") +
-  guides(colour = guide_legend(nrow = 2, byrow = T)) +
-  facet_wrap(~eta)
-```
-
-```{r}
-temp <- readRDS("../data/hypers_xgbtree_cauchy.rds")$r_star
-temp %>%
-  select(-one_of("gamma", "colsample_bytree", "min_child_weight", "subsample")) %>% 
-  melt(id.vars=c("nrounds", "max_depth", "eta")) %>%
-  group_by(nrounds, max_depth, eta) %>%
-  summarise(lower=quantile(value, 0.25),
-            middle=quantile(value, 0.5),
-            upper=quantile(value, 0.75)) %>%
-  ggplot(aes(x=as.factor(nrounds), y=middle, colour=as.factor(max_depth), group=as.factor(max_depth))) +
-  geom_pointrange(aes(ymin=lower, ymax=upper), position=position_dodge2(width=0.1)) +
-  geom_line() +
-  xlab("# rounds") +
-  ylab("R*") +
-  theme(text = element_text(size=16, colour="black"),
-        axis.text = element_text(colour="black")) +
-  scale_y_continuous(limits=c(0.95, NA)) +
-  geom_hline(yintercept = 1, linetype=2) +
-  scale_color_brewer("Int. depth", palette = "Dark2") +
-  guides(colour = guide_legend(nrow = 2, byrow = T)) +
-  facet_wrap(~eta)
-```
 

@@ -103,7 +103,7 @@ if(model_num==1){
   f_data_gen <- f_data_ar1
   name <- "ar1"
 }else if(model_num==2){
-  m_parameters <- expand_grid(mtry=seq(2, 16, 2))
+  m_parameters <- expand_grid(mtry=c(2, 4, 8, 16, 32, 64))
   f_data_gen <- f_data_8_schools
   name <- "8_schools"
 }else if(model_num==3){

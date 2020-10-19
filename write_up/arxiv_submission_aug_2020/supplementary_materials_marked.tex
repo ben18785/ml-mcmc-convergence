@@ -352,4 +352,44 @@ Collectively, the results of \S\ref{sec:discrete_small} and \S\ref{sec:discrete_
 
 \color{black}
 
+\color{red}
+\subsection{Hyperparameter sensitivity}\label{sec:hyperparameters}
+The performance of GBMs and RFs, like all ML methods, depends on their hyperparameters. In GBMs, a regression function is approximated by additive components, where each of those corresponds to a tree \cite{greenwell2019package}. The number of such regression trees is thus a hyperparameter of the model. Each regression tree can split amongst any integer number of variables (the \textit{interaction depth}). For GBMs, we analyse how their performance depends on these two hyperparameters. For RFs, there is a single hyperpameter: $m_{\text{try}}$, the number of members of the subset of all features over which to search for an optimal split \citep{boehmke2019hands} when forming a decision tree.
+
+In this section, we investigate the sensitivity of $R^*$ calculated by GBMs and RFs to each of these sets of hyperparameters across a range of examples. The test cases picked correspond to examples already introduced throughout the manuscript: in general, we chose to investigate cases where $R^*$ was nearer 1, since, for these, small changes in calculated $R^*$ could lead to different decisions about convergence being reached.
+
+\subsubsection{Autoregressive example}\label{sec:hyperparameters_ar1}
+In this section, we assume the same data generating process as described in \S\ref{sec:heterogeneity}. For each generated dataset, we fit GBMs with all 16 possible combinations of interaction depth: $(1,3,5,7)$; and number of regression trees: $(1,10,50,100)$. Using the same data generating process, we also fit RFs with the two allowable $m_{\text{try}}$ values: $(1,2)$. At each combination of classifier and hyperparameters, with performed 200 replicates: in each case, calculating the $R^*$ value.
+
+In Fig. \ref{fig:hypers_ar1}, we show the results of this analysis. In panel A, we show the sensitivity of $R^*$ as calculated by GBMs to variation in hyperparameters. In panel B, we show the same but for RFs. In panel A, we see that $R^*$ does vary according to hyperparameters: of the set investigated, an interaction depth of 1 appears optimal with 10+ trees. In panel B, the values of $R^*$ are lower generally than those achieved by GBMs: again, RFs appear less well-suited to lower dimensional problems as shown in \S\ref{sec:comparison_gbm_rf}. Across the two hyperparameter values investigated, there was not a substantial difference between the values of $R^*$ calculated.
+
+\begin{figure}[!htb]
+	\centerline{\includegraphics[width=1.0\textwidth]{hypers_ar1.pdf}}
+	\caption{\textbf{Hyperparameter sensitivity: AR(1) example.} Panel A shows the sensitivity of GBM-derived $R^*$ to hyperparameter variation for the AR(1) example described in \S\ref{sec:hyperparameters_ar1}; Panel B shows the same but for a RF classifier. Black point-ranges indicate 25\% , 50\% and 75\% quantiles across all replicates. In Panel A, the coloured lines shows the different interaction depths investigated.}
+	\label{fig:hypers_ar1}
+\end{figure}
+
+\subsubsection{Eight schools: non-centered parameterisation}\label{sec:hyperparameters_8_schools}
+In this section, we revisit the non-centered parameterisation of the eight schools model described in \S\ref{non-centered parameterisation}. We investigated a range of hyperparameters for GBM and RF classifiers. At each combination of classifier and hyperparameter setting, we performed 50 replicates: in each replicate, we used Stan's NUTS algorithm with adapt delta set to 0.95 to generate posterior samples; these were then used to calculate $R^*$.
+
+In Fig. \ref{fig:hypers_8_schools}, we show the results of these experiments. Note that, due to length of computational runtime, we chose not to explore the full range of hyperparameters needed to optimise the performance of each classifier. Panel A shows how $R^*$ calculated using a GBM varies with its two hyperparameters; panel B shows the same but for RFs. This shows that, in this case, the value of $R^*$ calculated by RFs was higher than that for GBMs. Further, whereas GBMs were relatively sensitive to their hyperparameter values, RFs were less so.
+
+\begin{figure}[!htb]
+	\centerline{\includegraphics[width=1.0\textwidth]{hypers_8_schools.pdf}}
+	\caption{\textbf{Hyperparameter sensitivity: eight schools example.} Panel A shows the sensitivity of GBM-derived $R^*$ to hyperparameter variation for the eight schools example described in \S\ref{sec:hyperparameters_8_schools}; Panel B shows the same but for a RF classifier. Black point-ranges indicate 25\% , 50\% and 75\% quantiles across all replicates. In Panel A, the coloured lines shows the different interaction depths investigated.}
+	\label{fig:hypers_8_schools}
+\end{figure}
+
+
+\subsubsection{Cauchy model: alternative paramerisation}
+
+\subsubsection{Multivariate normal: 250-dimensional model}
+
+
+\subsection{ML model sensitivity}\label{sec:ml_model}
+
+\color{black}
+
+\color{black}
+
 \end{document}

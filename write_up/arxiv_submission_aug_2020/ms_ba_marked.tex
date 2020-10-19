@@ -336,11 +336,11 @@ The decline of both of these measures when more chains are used hints that perha
 \end{figure}
 
 \color{red}
-\subsection{Comparing GBMs and RFs}
+\subsection{Comparing GBMs and RFs}\label{sec:comparison_gbm_rf}
 In section SX, we perform a series of experiments using popular ML methods and find that, among these methods, GBMs and RFs perform most consistently across them. In this section, we compare $R^*$ derived from using a GBM classifier with that from a RF classifier. In these experiments, we fix the hyperparameters of each as given in \S\ref{sec:method}. In \S\ref{sec:joint_distribution}, we compare how both methods are able to diagnose lack of convergence in a joint distribution. In \S\ref{sec:tail_fatness}, we compare the ability of both approaches to diagnose differences in the tails of the marginal distributions between chains. Since we use independent sampling to generate draws, we are also able to calculate the \textit{Bayes optimal} classification accuracy, which is the classifier that minimises the probability of misclassification error \citep{devroye2013probabilistic}. This classifier assigns chain identities according to the one which has the maximum posterior probability of having generated a draw. Here, we assume that \textit{a priori} all chains are equally likely to have generated the data, so the classifier categorises draws to the chain which maximises the likelihood of that observation.
 
 \subsubsection{Joint distribution}\label{sec:joint_distribution}
-Here, we consider a multivariate normal target distribution over a range of target dimensions from 1-32. For three `chains', we generate 2000 draws by independently sampling from a multivariate normal with zero mean and given covariance matrix; for the fourth chain, the same number of draws are generated in the same way except with a different covariance matrix. To generate the covariance matrices, we randomly sampled two 32-dimensional covariance matrices from the LKJ distribution with degrees of freedom 1 \citep{lewandowski2009generating}: note, that this results in matrices with unit diagonal values, meaning the marginal distributions of each dimension are standard normals. To obtain covariance matrices for the targets with dimensions, $d<32$, submatrices, $A^{\{d\}}$, were constructed from the 32-dimensional covariance matrices by taking leading blocks from them: $A^{\{d\}}:=A^{\{32\}}_{1:d, 1:d}$. For each target, we performed 20 replicates, where in each case, $R^*$ was calculated using GBM and RF classifiers. In addition, we determined an $R^*$ using the Bayes optimal classifier: to do so, we generated 10,000 draws from the four-chain process and determine the predictive accuracy using the Bayes optimal classifier.  
+Here, we consider a multivariate normal target distribution with dimensionality ranging from 1 to 32. For three `chains', we generate 2000 draws by independently sampling from a multivariate normal with zero mean and given covariance matrix; for the fourth chain, the same number of draws are generated in the same way except with a different covariance matrix. To generate the covariance matrices, we randomly sampled two 32-dimensional covariance matrices from the LKJ distribution with degrees of freedom 1 \citep{lewandowski2009generating}: note, that this results in matrices with unit diagonal values, meaning the marginal distributions of each dimension are standard normals. To obtain covariance matrices for the targets with dimensions, $d<32$, submatrices, $A^{\{d\}}$, were constructed from the 32-dimensional covariance matrices by taking leading blocks from them: $A^{\{d\}}:=A^{\{32\}}_{1:d, 1:d}$. For each target, we performed 20 replicates, where in each case, $R^*$ was calculated using GBM and RF classifiers. In addition, we determined an $R^*$ using the Bayes optimal classifier: to do so, we generated 10,000 draws from the four-chain process and assign chain identities to the maximum likelihood class.  
 
 The results of these experiments are shown in Fig. \ref{fig:gbm_vs_rf_normal}. In this plot, the bottom axis shows the dimensionality of the target distribution; the vertical axis shows $R^*$, and the point colour and shadings give the method used to calculate this statistic. When the target is unidimensional, the four chains have the same target distribution and the optimal $R^*=1$. In this case, both the GBM and RF methods produce classification rates that overlap with this value, indicating convergence. As the number of dimensions increases, it becomes easier to differentiate between samples from the two processes and the optimal $R^*$ grows. $R^*$ as calculated by GBMs and RFs also increases. For a two-dimensional target, the GBM method outperforms the RF one, getting closer to optimal classification. For higher dimensional targets, the RF classifier outperforms, achieving near-optimal $R^*$ in 32 dimensions.
 
@@ -496,29 +496,6 @@ Fig. \ref{fig:eight_schools_r_star_quantiles} also indicates a potential limitat
 	\label{fig:eight_schools_r_star_quantiles}
 \end{figure}
 
-\color{red}
-\subsection{Hyperparameter sensitivity}\label{sec:hyperparameters}
-The performance of GBM, like all ML methods, depends on its hyperparameters. In GBMs, a regression function is approximated by additive components, where each of those corresponds to a tree \cite{greenwell2019package}. The number of such regression trees is thus a hyperparameter of the model. Each regression tree can split amongst any integer number of variables (the \textit{interaction depth}). In this section, we investigate the sensitivity of $R^*$ to these hyperparameters across a range of examples. 
-
-\subsubsection{Autoregressive example}\label{sec:heterogeneity_robustness}
-In this, we fit GBMs with six different sets of hyperparameters to replicates consisting of the same data used to generate Fig. \ref{fig:ar1}. The hyperparameters we varied were the interaction depth (3, 5 or 7) and the number of trees (50, 100 or 200). The resultant $R^*$ point estimates across 200 replicates for each hyperparameter setting are shown in Fig. \ref{fig:ar1_sensitivity}. These show that hyperparameter choice affects $R^*$, with the highest median values obtained for an interaction depth of 3 with 50 trees (our default across all the examples we consider in this paper). This analysis does suggest, however, that this effect is relatively minor: indeed, across the various hyperparameter sets considered, the percentage of replicates where $R^*<1$ did not strongly vary.
-
-\begin{figure}[!htb]
-	\centerline{\includegraphics[width=1.0\textwidth]{ar1_sensitivity.pdf}}
-	\caption{\textbf{Autoregressive example: sensitivity to GBM hyperparameters.} The rows correspond to GBM models fit using different hyperparameter sets (as indicated for interaction depth and number of trees and using a shrinkage of 0.1 and a minimum observations per node of 10 in all cases). The horizontal axis shows the $R^*$ values generated using Algorithm \ref{alg:R_star} using split chains; points have jitter added and are coloured according to whether they exceed the threshold $R^*=1$, with the percentage below this threshold annotated. The point-ranges shown indicate the 25\%, 50\% and 75\% quantiles for each model.}
-	\label{fig:ar1_sensitivity}
-\end{figure}
-
-\subsubsection{Eight schools: non-centered parameterisation}
-
-\subsubsection{Cauchy model: alternative paramerisation}
-
-\subsubsection{Multivariate normal: 250-dimensional model}
-
-
-\subsection{ML model sensitivity}\label{sec:ml_model}
-
-\color{black}
 
 \subsection{Further experiments}\label{sec:further_experiments}
 Alongside the examples included in the main text, there are a number of supplementary text examples, which we briefly outline here.
