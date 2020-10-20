@@ -88,7 +88,7 @@ f_data_normal <- function(){
   N <- 250
   A <- rWishart(1, 250, diag(N))[,,1]
   model <- stan_model("mvt_250_ncp.stan")
-  fit <- sampling(model, data=list(N=N, A=A), iter=10, chains=4)
+  fit <- sampling(model, data=list(N=N, A=A), iter=1000, chains=4)
   x <- rstan::extract(fit, permuted=F)
   return(x)
 }
@@ -111,7 +111,7 @@ if(model_num==1){
   f_data_gen <- f_data_cauchy
   name <- "cauchy"
 }else if(model_num==4){
-  m_parameters <- expand_grid(mtry=seq(7, 30, 4))
+  m_parameters <- expand_grid(mtry=seq(10, 30, 4))
   f_data_gen <- f_data_normal
   name <- "normal_250"
 }

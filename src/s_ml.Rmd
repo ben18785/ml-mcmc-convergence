@@ -159,38 +159,30 @@ f_data_ar1 <- function(){
   return(a_array)
 }
 
-temp_df <- f_run_all_replicates(2, c("gbm", "rf", "knn", "svmLinear", "multinom"),
-          list(tunegrid_gbm, tunegrid_rf, tunegrid_knn, tunegrid_svm, tunegrid_multinom),
-          f_data_ar1)
+# temp_df <- f_run_all_replicates(2, c("gbm", "rf", "knn", "svmLinear", "multinom"),
+#           list(tunegrid_gbm, tunegrid_rf, tunegrid_knn, tunegrid_svm, tunegrid_multinom),
+#           f_data_ar1)
 
-temp_df <- readRDS("../data/ml_comp_hypers_set_ar1.rds") %>% 
+
+orders <- c("rf", "xgbTree", "gbm", "knn", "multinom", "svmLinear")
+lookup <- tibble(method=orders,
+                 new=c("RF", "xgbTree", "GBM", "KNN", "GLM", "SVM"))
+
+temp_df <- readRDS("../data/ml_comp_hypers_set_ar1.rds")  %>% 
+  filter(method!="xgbTree") %>%
+  select(method, iter, r_star, time) %>% 
+  left_join(lookup, by="method") %>% 
+  select(-method) %>% 
+  rename(method=new) %>% 
   mutate(method=as.factor(method)) %>% 
-  mutate(method=fct_relevel(method, orders))
-g1 <- temp_df %>%
-  ggplot(aes(x=as.factor(method), y=r_star)) +
-  geom_boxplot() +
-  xlab("Method") +
-  ylab("R*") +
-  theme(text=element_text(size=16, colour="black"),
-        axis.text = element_text(colour="black"),
-        legend.position = c(0.83, 0.79),
-        legend.text = element_text(size=12, colour="black"),
-        legend.title = element_text(size=14, colour="black")) +
-  ggtitle("A.")
-g2 <- temp_df %>%
-  ggplot(aes(x=as.factor(method), y=time)) +
-  geom_boxplot() +
-  xlab("Method") +
-  ylab("Time") +
-  theme(text=element_text(size=16, colour="black"),
-        axis.text = element_text(colour="black"),
-        legend.position = c(0.83, 0.79),
-        legend.text = element_text(size=12, colour="black"),
-        legend.title = element_text(size=14, colour="black")) +
-  ggtitle("B.")
-pdf("../output/ml_comparison_ar1.pdf", width = 12, height = 8)
-multiplot(g1, g2, cols = 2)
-dev.off()
+  mutate(method=fct_relevel(method, lookup$new)) %>% 
+  rename(`R*`=r_star, `Time`=time) %>% 
+  melt(id.vars=c("method", "iter")) %>% 
+  group_by(method, variable) %>% 
+  summarise(lower=quantile(value, 0.25),
+            middle=quantile(value, 0.5),
+            upper=quantile(value, 0.75)) %>% 
+  mutate(model="A. AR(1)")
 ```
 
 # 8 schools
@@ -209,39 +201,25 @@ f_data_8_schools <- function(){
   x_ncp <- rstan::extract(fit_ncp, permuted=F)
 }
 
+# temp_df <- f_run_all_replicates(2, c("gbm", "rf", "knn", "svmLinear", "multinom"),
+#           list(tunegrid_gbm, tunegrid_rf, tunegrid_knn, tunegrid_svm, tunegrid_multinom),
+#           f_data_8_schools)
 
-temp_df <- f_run_all_replicates(2, c("gbm", "rf", "knn", "svmLinear", "multinom"),
-          list(tunegrid_gbm, tunegrid_rf, tunegrid_knn, tunegrid_svm, tunegrid_multinom),
-          f_data_8_schools)
-
-temp_df <- readRDS("../data/ml_comp_hypers_set_8_schools.rds") %>% 
+temp_df1 <- readRDS("../data/ml_comp_hypers_set_8_schools.rds")  %>% 
+  filter(method!="xgbTree") %>%
+  select(method, iter, r_star, time) %>% 
+  left_join(lookup, by="method") %>% 
+  select(-method) %>% 
+  rename(method=new) %>% 
   mutate(method=as.factor(method)) %>% 
-  mutate(method=fct_relevel(method, orders))
-g1 <- temp_df %>%
-  ggplot(aes(x=as.factor(method), y=r_star)) +
-  geom_boxplot() +
-  xlab("Method") +
-  ylab("R*") +
-  theme(text=element_text(size=16, colour="black"),
-        axis.text = element_text(colour="black"),
-        legend.position = c(0.83, 0.79),
-        legend.text = element_text(size=12, colour="black"),
-        legend.title = element_text(size=14, colour="black")) +
-  ggtitle("A.")
-g2 <- temp_df %>%
-  ggplot(aes(x=as.factor(method), y=time)) +
-  geom_boxplot() +
-  xlab("Method") +
-  ylab("Time") +
-  theme(text=element_text(size=16, colour="black"),
-        axis.text = element_text(colour="black"),
-        legend.position = c(0.83, 0.79),
-        legend.text = element_text(size=12, colour="black"),
-        legend.title = element_text(size=14, colour="black")) +
-  ggtitle("B.")
-pdf("../output/ml_comparison_8_schools.pdf", width = 12, height = 8)
-multiplot(g1, g2, cols = 2)
-dev.off()
+  mutate(method=fct_relevel(method, lookup$new)) %>% 
+  rename(`R*`=r_star, `Time`=time) %>% 
+  melt(id.vars=c("method", "iter")) %>% 
+  group_by(method, variable) %>% 
+  summarise(lower=quantile(value, 0.25),
+            middle=quantile(value, 0.5),
+            upper=quantile(value, 0.75)) %>% 
+  mutate(model="D. 8 schools")
 ```
 
 # Cauchy
@@ -253,37 +231,24 @@ f_data_cauchy <- function(){
   return(x)
 }
 
-temp_df <- f_run_all_replicates(2, c("gbm", "rf", "knn", "svmLinear", "multinom"),
-          list(tunegrid_gbm, tunegrid_rf, tunegrid_knn, tunegrid_svm, tunegrid_multinom),
-          f_data_cauchy)
-temp_df <- readRDS("../data/ml_comp_hypers_set_cauchy.rds") %>% 
+# temp_df <- f_run_all_replicates(2, c("gbm", "rf", "knn", "svmLinear", "multinom"),
+#           list(tunegrid_gbm, tunegrid_rf, tunegrid_knn, tunegrid_svm, tunegrid_multinom),
+#           f_data_cauchy)
+temp_df2 <- readRDS("../data/ml_comp_hypers_set_cauchy.rds") %>% 
+  filter(method!="xgbTree") %>%
+  select(method, iter, r_star, time) %>% 
+  left_join(lookup, by="method") %>% 
+  select(-method) %>% 
+  rename(method=new) %>% 
   mutate(method=as.factor(method)) %>% 
-  mutate(method=fct_relevel(method, orders))
-g1 <- temp_df %>%
-  ggplot(aes(x=as.factor(method), y=r_star)) +
-  geom_boxplot() +
-  xlab("Method") +
-  ylab("R*") +
-  theme(text=element_text(size=16, colour="black"),
-        axis.text = element_text(colour="black"),
-        legend.position = c(0.83, 0.79),
-        legend.text = element_text(size=12, colour="black"),
-        legend.title = element_text(size=14, colour="black")) +
-  ggtitle("A.")
-g2 <- temp_df %>%
-  ggplot(aes(x=as.factor(method), y=time)) +
-  geom_boxplot() +
-  xlab("Method") +
-  ylab("Time") +
-  theme(text=element_text(size=16, colour="black"),
-        axis.text = element_text(colour="black"),
-        legend.position = c(0.83, 0.79),
-        legend.text = element_text(size=12, colour="black"),
-        legend.title = element_text(size=14, colour="black")) +
-  ggtitle("B.")
-pdf("../output/ml_comparison_cauchy.pdf", width = 12, height = 8)
-multiplot(g1, g2, cols = 2)
-dev.off()
+  mutate(method=fct_relevel(method, lookup$new)) %>% 
+  rename(`R*`=r_star, `Time`=time) %>% 
+  melt(id.vars=c("method", "iter")) %>% 
+  group_by(method, variable) %>% 
+  summarise(lower=quantile(value, 0.25),
+            middle=quantile(value, 0.5),
+            upper=quantile(value, 0.75)) %>% 
+  mutate(model="C. Cauchy")
 ```
 
 # Multivariate normal
@@ -297,38 +262,40 @@ f_data_normal <- function(){
   return(x)
 }
 
-temp_df <- f_replicate_gridded(x, "rf", tunegrid_rf)
+# temp_df <- f_replicate_gridded(x, "rf", tunegrid_rf)
 
-orders <- c("rf", "xgbTree", "gbm", "knn", "multinom", "svmLinear")
-
-temp_df <- readRDS("../data/ml_comp_hypers_set_normal_250.rds") %>% 
+temp_df3 <- readRDS("../data/ml_comp_hypers_set_normal_250.rds") %>% 
+  filter(method!="xgbTree") %>%
+  select(method, iter, r_star, time) %>% 
+  left_join(lookup, by="method") %>% 
+  select(-method) %>% 
+  rename(method=new) %>% 
   mutate(method=as.factor(method)) %>% 
-  mutate(method=fct_relevel(method, orders))
+  mutate(method=fct_relevel(method, lookup$new)) %>% 
+  rename(`R*`=r_star, `Time`=time) %>% 
+  melt(id.vars=c("method", "iter")) %>% 
+  group_by(method, variable) %>% 
+  summarise(lower=quantile(value, 0.25),
+            middle=quantile(value, 0.5),
+            upper=quantile(value, 0.75)) %>% 
+  mutate(model="B. 250D normal")
+
 g1 <- temp_df %>%
-  ggplot(aes(x=as.factor(method), y=r_star)) +
-  geom_boxplot() +
+  bind_rows(temp_df1) %>% 
+  bind_rows(temp_df2) %>% 
+  bind_rows(temp_df3) %>% 
+  mutate(model=fct_relevel(as.factor(model), "A. AR(1)", "B. 250D normal", "C. Cauchy", "D. 8 schools")) %>%
+  ggplot(aes(x=as.factor(method), y=middle)) +
+  geom_pointrange(aes(ymin=lower, ymax=upper)) +
   xlab("Method") +
-  ylab("R*") +
+  ylab("Value") +
   theme(text=element_text(size=16, colour="black"),
         axis.text = element_text(colour="black"),
         legend.position = c(0.83, 0.79),
         legend.text = element_text(size=12, colour="black"),
         legend.title = element_text(size=14, colour="black")) +
-  ggtitle("A.")
-g2 <- temp_df %>%
-  ggplot(aes(x=as.factor(method), y=time)) +
-  geom_boxplot() +
-  xlab("Method") +
-  ylab("Time") +
-  theme(text=element_text(size=16, colour="black"),
-        axis.text = element_text(colour="black"),
-        legend.position = c(0.83, 0.79),
-        legend.text = element_text(size=12, colour="black"),
-        legend.title = element_text(size=14, colour="black")) +
-  ggtitle("B.")
-pdf("../output/ml_comparison_mvt_normal_250.pdf", width = 12, height = 8)
-multiplot(g1, g2, cols = 2)
-dev.off()
+  facet_grid(vars(variable), vars(model), scales="free")
+ggsave("../output/ml_comparison_all.pdf", g1, width = 12, height = 6)
 ```
 
 # Check for false positives with random forests
