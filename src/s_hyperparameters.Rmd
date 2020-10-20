@@ -77,9 +77,9 @@ f_replicate_r_star <- function(nreplicates, m_parameters, f_data_generator){
   return(r_star_vals1)
 }
 
-m_parameters <- expand_grid(int.depth=seq(1, 7, 2),
-                            n.trees=c(1, 10, 50, 100))
-r_star_vals <- f_replicate_r_star(2, m_parameters, f_data_ar1)
+# m_parameters <- expand_grid(int.depth=seq(1, 7, 2),
+#                             n.trees=c(1, 10, 50, 100))
+# r_star_vals <- f_replicate_r_star(2, m_parameters, f_data_ar1)
 
 # saveRDS(r_star_vals, "../data/ar1_sensitivity.rds")
 g1 <- readRDS("../data/hypers_ar1.rds")$r_star %>% 
@@ -92,7 +92,7 @@ g1 <- readRDS("../data/hypers_ar1.rds")$r_star %>%
   ggplot(aes(x=as.factor(n.trees), y=middle, colour=as.factor(int.depth), group=as.factor(int.depth))) +
   geom_pointrange(aes(ymin=lower, ymax=upper, shape=as.factor(default)),
                   position=position_dodge2(width=0.1)) +
-  geom_line() +
+  geom_line(position=position_dodge2(width=0.1)) +
   xlab("# trees") +
   ylab("R*") +
   theme(text = element_text(size=16, colour="black"),
@@ -109,24 +109,23 @@ g1 <- readRDS("../data/hypers_ar1.rds")$r_star %>%
 
 8 schools
 ```{r}
-source("eight_schools.data.R")
-eight_schools <- list(J=J, y=y, sigma=sigma)
-model_cp <- stan_model("eight_schools_cp.stan")
-model_ncp <- stan_model("eight_schools_ncp.stan")
-
-f_data_8_schools <- function(){
-  fit_ncp <- sampling(
-    model_ncp, data = eight_schools,
-    iter = 2000, chains = 4, refresh = 0,
-    control = list(adapt_delta = 0.95)
-    )
-  x_ncp <- rstan::extract(fit_ncp, permuted=F)
-}
-
-m_parameters <- expand_grid(int.depth=c(1, 3, 5),
-                            n.trees=c(1, 50, 200))
-r_star_vals <- f_replicate_r_star(20, m_parameters, f_data_ar1)
-
+# source("eight_schools.data.R")
+# eight_schools <- list(J=J, y=y, sigma=sigma)
+# model_cp <- stan_model("eight_schools_cp.stan")
+# model_ncp <- stan_model("eight_schools_ncp.stan")
+# 
+# f_data_8_schools <- function(){
+#   fit_ncp <- sampling(
+#     model_ncp, data = eight_schools,
+#     iter = 2000, chains = 4, refresh = 0,
+#     control = list(adapt_delta = 0.95)
+#     )
+#   x_ncp <- rstan::extract(fit_ncp, permuted=F)
+# }
+# 
+# m_parameters <- expand_grid(int.depth=c(1, 3, 5),
+#                             n.trees=c(1, 50, 200))
+# r_star_vals <- f_replicate_r_star(20, m_parameters, f_data_ar1)
 
 g1a <- readRDS("../data/hypers_8_schools.rds")$r_star %>% 
   melt(id.vars=c("int.depth", "n.trees")) %>% 
@@ -138,7 +137,7 @@ g1a <- readRDS("../data/hypers_8_schools.rds")$r_star %>%
   ggplot(aes(x=as.factor(n.trees), y=middle, colour=as.factor(int.depth), group=as.factor(int.depth))) +
   geom_pointrange(aes(ymin=lower, ymax=upper, shape=as.factor(default)),
                   position=position_dodge2(width=0.1)) +
-  geom_line() +
+  geom_line(position=position_dodge2(width=0.1)) +
   xlab("# trees") +
   ylab("R*") +
   theme(text = element_text(size=16, colour="black"),
@@ -175,7 +174,7 @@ g1b <- readRDS("../data/hypers_cauchy.rds")$r_star %>%
   ggplot(aes(x=as.factor(n.trees), y=middle, colour=as.factor(int.depth), group=as.factor(int.depth))) +
   geom_pointrange(aes(ymin=lower, ymax=upper, shape=as.factor(default)),
                   position=position_dodge2(width=0.1)) +
-  geom_line() +
+  geom_line(position=position_dodge2(width=0.1)) +
   xlab("# trees") +
   ylab("R*") +
   theme(text = element_text(size=16, colour="black"),
@@ -191,7 +190,7 @@ g1b <- readRDS("../data/hypers_cauchy.rds")$r_star %>%
 
 Normal
 ```{r}
-readRDS("../data/hypers_normal_250.rds")$r_star %>% 
+g1c <- readRDS("../data/hypers_normal_250.rds")$r_star %>% 
   melt(id.vars=c("int.depth", "n.trees")) %>% 
   group_by(int.depth, n.trees) %>% 
   summarise(lower=quantile(value, 0.25),
@@ -201,7 +200,7 @@ readRDS("../data/hypers_normal_250.rds")$r_star %>%
   ggplot(aes(x=as.factor(n.trees), y=middle, colour=as.factor(int.depth), group=as.factor(int.depth))) +
   geom_pointrange(aes(ymin=lower, ymax=upper, shape=as.factor(default)),
                   position=position_dodge2(width=0.1)) +
-  geom_line() +
+  geom_line(position=position_dodge2(width=0.1)) +
   xlab("# trees") +
   ylab("R*") +
   theme(text = element_text(size=16, colour="black"),
@@ -229,7 +228,7 @@ g2 <- readRDS("../data/hypers_rf_ar1.rds")$r_star %>%
   ggplot(aes(x=mtry, y=middle)) +
   geom_pointrange(aes(ymin=lower, ymax=upper, shape=as.factor(default)),
                   position=position_dodge2(width=0.1)) +
-  geom_line() +
+  geom_line(position=position_dodge2(width=0.1)) +
   xlab(TeX("$m_{try}$")) +
   ylab("R*") +
   theme(text = element_text(size=16, colour="black"),
@@ -259,8 +258,8 @@ g2a <- readRDS("../data/hypers_rf_8_schools.rds")$r_star %>%
   ggplot(aes(x=as.factor(mtry), y=middle)) +
   geom_pointrange(aes(ymin=lower, ymax=upper, shape=as.factor(default)),
                   position=position_dodge2(width=0.1)) +
-  geom_line(aes(group=1)) +
-  xlab("# features") +
+  geom_line(aes(group=1), position=position_dodge2(width=0.1)) +
+  xlab(TeX("$m_{try}$")) +
   ylab("R*") +
   theme(text = element_text(size=16, colour="black"),
         axis.text = element_text(colour="black"),
@@ -288,8 +287,8 @@ g2b <- readRDS("../data/hypers_rf_cauchy.rds")$r_star %>%
   ggplot(aes(x=as.factor(mtry), y=middle)) +
   geom_pointrange(aes(ymin=lower, ymax=upper, shape=as.factor(default)),
                   position=position_dodge2(width=0.1)) +
-  geom_line(aes(group=1)) +
-  xlab("# features") +
+  geom_line(aes(group=1), position=position_dodge2(width=0.1)) +
+  xlab(TeX("$m_{try}$")) +
   ylab("R*") +
   theme(text = element_text(size=16, colour="black"),
         axis.text = element_text(colour="black"),
@@ -307,7 +306,7 @@ dev.off()
 
 Normal
 ```{r}
-readRDS("../data/hypers_rf_normal_250.rds")$r_star %>%
+g2c <- readRDS("../data/hypers_rf_normal_250.rds")$r_star %>%
   melt(id.vars="mtry") %>%
   group_by(mtry) %>%
   summarise(lower=quantile(value, 0.25),
@@ -315,8 +314,8 @@ readRDS("../data/hypers_rf_normal_250.rds")$r_star %>%
             upper=quantile(value, 0.75)) %>%
   ggplot(aes(x=as.factor(mtry), y=middle, group=1)) +
   geom_pointrange(aes(ymin=lower, ymax=upper), position=position_dodge2(width=0.1)) +
-  geom_line() +
-  xlab("# features") +
+  geom_line(group=1, position=position_dodge2(width=0.1)) +
+  xlab(TeX("$m_{try}$")) +
   ylab("R*") +
   theme(text = element_text(size=16, colour="black"),
         axis.text = element_text(colour="black"),
@@ -324,7 +323,11 @@ readRDS("../data/hypers_rf_normal_250.rds")$r_star %>%
   scale_y_continuous(limits=c(0.95, NA)) +
   geom_hline(yintercept = 1, linetype=2) +
   scale_color_brewer("Int. depth", palette = "Dark2") +
-  guides(colour = guide_legend(nrow = 2, byrow = T))
+  guides(colour = guide_legend(nrow = 2, byrow = T)) +
+  ggtitle("B. RF")
+pdf("../output/hypers_normal_250.pdf", width = 12, height = 6)
+multiplot(g1c, g2c, cols=2)
+dev.off()
 ```
 
 
