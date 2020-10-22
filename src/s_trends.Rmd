@@ -467,6 +467,10 @@ g <- ggplot(data = res, aes(x = rho, y = Rstar_split)) +
 ggsave("../output/trends_ar1.pdf", g, width = 8, height = 6)
 
 
+res <- readRDS("../output/experiment_trends_rho_nearer1.rds") %>%
+  mutate(method=as.character(method)) %>% 
+  mutate(method=if_else(method=="gbm", "A. GBM", "B. RF"))
+
 b_sum <- res %>%
   group_by(iters, rho, method) %>%
   summarise(lower=quantile(Rstar_split, 0.025),
