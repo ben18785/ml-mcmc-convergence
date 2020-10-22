@@ -206,7 +206,7 @@ g1c <- readRDS("../data/hypers_normal_250.rds")$r_star %>%
   theme(text = element_text(size=16, colour="black"),
         axis.text = element_text(colour="black"),
         legend.position = c(0.7, 0.25)) +
-  scale_y_continuous(limits=c(0.95, 2.8)) +
+  scale_y_continuous(limits=c(0.95, 4.1)) +
   geom_hline(yintercept = 1, linetype=2) +
   scale_color_brewer("Int. depth", palette = "Dark2") +
   guides(colour = guide_legend(nrow = 2, byrow = T)) +
@@ -312,7 +312,8 @@ g2c <- readRDS("../data/hypers_rf_normal_250.rds")$r_star %>%
   summarise(lower=quantile(value, 0.25),
             middle=quantile(value, 0.5),
             upper=quantile(value, 0.75)) %>%
-  ggplot(aes(x=as.factor(mtry), y=middle, group=1)) +
+  mutate(default=if_else(mtry==22, 1, 0)) %>%
+  ggplot(aes(x=as.factor(mtry), y=middle, group=1, shape=as.factor(default))) +
   geom_pointrange(aes(ymin=lower, ymax=upper), position=position_dodge2(width=0.1)) +
   geom_line(group=1, position=position_dodge2(width=0.1)) +
   xlab(TeX("$m_{try}$")) +
@@ -320,10 +321,11 @@ g2c <- readRDS("../data/hypers_rf_normal_250.rds")$r_star %>%
   theme(text = element_text(size=16, colour="black"),
         axis.text = element_text(colour="black"),
         legend.position = c(0.7, 0.25)) +
-  scale_y_continuous(limits=c(0.95, NA)) +
+  scale_y_continuous(limits=c(0.95, 4.1)) +
   geom_hline(yintercept = 1, linetype=2) +
   scale_color_brewer("Int. depth", palette = "Dark2") +
   guides(colour = guide_legend(nrow = 2, byrow = T)) +
+  scale_shape(guide="none") +
   ggtitle("B. RF")
 pdf("../output/hypers_normal_250.pdf", width = 12, height = 6)
 multiplot(g1c, g2c, cols=2)

@@ -55,16 +55,26 @@ full_samples[, 3, ] <- as.matrix(chain3[, 1:2])
 full_samples[, 4, ] <- as.matrix(chain4[, 1:2])
 
 # Calculate R* dist
-r_star_vals <- r_star_dist(full_samples)
-mean(r_star_vals>1)
+r_star_vals_gbm <- r_star(full_samples, uncertainty = T, method = "gbm")
+r_star_vals_rf <- r_star(full_samples, uncertainty = T, method = "rf")
+mean(r_star_vals_gbm>1)
+mean(r_star_vals_gbm)
+mean(r_star_vals_rf>1)
+mean(r_star_vals_rf)
+
+
 g <- 
-  qplot(r_star_vals) +
+  tibble(RF=r_star_vals_rf, GBM=r_star_vals_gbm, iter=seq_along(GBM)) %>%
+  melt(id.vars="iter") %>% 
+  ggplot(aes(x=value, fill=as.factor(variable))) +
+  geom_histogram(position = "identity", alpha=0.8) +
   xlab(TeX("$R*$")) +
   xlim(0.9, NA) +
   geom_vline(xintercept = 1, linetype=2) +
   ylab("Count") +
   theme(text=element_text(size=20, colour="black"),
-        axis.text = element_text(colour="black"))
+        axis.text = element_text(colour="black")) +
+  scale_fill_grey("Classifier")
 ggsave("../output/bivariate.pdf", g, width = 8, height = 6)
 ```
 

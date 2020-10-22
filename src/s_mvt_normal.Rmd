@@ -67,7 +67,8 @@ gbmFit1 <- train(chain ~ ., data = training_data,
 
 # Get R* distribution
 full_data <- rstan::extract(fit, permuted=F)
-a_df <- tibble(samples_10000_cp=r_star_dist(full_data))
+a_df <- tibble(samples_10000_cp_gbm=r_star(full_data, uncertainty = T, method="gbm"),
+               samples_10000_cp_rf=r_star(full_data, uncertainty = T, method="rf"))
 
 importance <- 100-varImp(gbmFit1)$importance$Overall
 ess_b <- a_sum$zsseff
@@ -116,10 +117,12 @@ source("monitornew.R")
 fit <- readRDS("../output/mvt_fit_400.rds")
 
 full_data <- rstan::extract(fit, permuted=F)
-r_star2 <- r_star_dist(full_data)
+r_star2_gbm <- r_star(full_data, uncertainty = T, method="gbm")
+r_star2_rf <- r_star(full_data, uncertainty = T, method="rf")
 
 a_df <- a_df %>%
-  mutate(samples_400=r_star2)
+  mutate(samples_400_gbm=r_star2_gbm,
+         samples_400_rf=r_star2_rf)
 
 a_sum <- monitor_extra(split_data(full_data))
 b_df <- b_df %>%
@@ -144,16 +147,31 @@ saveRDS(b_df, "../output/mvt_fit_all_rhat.rds")
 b_df <- readRDS("../output/mvt_fit_all_rhat.rds")
 
 
-r_star3 <- r_star_dist(full_data)
+r_star3_gbm <- r_star(full_data, uncertainty = T, method = "gbm")
+r_star3_rf <- r_star(full_data, uncertainty = T, method = "rf")
 
 a_df <- a_df %>%
-  mutate(samples_10000_ncp=r_star3)
+  mutate(samples_10000_ncp_gbm=r_star3_gbm,
+         samples_10000_ncp_rf=r_star3_rf)
 
 saveRDS(a_df, "../output/mvt_fit_all_accuracy.rds")
 a_df <- readRDS("../output/mvt_fit_all_accuracy.rds")
+a_df_gbm <- a_df %>%
+  select(contains("gbm")) %>% 
+  rename(samples_10000_cp=samples_10000_cp_gbm,
+         samples_400=samples_400_gbm,
+         samples_10000_ncp=samples_10000_ncp_gbm) %>% 
+  mutate(Classifier="A. GBM")
+a_df_rf <- a_df %>%
+  select(contains("rf")) %>% 
+  rename(samples_10000_cp=samples_10000_cp_rf,
+         samples_400=samples_400_rf,
+         samples_10000_ncp=samples_10000_ncp_rf) %>% 
+  mutate(Classifier="B. RF")
+  
 
 ga <- 
-  a_df %>% 
+  a_df_gbm %>% 
   melt() %>% 
   ggplot(aes(x=value, fill=fct_relevel(as.factor(variable), "samples_400", "samples_10000_cp", "samples_10000_ncp"))) +
   geom_histogram(position="identity", alpha=0.8, bins=50) +
@@ -183,5 +201,30 @@ ga2 <-
 pdf("../output/mvt_three.pdf", width = 12, height = 8)
 multiplot(ga, gb, ga2, gc, cols = 2)
 dev.off()
+
+
+# provide GBM vs RF results in supplementary
+ga1 <- 
+  a_df_gbm %>% 
+  bind_rows(a_df_rf) %>% 
+  melt() %>% 
+  ggplot(aes(x=value, fill=fct_relevel(as.factor(variable), "samples_400", "samples_10000_cp", "samples_10000_ncp"))) +
+  geom_histogram(position="identity", alpha=0.8, bins=50) +
+  scale_fill_grey("# draws", labels=c("400, cp", "10,000, cp", "10,000, ncp")) +
+  xlab(TeX("$R*$")) +
+  ylab("Count") +
+  geom_vline(xintercept = 1, linetype=2) +
+  theme(text = element_text(size=18, colour="black"),
+        legend.position = c(0.8, 0.75),
+        axis.text = element_text(colour="black")) +
+  facet_wrap(~Classifier)
+ggsave("../output/mvt_gbm_vs_rf.pdf", ga1, width = 12, height = 8)
+
+a_df_gbm %>% 
+  bind_rows(a_df_rf) %>% 
+  melt() %>% 
+  group_by(Classifier, variable) %>% 
+  summarise(value=mean(value)) %>% 
+  pivot_wider(id_cols = "variable", names_from = "Classifier", values_from = "value")
 ```
 
