@@ -132,8 +132,10 @@ g <-
   melt(id.vars=c("iters", "trend", "method")) %>%
   mutate(variable=case_when(variable=="Rstar"~"A. R*",
                             variable=="Rstar_split"~"B. Split-R*")) %>%
+  mutate(method=as.character(method)) %>% 
+  mutate(method=if_else(method=="gbm", "GBM", "RF")) %>% 
   ggplot(aes(y = value, x = trend)) +
-  geom_jitter(aes(colour=as.factor(method))) +
+  geom_jitter(aes(colour=as.factor(method), shape=as.factor(method))) +
   facet_grid(vars(iters), vars(variable)) +
   geom_hline(yintercept = 1) +
   theme(strip.text.x = element_text(size=16, colour="black"),
@@ -142,8 +144,10 @@ g <-
         axis.text.y = element_text(size=16, colour="black"),
         axis.title = element_text(size=16, colour="black")) +
   xlab("Trend") +
-  ylab("Value")
-# ggsave("../output/trends_all_dim.pdf", g, width = 8, height = 6)
+  ylab("Value") +
+  scale_colour_grey("Classifier") +
+  scale_shape("Classifier")
+ggsave("../output/trends_all_dim.pdf", g, width = 8, height = 6)
 ```
 
 
@@ -228,8 +232,11 @@ g <- readRDS("../output/experiment_trends_one_dim.rds") %>%
   select(-rep) %>%
   melt(c("trend", "iters", "dimension", "method")) %>%
   filter(variable=="Rstar_split") %>%
+  mutate(method=as.character(method)) %>% 
+  mutate(method=if_else(method=="gbm", "GBM", "RF")) %>% 
   ggplot(aes(y = value, x = trend)) +
-  geom_jitter(aes(colour=as.factor(method))) +
+  geom_jitter(aes(colour=as.factor(method),
+                  shape=as.factor(method))) +
   facet_grid(vars(iters), vars(dimension)) +
   geom_hline(yintercept = 1) +
   theme(strip.text.x = element_text(size=16, colour="black"),
@@ -238,10 +245,12 @@ g <- readRDS("../output/experiment_trends_one_dim.rds") %>%
         axis.text.y = element_text(size=16, colour="black"),
         axis.title = element_text(size=16, colour="black")) +
   xlab("Trend") +
-  ylab("Value")
+  ylab("Value") +
+  scale_colour_grey("Classifier") +
+  scale_shape("Classifier")
 g
 
-# ggsave("../output/trends_one_dim.pdf", g, width = 8, height = 6)
+ggsave("../output/trends_one_dim.pdf", g, width = 8, height = 6)
 ```
 
 # Trend in the joint distribution over time
@@ -338,7 +347,8 @@ g <- readRDS("../output/experiment_trends_joint_distribution.rds") %>%
   mutate(method=as.character(method)) %>% 
   mutate(method=if_else(method=="rf", "RF", "GBM")) %>% 
   ggplot(aes(y = value, x = rho)) +
-  geom_jitter(aes(colour=as.factor(method))) +
+  geom_jitter(aes(colour=as.factor(method),
+                  shape=as.factor(method))) +
   facet_grid(vars(iters), vars(variable)) +
   geom_hline(yintercept = 1) +
   theme(strip.text.x = element_text(size=16, colour="black"),
@@ -347,8 +357,9 @@ g <- readRDS("../output/experiment_trends_joint_distribution.rds") %>%
         axis.text.y = element_text(size=16, colour="black"),
         axis.title = element_text(size=16, colour="black")) +
   ylab("Value") +
-  xlab(TeX("$\\rho$")) +
-  scale_colour_grey("Classifier")
+  xlab(TeX("$\\rho$"))  +
+  scale_colour_grey("Classifier") +
+  scale_shape("Classifier")
 g
 
 ggsave("../output/trends_joint_distribution.pdf", g, width = 8, height = 6)
@@ -427,7 +438,9 @@ saveRDS(res, "../output/experiment_trends_rho_nearer1.rds")
 ```
 
 ```{r}
-res <- readRDS("../output/experiment_trends_rho_nearer1.rds")
+res <- readRDS("../output/experiment_trends_rho_nearer1.rds") %>%
+  mutate(method=as.character(method)) %>% 
+  mutate(method=if_else(method=="gbm", "GBM", "RF"))
 
 # ggplot(data = res, aes(x = rho, y = zsRhat)) +
 #   geom_jitter() +
@@ -437,7 +450,8 @@ res <- readRDS("../output/experiment_trends_rho_nearer1.rds")
 #   ylim(0, 6)
 
 g <- ggplot(data = res, aes(x = rho, y = Rstar_split)) +
-  geom_jitter(aes(colour=as.factor(method))) +
+  geom_jitter(aes(colour=as.factor(method),
+                  shape=as.factor(method))) +
   facet_grid(vars(iters)) +
   geom_hline(yintercept = 1) +
   ylab(TeX("Split-R*")) +
@@ -447,12 +461,14 @@ g <- ggplot(data = res, aes(x = rho, y = Rstar_split)) +
         strip.text.y = element_text(size=16, colour="black"),
         axis.text.x = element_text(size=16, colour="black"),
         axis.text.y = element_text(size=16, colour="black"),
-        axis.title = element_text(size=16, colour="black"))
+        axis.title = element_text(size=16, colour="black"))  +
+  scale_colour_grey("Classifier") +
+  scale_shape("Classifier")
 ggsave("../output/trends_ar1.pdf", g, width = 8, height = 6)
 
 
 b_sum <- res %>%
-  group_by(iters, rho) %>%
+  group_by(iters, rho, method) %>%
   summarise(lower=quantile(Rstar_split, 0.025),
             upper=quantile(Rstar_split, 0.975),
             Rstar_split=median(Rstar_split)) %>%
@@ -464,7 +480,7 @@ g <- ggplot(data = filter(res1, is.na(type)), aes(x = as.factor(iters), y = Rsta
   geom_jitter(width = 0.2, height = 0, colour="grey") +
   geom_pointrange(data=filter(res1, !is.na(type)), aes(ymin=lower, ymax=upper)) +
   geom_line(data=filter(res1, !is.na(type))) +
-  facet_wrap(~rho, scales="free") +
+  facet_grid(vars(rho), vars(method), scales="free") +
   geom_hline(yintercept = 1) +
   ylab(TeX("Split-R*")) +
   xlab("# iterations") +

@@ -25,7 +25,8 @@ fit_nom <- stan(file = 'cauchy_nom.stan', seed = 7878,
                 refresh = 0)
 x <- rstan::extract(fit_nom, permuted=F)
 
-r_star_nom <- r_star_dist(x)
+r_star_nom_gbm <- r_star(x, method="gbm", uncertainty = T)
+r_star_nom_rf <- r_star(x, method="rf", uncertainty = T)
 
 mon <- monitor_extra(split_data(x))
 a_rhat_df <- tibble(nominal=mon$zfsRhat[1:50])
@@ -37,7 +38,9 @@ fit_alt1 <- stan(file = 'cauchy_alt_1.stan',
                  seed = 7878, refresh = 0)
 full_data <- rstan::extract(fit_alt1, permuted=F)
 
-r_star_alt <- r_star_dist(full_data)
+r_star_alt_gbm <- r_star(x, method="gbm", uncertainty = T)
+r_star_alt_rf <- r_star(x, method="rf", uncertainty = T)
+
 mon <- monitor_extra(split_data(full_data))
 a_rhat_df <-a_rhat_df %>% 
   mutate(alt=mon$zfsRhat[101:150],
@@ -46,24 +49,26 @@ a_rhat_df <-a_rhat_df %>%
 
 Plot split-R* values for each parameterisation
 ```{r}
-a_df <- tibble(nominal=r_star_nom,
-               alt=r_star_alt,
+a_df <- tibble(nominal_gbm=r_star_nom_gbm,
+               nominal_rf=r_star_nom_rf,
+               alt_gbm=r_star_alt_gbm,
+               alt_rf=r_star_alt_rf,
                source="r_star") %>% 
   bind_rows(a_rhat_df) %>% 
   mutate(source=if_else(source=="r_star", "R*", "split-Rhat"))
-g <-
-  a_df %>% 
-  melt() %>% 
-  ggplot(aes(x=value, fill=as.factor(variable))) +
-  geom_histogram(position="identity", alpha=0.8) +
-  scale_fill_grey("Parameterisation", labels=c("nominal", "alternative")) +
-  xlab("Value") +
-  ylab("Count") +
-  geom_vline(xintercept = 1, linetype=2) +
-  theme(text = element_text(size=14, colour="black"),
-        legend.position = "none") +
-  facet_wrap(~source, scales = "free")
-g
+# g <-
+#   a_df %>% 
+#   melt() %>% 
+#   ggplot(aes(x=value, fill=as.factor(variable))) +
+#   geom_histogram(position="identity", alpha=0.8) +
+#   scale_fill_grey("Parameterisation", labels=c("nominal", "alternative")) +
+#   xlab("Value") +
+#   ylab("Count") +
+#   geom_vline(xintercept = 1, linetype=2) +
+#   theme(text = element_text(size=14, colour="black"),
+#         legend.position = "none") +
+#   facet_wrap(~source, scales = "free")
+# g
 ```
 
 ## 10,000 iterations
@@ -75,7 +80,8 @@ Nominal model with 50000 iterations
 fit <- readRDS("../output/fit_nominal_50000.rds")
 full_data <- rstan::extract(fit, permuted=F)
 
-r_star_nom <- r_star_dist(full_data)
+r_star_nom_gbm <- r_star(full_data, method="gbm", uncertainty = T)
+r_star_nom_rf <- r_star(full_data, method="rf", uncertainty = T)
 mon_nom <- monitor_extra(split_data(full_data))
 ```
 
@@ -87,14 +93,17 @@ Alternative model with 50000 iterations
 fit <- readRDS("../output/fit_alt_50000.rds")
 full_data <- rstan::extract(fit, permuted=F)
 
-r_star_alt <- r_star_dist(full_data)
+r_star_alt_gbm <- r_star(full_data, method="gbm", uncertainty = T)
+r_star_alt_rf <- r_star(full_data, method="rf", uncertainty = T)
 mon_alt <- monitor_extra(split_data(full_data))
 ```
 
 Plot
 ```{r}
-b_df <- tibble(nominal=r_star_nom,
-               alt=r_star_alt,
+b_df <- tibble(nominal_gbm=r_star_nom_gbm,
+               nominal_rf=r_star_nom_rf,
+               alt_gbm=r_star_alt_gbm,
+               alt_rf=r_star_alt_rf,
                source="r_star") %>% 
   bind_rows(tibble(nominal=mon_nom$zfsRhat[1:50],
                 alt=mon_alt$zfsRhat[101:150],
@@ -276,36 +285,12 @@ a_df <-
 saveRDS(a_df, "../output/cauchy_r_star_gbm.rds")
 ```
 
-```{r}
-# a_df <- readRDS("../output/cauchy_r_star.rds")
-g2 <- 
-  a_df %>% 
-  melt(id.vars="iteration") %>% 
-  ggplot(aes(x=iteration, y=value, colour=as.factor(variable))) +
-  geom_point() +
-  geom_line() +
-  ylab(TeX("$R^*$")) +
-  scale_color_grey("Parameterisation", labels=c("Alternative", "Nominal")) +
-  xlab("Iteration") +
-  theme(text=element_text(size=16, colour="black"),
-        axis.text = element_text(colour="black"),
-        legend.position = c(0.8, 0.7),
-        legend.text = element_text(size=12, colour="black"),
-        legend.title = element_text(size=14, colour="black"),
-        axis.title.y = element_blank()) +
-  geom_hline(yintercept = 1, linetype=2) +
-  scale_x_log10() +
-  scale_y_continuous(limits=c(0.8, NA), breaks = seq(1, 7, 1)) +
-  ggtitle(TeX("D. Split-$R^*$"))
-g2
-```
-
 Add in GBM R*
 ```{r}
 a_df <- readRDS("../output/cauchy_r_star_gbm.rds") %>% 
-  mutate(model="gbm")
+  mutate(model="GBM")
 a_df1 <- readRDS("../output/cauchy_r_star_rf.rds") %>% 
-  mutate(model="rf")
+  mutate(model="RF")
 g2 <- a_df %>%
   bind_rows(a_df1) %>% 
   melt(id.vars=c("iteration", "model")) %>% 
@@ -313,11 +298,11 @@ g2 <- a_df %>%
   geom_point() +
   geom_line() +
   ylab(TeX("$R^*$")) +
-  scale_color_grey("Parameterisation", labels=c("Alternative", "Nominal")) +
+  scale_color_grey(guide="none") +
   xlab("Iteration") +
   theme(text=element_text(size=16, colour="black"),
         axis.text = element_text(colour="black"),
-        legend.position = c(0.83, 0.79),
+        legend.position = c(0.83, 0.77),
         legend.text = element_text(size=12, colour="black"),
         legend.title = element_text(size=14, colour="black"),
         axis.title.y = element_blank()) +
@@ -325,10 +310,9 @@ g2 <- a_df %>%
   scale_x_log10() +
   scale_y_continuous(limits=c(0.8, NA), breaks = seq(1, 7, 1)) +
   ggtitle(TeX("D. Split-$R^*$"))+
-  scale_linetype_discrete("Model") +
-  guides(colour = guide_legend(nrow = 1, byrow = T),
+  scale_linetype_discrete("Classifier") +
+  guides(
          linetype=guide_legend(nrow = 1, byrow = T))
-ggsave("../output/fig_9d.pdf", g2, width = 12, height = 8)
 ```
 
 
@@ -414,11 +398,10 @@ g3 <-
   geom_line(aes(y=middle, colour=as.factor(variable))) +
   ylab(TeX("$\\hat{R}$")) +
   scale_color_grey("Parameterisation", labels=c("Alternative", "Nominal")) +
-  scale_fill_grey("Parameterisation", labels=c("Alternative", "Nominal")) +
   xlab("Iteration") +
   theme(text=element_text(size=16, colour="black"),
         axis.text = element_text(colour="black"),
-        legend.position = "none",
+        legend.position = c(0.8, 0.6),
         axis.title.y = element_blank()) +
   geom_hline(yintercept = 1, linetype=2) +
   scale_x_log10() +

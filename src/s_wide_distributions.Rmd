@@ -105,7 +105,7 @@ g <-
   geom_vline(xintercept = 1, linetype=2) +
   theme(text = element_text(size=20, colour="black"),
         axis.text = element_text(colour="black"),
-        legend.position = c(0.8, 0.8)) +
+        legend.position = c(0.45, 0.5)) +
   facet_wrap(~Classifier)
 # ggsave("../output/wide_data.pdf", g, width = 12, height = 8)
 
@@ -199,19 +199,19 @@ mean(mon$tailseff<400)
 a_df <- readRDS("../output/mvt_wide_summaries.rds")
 a_df_gbm <- a_df %>%
   select(contains("gbm")) %>% 
-  rename(samples_1000cp=samples_cp_gbm,
-         samples_ncp=samples_ncp_gbm) %>% 
-  mutate(Classifier="A. GBM")
+  rename(samples_400=samples_400_gbm,
+         samples_1000=samples_1000_gbm) %>% 
+  mutate(Classifier="C. GBM")
 a_df_rf <- a_df %>%
   select(contains("rf")) %>% 
-  rename(samples_cp=samples_cp_rf,
-         samples_ncp=samples_ncp_rf) %>% 
-  mutate(Classifier="B. RF")
+  rename(samples_400=samples_400_rf,
+         samples_1000=samples_1000_rf) %>% 
+  mutate(Classifier="D. RF")
 
-a_df <- tibble(samples_400=a_df$.$samples_400, samples_1000=a_df$samples_1000)
 g1 <- 
-  a_df %>% 
-  melt() %>% 
+  a_df_gbm %>%
+  bind_rows(a_df_rf) %>% 
+  melt(id.vars="Classifier") %>% 
   ggplot(aes(x=value, fill=as.factor(variable))) +
   geom_histogram(position="identity", alpha=0.8, bins=20) +
   scale_fill_grey("# of draws", labels=c("400", "1000")) +
@@ -220,14 +220,14 @@ g1 <-
   geom_vline(xintercept = 1, linetype=2) +
   theme(text = element_text(size=20, colour="black"),
         axis.text = element_text(colour="black"),
-        legend.position = c(0.8, 0.8)) +
-  ggtitle("B.")
+        legend.position = c(0.5, 0.5)) +
+  facet_wrap(~Classifier)
 ggsave("../output/very_wide_data.pdf", g, width = 12, height = 8)
 ```
 
 ```{r}
 pdf("../output/mvt_wide_both.pdf", width = 12, height = 6)
-multiplot(g, g1, cols = 2)
+multiplot(g, g1, cols = 1)
 dev.off()
 ```
 
