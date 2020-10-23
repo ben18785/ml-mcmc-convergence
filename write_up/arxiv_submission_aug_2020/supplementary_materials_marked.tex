@@ -248,7 +248,7 @@ Overall, it seems that $R^*$ is a conservative measure and with greater chain au
 \end{figure}
 
 \section{Many parameter models: ovarian and prostate analysis}\label{sec:prostate}
-In this section, we analyse two Bayesian models both fit to real data. The first is a logistic regression model fit to microarray ovarian cancer data with 54 data points and 1536 predictor variables; overall, this model has 4719 parameters. Since there are relatively few data points relative to the number of predictors, regularised horseshoe priors are specified on the regression coefficients \citep{piironen2017sparsity} since most are expected to be zero. This dataset has been used for benchmarking in the past (see, for example, \cite{schummer1999comparative,hernandez2010expectation,paananen2019implicitly}) and is known to result in a multimodal posterior.
+In this section, we analyse two Bayesian models both fit to real data. \textcolor{red}{In both examples, we illustrate $R^*$ distributions derived only from GBM classifiers.} The first is a logistic regression model fit to microarray ovarian cancer data with 54 data points and 1536 predictor variables; overall, this model has 4719 parameters. Since there are relatively few data points relative to the number of predictors, regularised horseshoe priors are specified on the regression coefficients \citep{piironen2017sparsity} since most are expected to be zero. This dataset has been used for benchmarking in the past (see, for example, \cite{schummer1999comparative,hernandez2010expectation,paananen2019implicitly}) and is known to result in a multimodal posterior.
 
 The other dataset we use is of similar form but for prostate cancer. The original form of the dataset is described here: \cite{singh2002gene}. We use a filtered version of the dataset as detailed here: \cite{yang2006stable}, which we also analysed using logistic regression with regularised horseshoe priors. It has 18,105 parameters in total. 
 
@@ -258,7 +258,7 @@ For the ovarian model, we show the results in Fig. \ref{fig:ovarian}. In Fig. \r
 
 \begin{figure}[!htb]
 	\centerline{\includegraphics[width=1.0\textwidth]{ovarian.pdf}}
-	\caption{\textbf{Ovarian example.} In all plots, we show the results from two model runs: one with 4 chains run with 800 thinned post-warm-up iterations (9000 total iterations with 1000 discarded as warm-up; 8000 post-warm-up iterations thinned by a factor of 10); another with 16 chains run with 1000 post-warm-up iterations each (500 warm-up iterations discarded and no thinning). In A, $R^*$ distributions (with 1000 draws each using Algorithm \ref{alg:R_star_uncertainty}) are shown; B shows rank-normalised split-$\widehat{R}$ values across all parameters; C shows bulk-ESS across all parameters; and D shows tail-ESS across parameters.}
+	\caption{\textbf{Ovarian example.} In all plots, we show the results from two model runs: one with 4 chains run with 800 thinned post-warm-up iterations (9000 total iterations with 1000 discarded as warm-up; 8000 post-warm-up iterations thinned by a factor of 10); another with 16 chains run with 1000 post-warm-up iterations each (500 warm-up iterations discarded and no thinning). In A, $R^*$ distributions (with 1000 draws each using Algorithm \ref{alg:R_star_uncertainty}) using the GBM classifier are shown; B shows rank-normalised split-$\widehat{R}$ values across all parameters; C shows bulk-ESS across all parameters; and D shows tail-ESS across parameters.}
 	\label{fig:ovarian}
 \end{figure}
 
@@ -266,7 +266,7 @@ For the prostate model, we show the results in Fig. \ref{fig:prostate}. Since th
 
 \begin{figure}[!htb]
 	\centerline{\includegraphics[width=1.0\textwidth]{prostate.pdf}}
-	\caption{\textbf{Prostate example.} In all plots, we show the results from two model runs: one with 4 chains run with 800 thinned post-warm-up iterations (9000 total iterations with 1000 discarded as warm-up; 8000 post-warm-up iterations thinned by a factor of 10); another with 16 chains run with 1000 post-warm-up iterations each (500 warm-up iterations discarded and no thinning). In A, $R^*$ distributions (with 1000 draws each using Algorithm \ref{alg:R_star_uncertainty}) are shown -- for the long run, these were calculated after thinning the parameters by a factor of 5; B shows rank-normalised split-$\widehat{R}$ values across all parameters; C shows bulk-ESS across all parameters; and D shows tail-ESS across parameters.}
+	\caption{\textbf{Prostate example.} In all plots, we show the results from two model runs: one with 4 chains run with 800 thinned post-warm-up iterations (9000 total iterations with 1000 discarded as warm-up; 8000 post-warm-up iterations thinned by a factor of 10); another with 16 chains run with 1000 post-warm-up iterations each (500 warm-up iterations discarded and no thinning). In A, $R^*$ distributions (with 1000 draws each using Algorithm \ref{alg:R_star_uncertainty}) using the GBM classifier are shown -- for the long run, these were calculated after thinning the parameters by a factor of 5; B shows rank-normalised split-$\widehat{R}$ values across all parameters; C shows bulk-ESS across all parameters; and D shows tail-ESS across parameters.}
 	\label{fig:prostate}
 \end{figure}
 
