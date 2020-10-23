@@ -36,17 +36,16 @@ fit_ncp <- sampling(
   control = list(adapt_delta = 0.95)
 )
 ```
-# Random forest
 ## Break each chain into two then make flattened data
 ```{r}
 # Centered
 x <- rstan::extract(fit_cp, permuted=F)
-r_star_centered <- r_star_dist(x)
+r_star_centered <- r_star(x, uncertainty = T)
 mon_cp <- monitor_extra(split_data(x))
 
 # Noncentered
 x <- rstan::extract(fit_ncp, permuted=F)
-r_star_noncentered <- r_star_dist(x)
+r_star_noncentered <- r_star(x, uncertainty = T)
 mon_ncp <- monitor_extra(split_data(x))
 
 c_df <- tibble(centered=r_star_centered,
@@ -84,10 +83,14 @@ training_data <- full_data[rand_samples, ]
 testing_data <- full_data[-rand_samples, ]
 
 # Fit gradient-boosed model
+caretGrid <- tibble(interaction.depth=c(3), 
+                             n.trees = 50,
+                             shrinkage=c(0.1),
+                             n.minobsinnode=10)
 fit <- train(chain ~ ., data = training_data, 
-                 method = "rf",
+                 method = "gbm",
                  trControl = trainControl(method = 'none'), 
-                 verbose=FALSE)
+                 verbose=FALSE, tuneGrid=caretGrid)
 varImp(fit)
 ```
 
@@ -95,11 +98,11 @@ varImp(fit)
 ## Trying with original data (i.e. 4 chains)
 ```{r}
 x <- rstan::extract(fit_cp, permuted=F)
-r_star_centered <- r_star_dist(x, split_chains = F)
+r_star_centered <- r_star(x, split_chains = F, uncertainty = T, method="gbm")
 mon_cp <- monitor_extra(fit_cp)
 # noncentered
 x <- rstan::extract(fit_ncp, permuted=F)
-r_star_noncentered <- r_star_dist(x, split_chains = F)
+r_star_noncentered <- r_star(x, split_chains = F, uncertainty = T, method="gbm")
 mon_ncp <- monitor_extra(fit_ncp)
 
 d_df <- tibble(centered=r_star_centered,
@@ -169,12 +172,91 @@ g3 <- e_df %>%
         axis.text = element_text(colour="black", size=10),
         legend.position = c(0.72, 0.3))
 
-pdf("../output/fig_10.pdf", width = 12, height = 4)
+pdf("../output/eight_schools.pdf", width = 12, height = 4)
 multiplot(g1, g2, g3, cols = 3)
 dev.off()
 ```
-# xgbTree
 
+# Same but for RF
+```{r}
+# Centered
+x <- rstan::extract(fit_cp, permuted=F)
+r_star_centered <- r_star(x, uncertainty = T, method="rf")
+mon_cp <- monitor_extra(split_data(x))
+
+# Noncentered
+x <- rstan::extract(fit_ncp, permuted=F)
+r_star_noncentered <- r_star(x, uncertainty = T, method="rf")
+mon_ncp <- monitor_extra(split_data(x))
+
+c_df <- tibble(centered=r_star_centered,
+               non_centered=r_star_noncentered,
+               metric="R*",
+               simulations="split")
+c1_df <- tibble(centered=mon_cp$zfsRhat[1:10],
+                non_centered=mon_ncp$zfsRhat[c(1, 2, 11:18)],
+                metric="split-Rhat",
+               simulations="split")
+```
+
+```{r}
+x <- rstan::extract(fit_cp, permuted=F)
+r_star_centered <- r_star(x, split_chains = F, uncertainty = T, method="rf")
+mon_cp <- monitor_extra(fit_cp)
+# noncentered
+x <- rstan::extract(fit_ncp, permuted=F)
+r_star_noncentered <- r_star(x, split_chains = F, uncertainty = T, method="rf")
+mon_ncp <- monitor_extra(fit_ncp)
+
+d_df <- tibble(centered=r_star_centered,
+               non_centered=r_star_noncentered,
+               metric="R*",
+               simulations="unsplit")
+d1_df <- tibble(centered=mon_cp$zfsRhat[1:10],
+                non_centered=mon_ncp$zfsRhat[c(1, 2, 11:18)],
+                metric="split-Rhat",
+               simulations="unsplit")
+```
+
+Plot two R* distributions
+```{r}
+g1 <- 
+  c_df %>% 
+  melt(id.vars=c("metric", "simulations")) %>% 
+  ggplot(aes(x=value, fill=as.factor(variable))) +
+  geom_histogram(position="identity", alpha=0.8) +
+  xlim(0.78, 2) +
+  scale_fill_grey("Series", labels=c("centered", "non-centered")) +
+  xlab(TeX("$R*$")) +
+  ylab("Count") +
+  geom_vline(xintercept = 1, linetype=2) +
+  ggtitle("A.") +
+  theme(text = element_text(size=16, colour="black"),
+        axis.text = element_text(colour="black"),
+        legend.position = "none")
+g2 <- 
+  d_df %>% 
+  melt(id.vars=c("metric", "simulations")) %>% 
+  ggplot(aes(x=value, fill=as.factor(variable))) +
+  geom_histogram(position="identity", alpha=0.8) +
+  scale_fill_grey("Series", labels=c("centered", "non-centered")) +
+  xlim(0.78, 2) +
+  xlab(TeX("$R*$")) +
+  ylab("Count") +
+  geom_vline(xintercept = 1, linetype=2) +
+  ggtitle("B.") +
+  theme(text = element_text(size=16, colour="black"),
+        axis.text = element_text(colour="black"),
+        legend.position = "none")
+# a_df <- readRDS("../output/eight_schools_replicates_4_index.rds")
+```
+
+Look at Rhat distributions
+```{r}
+pdf("../output/eight_schools_rf.pdf", width = 12, height = 4)
+multiplot(g1, g2, cols = 2)
+dev.off()
+```
 
 # Plot R* versus quantiles
 ```{r}
@@ -239,7 +321,7 @@ gb <- ggMarginal(p, type="density", margins="y", groupColour = T,
 
 library(cowplot)
 
-pdf("../output/fig_11.pdf", width = 6, height = 4)
+pdf("../output/eight_schools_r_star_quantiles.pdf", width = 6, height = 4)
 plot_grid(gb, g1, ga, g2, nrow = 2, rel_widths = c(1, 0.4), rel_heights = c(0.9, 1))
 dev.off()
 ```

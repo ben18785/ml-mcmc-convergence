@@ -169,6 +169,20 @@ In Fig. \ref{fig:mvt_gbm_vs_rf}, we compare the performance of GBM and RF classi
 
 \color{black}
 
+\color{red}
+\section{Hierarchical model: Eight schools model supplementary}\label{sec:8_schools_supp}
+
+Fig. \ref{fig:eight_schools_rf} shows the equivalent of Fig. \ref{fig:eight_schools} except using a RF classifier.
+
+\begin{figure}[!htb]
+	\centerline{\includegraphics[width=1\textwidth]{eight_schools_rf.pdf}}
+	\caption{\textbf{Eight schools example: $R^*$ distributions for a RF classifier.} A shows draws from the $R^*$ distribution when splitting chains in two (resulting in 8 chains); B shows the same but using the 4 original chains. The MCMC samples comprised 2000 draws in all cases, with 1000 used as post-warm-up iterations. In panels A and B, the plots show 1000 $R^*$ draws using Algorithm \ref{alg:R_star_uncertainty} for each parameterisation.}
+	\label{fig:eight_schools_rf}
+\end{figure}
+
+\color{black}
+
+
 
 \section{Wide datasets: multivariate normal}\label{sec:wide}
 As the number of parameter dimensions increases, it might be thought that ML algorithms will overfit the data, and, hence, testing set classification would be poor; leading to unreliable determinations of convergence. To test this hypothesis, we investigated two scenarios using a multivariate normal target.
