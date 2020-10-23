@@ -38,8 +38,8 @@ fit_alt1 <- stan(file = 'cauchy_alt_1.stan',
                  seed = 7878, refresh = 0)
 full_data <- rstan::extract(fit_alt1, permuted=F)
 
-r_star_alt_gbm <- r_star(x, method="gbm", uncertainty = T)
-r_star_alt_rf <- r_star(x, method="rf", uncertainty = T)
+r_star_alt_gbm <- r_star(full_data, method="gbm", uncertainty = T)
+r_star_alt_rf <- r_star(full_data, method="rf", uncertainty = T)
 
 mon <- monitor_extra(split_data(full_data))
 a_rhat_df <-a_rhat_df %>% 
@@ -96,10 +96,7 @@ full_data <- rstan::extract(fit, permuted=F)
 r_star_alt_gbm <- r_star(full_data, method="gbm", uncertainty = T)
 r_star_alt_rf <- r_star(full_data, method="rf", uncertainty = T)
 mon_alt <- monitor_extra(split_data(full_data))
-```
 
-Plot
-```{r}
 b_df <- tibble(nominal_gbm=r_star_nom_gbm,
                nominal_rf=r_star_nom_rf,
                alt_gbm=r_star_alt_gbm,
@@ -115,10 +112,31 @@ c_df <- a_df %>% mutate(iter="1000") %>%
   mutate(source=if_else(source=="r_hat", "split-Rhat", source)) %>% 
   mutate(source=if_else(source=="r_star", "R*", source))
 saveRDS(c_df, "cauchy_rhat_rstar.rds")
-c_df <- readRDS("cauchy_rhat_rstar.rds")
-my_lims <- function(x) { if (max(x) < 1.2) c(0.985, 1.03) else c(0.9, 3)}
+```
 
-g <- c_df %>% 
+Plot
+```{r}
+c_df <- readRDS("cauchy_rhat_rstar.rds")
+c_df_rhat <- c_df %>% 
+  filter(source=="split-Rhat") %>% 
+  select(source, nominal, alt, iter)
+c_df_rstar <- c_df %>% 
+  filter(source!="split-Rhat")
+c_df_gbm <- c_df_rstar %>%
+  select(contains("gbm"), source, iter) %>% 
+  rename(nominal=nominal_gbm,
+         alt=alt_gbm) %>% 
+  mutate(source="R*: GBM")
+c_df_rf <- c_df_rstar %>%
+  select(contains("rf"), source, iter) %>% 
+  rename(nominal=nominal_rf,
+         alt=alt_rf) %>% 
+  mutate(source="R*: RF")
+
+my_lims <- function(x) { if (max(x) < 1.2) c(0.985, 1.06) else c(0.9, 3)}
+g <- c_df_rhat %>% 
+  bind_rows(c_df_gbm) %>% 
+  bind_rows(c_df_rf) %>% 
   melt(id.vars=c("source", "iter")) %>% 
   mutate(source=if_else(source=="split-Rhat", "Split-Rhat", as.character(source))) %>% 
   mutate(iter=fct_relevel(as.factor(iter), "1000", "10,000")) %>% 

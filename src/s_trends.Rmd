@@ -334,12 +334,14 @@ saveRDS(res1, "../output/experiment_trends_joint_distribution.rds")
 ```
 
 ```{r}
+# remove double iterates for rhat from rfs
 g <- readRDS("../output/experiment_trends_joint_distribution.rds") %>%
   as.data.frame() %>%
   select(iters, rho, rep, zsRhat, Rstar_split, method) %>%
   unique() %>%
   select(-rep) %>%
   melt(c("rho", "iters", "method")) %>%
+  filter(!((method=="rf")&(variable=="zsRhat"))) %>% 
   mutate(value=as.numeric(as.character(value))) %>% 
   mutate(variable=case_when(variable=="zsRhat"~"A. Split-Rhat",
                             variable=="Rstar_split"~"B. Split-R*")) %>% 
