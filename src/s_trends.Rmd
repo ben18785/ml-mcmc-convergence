@@ -142,7 +142,9 @@ g <-
         strip.text.y = element_text(size=16, colour="black"),
         axis.text.x = element_text(size=16, colour="black"),
         axis.text.y = element_text(size=16, colour="black"),
-        axis.title = element_text(size=16, colour="black")) +
+        axis.title = element_text(size=16, colour="black"),
+        legend.text = element_text(size=16, colour="black"),
+        legend.title = element_text(size=16, colour="black")) +
   xlab("Trend") +
   ylab("Value") +
   scale_colour_grey("Classifier") +
@@ -243,7 +245,9 @@ g <- readRDS("../output/experiment_trends_one_dim.rds") %>%
         strip.text.y = element_text(size=16, colour="black"),
         axis.text.x = element_text(size=16, colour="black"),
         axis.text.y = element_text(size=16, colour="black"),
-        axis.title = element_text(size=16, colour="black")) +
+        axis.title = element_text(size=16, colour="black"),
+        legend.text = element_text(size=16, colour="black"),
+        legend.title = element_text(size=16, colour="black")) +
   xlab("Trend") +
   ylab("Value") +
   scale_colour_grey("Classifier") +
@@ -357,7 +361,9 @@ g <- readRDS("../output/experiment_trends_joint_distribution.rds") %>%
         strip.text.y = element_text(size=16, colour="black"),
         axis.text.x = element_text(size=16, colour="black"),
         axis.text.y = element_text(size=16, colour="black"),
-        axis.title = element_text(size=16, colour="black")) +
+        axis.title = element_text(size=16, colour="black"),
+        legend.text = element_text(size=16, colour="black"),
+        legend.title = element_text(size=16, colour="black")) +
   ylab("Value") +
   xlab(TeX("$\\rho$"))  +
   scale_colour_grey("Classifier") +
@@ -463,7 +469,9 @@ g <- ggplot(data = res, aes(x = rho, y = Rstar_split)) +
         strip.text.y = element_text(size=16, colour="black"),
         axis.text.x = element_text(size=16, colour="black"),
         axis.text.y = element_text(size=16, colour="black"),
-        axis.title = element_text(size=16, colour="black"))  +
+        axis.title = element_text(size=16, colour="black"),
+        legend.text = element_text(size=16, colour="black"),
+        legend.title = element_text(size=16, colour="black"))  +
   scale_colour_grey("Classifier") +
   scale_shape("Classifier")
 ggsave("../output/trends_ar1.pdf", g, width = 8, height = 6)
@@ -494,7 +502,9 @@ g <- ggplot(data = filter(res1, is.na(type)), aes(x = as.factor(iters), y = Rsta
         strip.text.y = element_text(size=16, colour="black"),
         axis.text.x = element_text(size=16, colour="black"),
         axis.text.y = element_text(size=16, colour="black"),
-        axis.title = element_text(size=16, colour="black"))
+        axis.title = element_text(size=16, colour="black"),
+        legend.text = element_text(size=16, colour="black"),
+        legend.title = element_text(size=16, colour="black"))
 
 ggsave("../output/trends_ar1_transposed.pdf", g, width = 8, height = 6)
 ```

@@ -218,7 +218,7 @@ ga1 <-
         legend.position = c(0.8, 0.75),
         axis.text = element_text(colour="black")) +
   facet_wrap(~Classifier)
-ggsave("../output/mvt_gbm_vs_rf.pdf", ga1, width = 12, height = 8)
+ggsave("../output/mvt_gbm_vs_rf.pdf", ga1, width = 12, height = 4)
 
 a_df_gbm %>% 
   bind_rows(a_df_rf) %>% 

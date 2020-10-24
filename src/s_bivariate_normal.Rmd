@@ -75,7 +75,7 @@ g <-
   theme(text=element_text(size=20, colour="black"),
         axis.text = element_text(colour="black")) +
   scale_fill_grey("Classifier")
-ggsave("../output/bivariate.pdf", g, width = 8, height = 6)
+ggsave("../output/bivariate.pdf", g, width = 8, height = 4)
 ```
 
 Determine Rhat
