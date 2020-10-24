@@ -78,7 +78,7 @@ g2 <- tibble(accuracy=r_star_vals, iteration=seq(1, nreplicates, 1)) %>%
   ggtitle("B.") +
   theme(text = element_text(size=18, colour="black"),
         axis.text = element_text(colour="black", size=16)) +
-  xlim(0.9, NA)
+  xlim(0.8, 1.45)
 
 g2a <- tibble(accuracy=r_hat_vals, iteration=seq(1, nreplicates, 1)) %>% 
   ggplot(aes(x=accuracy)) +
@@ -170,7 +170,8 @@ g3 <-
   ggtitle("D.") +
   theme(text = element_text(size=18, colour="black"),
         axis.text = element_text(colour="black"),
-        legend.position = c(0.8, 0.8))
+        legend.position = c(0.8, 0.8)) +
+  scale_x_continuous(limits=c(0.8, 1.45))
 
 pdf("../output/ar1.pdf", width = 12, height = 6)
 multiplot(g1, g2a, g2, g3, cols = 2)
