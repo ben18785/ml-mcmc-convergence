@@ -78,7 +78,7 @@ test <- split_chains_draws_df(x)
 #' diagnostic with uncertainty using gradient-boosted machines
 #' \emph{arXiv preprint} \code{arXiv:TBD}
 r_star_draws_df <- function(x, split_chains=T, uncertainty=F, method=NULL, hyperparameters=NULL,
-                            training_percent=0.7, nsim=1000){
+                            training_percent=0.7, nsim=1000, ...){
 
   if(split_chains)
     x <- split_chains_draws_df(x)
@@ -115,7 +115,7 @@ r_star_draws_df <- function(x, split_chains=T, uncertainty=F, method=NULL, hyper
                method = method,
                trControl = trainControl(method = 'none'),
                tuneGrid = caret_grid,
-               verbose = FALSE)
+               ...)
 
   # calculate classification accuracy then R*
   nchains <- length(unique(testing_data$.chain))
@@ -137,5 +137,17 @@ r_star_draws_df <- function(x, split_chains=T, uncertainty=F, method=NULL, hyper
   }
 }
 
-r_star_draws_df(temp_df, uncertainty=T, method="gbm")
+start <- Sys.time()
+vals1 <- r_star_draws_df(temp_df, uncertainty=T, method="gbm")
+end <- Sys.time()
+start-end
+start <- Sys.time()
+vals2 <- r_star_draws_df(temp_df, uncertainty=T, method="rf")
+end <- Sys.time()
+start-end
+start <- Sys.time()
+vals3 <- r_star_draws_df(temp_df, uncertainty=F, method="knn",
+                         hyperparameters = tibble(k=5))
+end <- Sys.time()
+start-end
 r_star(as_draws_array(temp_df))
