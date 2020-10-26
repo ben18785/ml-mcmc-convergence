@@ -1,10 +1,11 @@
 library(caret)
 library(gbm)
 library(tidyverse)
+library(posterior)
 
 #' Estimate R star
 #'
-#' Compute estimate of R* using a gradient-boosted model (GBM)
+#' Compute estimate of R* using a ML classifier
 #'
 #' @param x a 3D array of samples of dimensions: # iter x # chains x # parameters
 #'
@@ -14,20 +15,26 @@ library(tidyverse)
 #' @param training_percent proportion of iterations used to train GBM model
 #' (default is 0.7)
 #'
-#' @param caret_default GBM hyperparameter settings given as a list (defaults
-#' are interaction.depth=3, n.trees=50, shrinkage=0.1, nminobsinmode=10)
+#' @param method ML classifer available in Caret R package (defaults to rf model)
+#'
+#' @param caret_default hyperparameter settings for ML classifier given as a list (defaults
+#' to NULL)
+#'
+#' @param uncertainty whether to provide a list of R* values (if true) or a single value (if false) (defaults to false)
+#'
+#' @param nsim number of values in list of R* vals
 #'
 #' @return estimated R* value
-#' 
+#'
 #' @references Ben Lambert, Aki Vehtari (2020) R*: A robust MCMC convergence
 #' diagnostic with uncertainty using gradient-boosted machines
 #' \emph{arXiv preprint} \code{arXiv:TBD}
 r_star <- function(x, split_chains=T, training_percent=0.7, caret_default=NULL, method=NULL,
                    uncertainty=F, nsim=1000){
-  
+
   if(split_chains)
     x <- split_data(x)
-  
+
   nparams <- dim(x)[3]
   nchains <- dim(x)[2]
   niter <- dim(x)[1]
@@ -41,32 +48,24 @@ r_star <- function(x, split_chains=T, training_percent=0.7, caret_default=NULL, 
       k <- k + 1
     }
   }
-  m_flattened <- m_flattened %>% 
+  m_flattened <- m_flattened %>%
     as.data.frame()
   colnames(m_flattened)[nparams + 1] <- "chain"
-  r <- m_flattened %>% 
+  r <- m_flattened %>%
     mutate(chain=as.factor(chain))
   # if only 1 param, add in a column of random noise since gbm requires >1 dims
   if(nparams==1)
-    r <- r %>% 
+    r <- r %>%
       mutate(V_new=rnorm(nrow(r)))
-  
+
   rand_samples <- sample(1:nrow(r), training_percent * nrow(r))
   training_data <- r[rand_samples, ]
   testing_data <- r[-rand_samples, ]
-  
+
   if(is.null(method))
     method <- "rf"
-  if(is.null(caret_default)&&method=="xgbTree")
-    caretGrid <- tibble(nrounds = c(100),
-                        max_depth = c(4),
-                        eta = c(.4),
-                        gamma = 0,
-                        colsample_bytree = .7,
-                        min_child_weight = 1,
-                        subsample = 0.8)
   if(is.null(caret_default)&&method=="gbm")
-    caretGrid <- tibble(interaction.depth=c(3), 
+    caretGrid <- tibble(interaction.depth=c(3),
                              n.trees = 50,
                              shrinkage=c(0.1),
                              n.minobsinnode=10)
@@ -75,14 +74,14 @@ r_star <- function(x, split_chains=T, training_percent=0.7, caret_default=NULL, 
   else
     caretGrid <- expand.grid(caret_default)
 
-  fit <- train(chain ~ ., data = training_data, 
+  fit <- train(chain ~ ., data = training_data,
                     method = method,
-                    trControl = trainControl(method = 'none'), 
+                    trControl = trainControl(method = 'none'),
                     tuneGrid = caretGrid, verbose=FALSE)
-  
+
   if(uncertainty){
     plda <- predict(object=fit, newdata=testing_data, type = "prob")
-    
+
     mAccuracy <- matrix(nrow = nrow(plda),
                         ncol = nsim)
     for(j in 1:nrow(plda)){
@@ -92,10 +91,10 @@ r_star <- function(x, split_chains=T, training_percent=0.7, caret_default=NULL, 
     return(colMeans(mAccuracy) * n_distinct(testing_data$chain))
   } else{
     plda <- predict(object=fit, newdata=testing_data)
-    a_accuracy <- 
+    a_accuracy <-
       tibble(predicted=plda, actual=testing_data$chain) %>%
-      mutate(correct=if_else(predicted==actual, 1, 0)) %>% 
-      summarise(mean(correct)) %>% 
+      mutate(correct=if_else(predicted==actual, 1, 0)) %>%
+      summarise(mean(correct)) %>%
       pull()
     return(a_accuracy * n_distinct(training_data$chain))
   }
@@ -110,7 +109,7 @@ split_data <- function(x){
   nparams <- dim(x)[3]
   nchains <- dim(x)[2]
   niter <- dim(x)[1]
-  
+
   if (niter == 1L) return(x)
     half <- niter / 2
   if(half%%1!=0){
@@ -141,19 +140,19 @@ split_data <- function(x){
 #' chains into two equal halves
 #'
 #' @return single Rhat value
-#' 
+#'
 #' @references Stephen Brooks, Andrew Gelman (1998), General Methods for Monitoring
-#' Convergence of Iterative Simulations  
+#' Convergence of Iterative Simulations
 #' Journal of Computational and Graphical Statistics, Volume 7, Number 4, Pages 434455
 r_hat_multivariate <- function(x, split_chains=T){
-  
+
   if(split_chains)
     x <- split_data(x)
-  
+
   niter <- dim(x)[1]
   nchains <- dim(x)[2]
   nparams <- dim(x)[3]
-  
+
   chains_l <- seq(1, nchains, 1)
   phi_j_bar <- map(chains_l, ~colMeans(x[, ., ]))
   phi_diff <- map(chains_l, ~x[ , ., ] - phi_j_bar[[.]])
@@ -184,9 +183,9 @@ r_hat_multivariate <- function(x, split_chains=T){
 #' Plot R* versus parameter quantiles
 #'
 #' @param index index of parameter in x
-#' 
+#'
 #' @param x a 3D array of samples of dimensions: # iter x # chains x # parameters
-#' 
+#'
 #' @param split_chains a Boolean (defaults to true) indicating whether to split
 #' chains into two equal halves
 #'
@@ -200,14 +199,14 @@ r_hat_multivariate <- function(x, split_chains=T){
 #' 20)
 #'
 #' @return distribution of R* values
-#' 
+#'
 #' @references Ben Lambert, Aki Vehtari (2020) R*: A robust MCMC convergence
 #' diagnostic with uncertainty using gradient-boosted machines
 #' \emph{arXiv preprint} \code{arXiv:TBD}
 plot_r_star_quantiles <- function(index, x, split_chains=T, training_percent=0.7, caret_default=NULL, nsim=20){
   if(split_chains)
     x <- split_data(x)
-  
+
   nparams <- dim(x)[3]
   nchains <- dim(x)[2]
   niter <- dim(x)[1]
@@ -221,27 +220,27 @@ plot_r_star_quantiles <- function(index, x, split_chains=T, training_percent=0.7
       k <- k + 1
     }
   }
-  m_flattened <- m_flattened %>% 
+  m_flattened <- m_flattened %>%
     as.data.frame()
   colnames(m_flattened)[nparams + 1] <- "chain"
-  r <- m_flattened %>% 
+  r <- m_flattened %>%
     mutate(chain=as.factor(chain))
-  
+
   rand_samples <- sample(1:nrow(r), training_percent * nrow(r))
   training_data <- r[rand_samples, ]
   testing_data <- r[-rand_samples, ]
-  
+
   if(is.null(caret_default))
     caretGrid <- tibble(mtry=floor(sqrt(nparams)))
   else
     caretGrid <- expand.grid(caret_default)
-  
-  gbmFit1 <- train(chain ~ ., data = training_data, 
+
+  gbmFit1 <- train(chain ~ ., data = training_data,
                    method = "rf",
-                   trControl = trainControl(method = 'none'), 
+                   trControl = trainControl(method = 'none'),
                    tuneGrid = caretGrid, verbose=FALSE)
   plda <- predict(object=gbmFit1, newdata=testing_data, type = "prob")
-  
+
   mAccuracy <- matrix(nrow = nrow(plda),
                       ncol = nsim)
   for(j in 1:nrow(plda)){
@@ -250,29 +249,29 @@ plot_r_star_quantiles <- function(index, x, split_chains=T, training_percent=0.7
   }
   mAccuracy <- as.data.frame(mAccuracy)
   mAccuracy$param <- testing_data[, index]
-  
+
   lbreaks <- quantile(mAccuracy$param, seq(0, 1, 0.1))
   mAccuracy$param_cuts <- cut(mAccuracy$param, breaks=lbreaks, include.lowest = T, right=T, ordered_result = T)
   cuts <- sort(unique(mAccuracy$param_cuts))
   r_star <- matrix(ncol = length(cuts),
                    nrow=nsim)
   for(i in seq_along(cuts)){
-    temp <- mAccuracy %>% 
+    temp <- mAccuracy %>%
       filter(param_cuts==cuts[i])
     r_star[, i] <- colMeans(temp[, 1:nsim]) * n_distinct(testing_data$chain)
   }
   colnames(r_star) <- seq(0.1, 1, 0.1)
-  r_mean <- 
-    r_star %>% 
-    melt(id.vars=NULL) %>%  
-    group_by(Var2) %>% 
-    summarise(value=mean(value))
-  r_full <- 
+  r_mean <-
     r_star %>%
     melt(id.vars=NULL) %>%
-    bind_rows(r_mean) %>% 
-    mutate(variable=as.numeric(as.character(Var2))) 
-  
+    group_by(Var2) %>%
+    summarise(value=mean(value))
+  r_full <-
+    r_star %>%
+    melt(id.vars=NULL) %>%
+    bind_rows(r_mean) %>%
+    mutate(variable=as.numeric(as.character(Var2)))
+
   ggplot(filter(r_full, !is.na(Var1)),
          aes(x=variable, y=value)) +
     geom_jitter(height = 0.02, width = 0.02, colour="grey") +
@@ -287,12 +286,12 @@ plot_r_star_quantiles <- function(index, x, split_chains=T, training_percent=0.7
 
 multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
   library(grid)
-  
+
   # Make a list from the ... arguments and plotlist
   plots <- c(list(...), plotlist)
-  
+
   numPlots = length(plots)
-  
+
   # If layout is NULL, then use 'cols' to determine layout
   if (is.null(layout)) {
     # Make the panel
@@ -301,20 +300,20 @@ multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
     layout <- matrix(seq(1, cols * ceiling(numPlots/cols)),
                      ncol = cols, nrow = ceiling(numPlots/cols))
   }
-  
+
   if (numPlots==1) {
     print(plots[[1]])
-    
+
   } else {
     # Set up the page
     grid.newpage()
     pushViewport(viewport(layout = grid.layout(nrow(layout), ncol(layout))))
-    
+
     # Make each plot, in the correct location
     for (i in 1:numPlots) {
       # Get the i,j matrix positions of the regions that contain this subplot
       matchidx <- as.data.frame(which(layout == i, arr.ind = TRUE))
-      
+
       print(plots[[i]], vp = viewport(layout.pos.row = matchidx$row,
                                       layout.pos.col = matchidx$col))
     }
