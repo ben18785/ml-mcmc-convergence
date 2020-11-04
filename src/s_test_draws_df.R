@@ -79,7 +79,7 @@ test <- split_chains_draws_df(x)
 #' \emph{arXiv preprint} \code{arXiv:TBD}
 r_star_draws_df <- function(x, split_chains=T, uncertainty=F, method=NULL, hyperparameters=NULL,
                             training_percent=0.7, nsim=1000, ...){
-
+  x <- as_draws_df(x)
   if(split_chains)
     x <- split_chains_draws_df(x)
 
@@ -97,13 +97,12 @@ r_star_draws_df <- function(x, split_chains=T, uncertainty=F, method=NULL, hyper
   # choose hyperparameters
   if(is.null(method)) {
     method <- "rf"
+    caret_grid <- tibble(mtry=floor(sqrt(nparams)))
   } else if(is.null(hyperparameters) && method=="gbm") {
     caret_grid <- tibble(interaction.depth=c(3),
                          n.trees = 50,
                          shrinkage=c(0.1),
                          n.minobsinnode=10)
-  } else if(is.null(hyperparameters)) {
-    caret_grid <- tibble(mtry=floor(sqrt(nparams)))
   } else {
     caret_grid <- hyperparameters
   }
@@ -146,8 +145,20 @@ vals2 <- r_star_draws_df(temp_df, uncertainty=T, method="rf")
 end <- Sys.time()
 start-end
 start <- Sys.time()
-vals3 <- r_star_draws_df(temp_df, uncertainty=F, method="knn",
+vals3 <- r_star_draws_df(temp_df, uncertainty=T, method="knn",
                          hyperparameters = tibble(k=5))
 end <- Sys.time()
 start-end
 r_star(as_draws_array(temp_df))
+
+
+# build simple example
+x <- example_draws("eight_schools")
+r_star_draws_df(x)
+r_star_draws_df(x, split_chains = F)
+r_star_draws_df(x, method = "gbm", verbose=F)
+
+hist(r_star_draws_df(x, uncertainty = T))
+hist(r_star_draws_df(x, uncertainty = T, nsim = 100))
+
+
