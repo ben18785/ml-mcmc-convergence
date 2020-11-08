@@ -292,3 +292,27 @@
   * Including the figures (so, if these are updated in outputs, these need to be too).
 * ms_ba is the version submitted to the journal
   * This has been being updated as comments come in. So, if we resubmit, we will need to explicitly mention these changes.
+
+# Rhat cases: changing calculation of Rhat
+
+* [x] Autoregressive:
+  * [x] Base
+  * [x] Number of chains
+* [x] Bivariate normal: no change necessary in text
+* [x] 250D normal:
+  * [x] Text
+  * [x] Figure
+* [x] Cauchy:
+  * [x] base: text looks fine too
+  * [x] objective convergence measure:
+    * [x] Ensure all using inc_warmup=F
+* [ ] Eight schools
+* [ ] Wide models:
+  * [ ] 250D
+  * [ ] 10,000D
+* [ ] Trending correlation
+* [ ] Discrete:
+  * [ ] Low
+  * [ ] High
+* [ ] Ovarian
+* [ ] Prostate

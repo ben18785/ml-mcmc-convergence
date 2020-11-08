@@ -83,16 +83,14 @@ Determine Rhat
 chains_stacked <- rbind.data.frame(chain1, chain2, chain3, chain4) %>% 
   mutate(chain=as.factor(chain))
 
-# Use monitor package functionality -- split chains first
-half_iter <- max(chains_stacked$iter) / 2
+# Use monitor package functionality
+half_iter <- max(chains_stacked$iter)
 m_samples <- array(dim = c(half_iter,
-                           2*n_distinct(chains_stacked$chain),
+                           n_distinct(chains_stacked$chain),
                            2))
 k <- 1
 chains_stacked_first <- chains_stacked %>% 
   filter(iter<=half_iter)
-chains_stacked_second <- chains_stacked %>% 
-  filter(iter>half_iter)
 
 for(i in 1:half_iter){
   temp <- chains_stacked_first %>% 
@@ -105,17 +103,9 @@ for(i in 1:half_iter){
   }
 }
 
-for(i in 1:half_iter){
-  temp <- chains_stacked_second %>% 
-    filter(iter==(i + 1000))
-  for(j in 5:8){
-    temp1 <- temp %>%
-      filter(chain==(j - 4))
-    m_samples[i, j, ] <- as.numeric(temp1[1, 1:2])
-    k <- k + 1
-  }
-}
-
-mon <- monitor(m_samples)
+mon <- monitor_extra(m_samples)
+mon$zsRhat
+mon$zfsRhat
+max(mon$zsRhat, mon$zfsRhat)
 ```
 

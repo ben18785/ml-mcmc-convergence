@@ -36,8 +36,11 @@ fit <- readRDS("../output/mvt_fit_10000.rds")
 
 # Collect Rhat
 full_data <- rstan::extract(fit, permuted=F)
-a_sum <- monitor_extra(split_data(full_data))
+a_sum <- monitor_extra(full_data)
 rhat <- a_sum$zfsRhat
+rhat1 <- a_sum$zsRhat
+rhat <- tibble(rhat, rhat1) %>% 
+  apply(1, max)
 
 # Reshape data into form for R* estimation
 m_flattened <- matrix(nrow = nrow(full_data) * 4, ncol = 252)
@@ -105,7 +108,7 @@ gb <- b_df %>%
   theme(legend.position = "none",
         text = element_text(size=18, colour="black"),
         axis.text = element_text(colour="black"))
-b_df <- tibble(samples_10000_cp=a_sum$zfsRhat[1:250])
+b_df <- tibble(samples_10000_cp=rhat[1:250])
 ```
 
 With 400 iterations
@@ -123,10 +126,13 @@ r_star2_rf <- r_star(full_data, uncertainty = T, method="rf")
 a_df <- a_df %>%
   mutate(samples_400_gbm=r_star2_gbm,
          samples_400_rf=r_star2_rf)
-
-a_sum <- monitor_extra(split_data(full_data))
+a_sum <- monitor_extra(full_data)
+rhat <- a_sum$zfsRhat
+rhat1 <- a_sum$zsRhat
+rhat <- tibble(rhat, rhat1) %>% 
+  apply(1, max)
 b_df <- b_df %>%
-  mutate(samples_400=a_sum$zfsRhat[1:250])
+  mutate(samples_400=rhat[1:250])
 ```
 
 10,000 iterations for non-centered parameterisation
@@ -137,12 +143,17 @@ b_df <- b_df %>%
 # saveRDS(fit, "../output/mvt_ncp_fit_10000.rds")
 fit <- readRDS("../output/mvt_ncp_fit_10000.rds")
 full_data <- rstan::extract(fit, permuted=F)
-a_sum <- monitor_extra(split_data(full_data))
+a_sum <- monitor_extra(full_data)
 sum(a_sum$zsseff>400)
 sum(a_sum$tailseff>400)
 sum(a_sum$zfsRhat<1.01)
+sum(a_sum$zsRhat<1.01)
+rhat <- a_sum$zfsRhat
+rhat1 <- a_sum$zsRhat
+rhat <- tibble(rhat, rhat1) %>% 
+  apply(1, max)
 b_df <- b_df %>%
-  mutate(samples_10000_ncp=a_sum$zfsRhat[251:500])
+  mutate(samples_10000_ncp=rhat[251:500])
 saveRDS(b_df, "../output/mvt_fit_all_rhat.rds")
 b_df <- readRDS("../output/mvt_fit_all_rhat.rds")
 

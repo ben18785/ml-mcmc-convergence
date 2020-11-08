@@ -46,8 +46,9 @@ f_replicate <- function(){
   a_array <- array(dim=c(2000, 4, 1))
   a_array[,,1] <- temp
   a_accuracy <- r_star(a_array, method = "gbm")
-  mon <- monitor_extra(split_data(a_array))
-  return(list(r_star=a_accuracy, r_hat=mon$zfsRhat))
+  mon <- monitor_extra(a_array)
+  rhat <- max(mon$zsRhat, mon$zfsRhat)
+  return(list(r_star=a_accuracy, r_hat=rhat))
 }
 
 nreplicates <- 1000
@@ -62,7 +63,7 @@ for(i in 1:nreplicates){
   r_hat_vals[i] <- temp$r_hat
 }
 
-saveRDS(tibble(r_star=r_star_vals, r_hat=r_hat_vals), "../data/ar1_r_star_hat.rds")
+# saveRDS(tibble(r_star=r_star_vals, r_hat=r_hat_vals), "../data/ar1_r_star_hat.rds")
 ```
 
 Plot results
@@ -88,7 +89,7 @@ g2a <- tibble(accuracy=r_hat_vals, iteration=seq(1, nreplicates, 1)) %>%
   ggtitle("C.") +
   theme(text = element_text(size=18, colour="black"),
         axis.text = element_text(colour="black", size=16)) +
-  xlim(1, NA)
+  xlim(1, 1.05)
 ```
 
 Look at predictions of model
@@ -194,12 +195,13 @@ f_replicate_n <- function(n_chains){
   a_array <- array(dim=c(2000, n_chains, 1))
   a_array[,,1] <- temp
   a_accuracy <- r_star(a_array, method = "gbm")
-  mon <- monitor_extra(split_data(a_array))
-  return(list(r_star=a_accuracy, r_hat=mon$zfsRhat))
+  mon <- monitor_extra(a_array)
+  rhat <- max(mon$zsRhat, mon$zfsRhat)
+  return(list(r_star=a_accuracy, r_hat=rhat))
 }
 
 nreplicates <- 50
-lnum_chains <- c(2, 4, 6, 8, 16, 32)
+lnum_chains <- c(2, 4, 8, 16, 32)
 mResults <- matrix(nrow = nreplicates * length(lnum_chains),
                    ncol = 4)
 k <- 1
@@ -213,11 +215,9 @@ for(j in seq_along(lnum_chains)){
 }
 
 colnames(mResults) <- c("nchains", "iterate", "R*", "split-Rhat")
-mResults <- as.data.frame(mResults) %>% 
-  filter(nchains < 64)
+mResults <- as.data.frame(mResults)
 saveRDS(mResults, "../data/ar1_numchains.rds")
-mResults <- readRDS("../data/ar1_numchains.rds") %>% 
-  filter(iterate<=50)
+mResults <- readRDS("../data/ar1_numchains.rds")
 b_sum <- mResults %>% 
   melt(id.vars=c("nchains", "iterate")) %>%
   group_by(nchains, variable) %>% 
@@ -242,8 +242,6 @@ g <- mResults %>%
         strip.text.x = element_text(colour="black", size=16),
         legend.position = "none")
 ggsave("../output/ar1_numchains.pdf", g, width = 8, height = 4)
-
-
 ```
 
 # Investigating stochasticity of R*

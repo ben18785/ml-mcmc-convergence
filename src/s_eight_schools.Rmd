@@ -41,17 +41,18 @@ fit_ncp <- sampling(
 # Centered
 x <- rstan::extract(fit_cp, permuted=F)
 r_star_centered <- r_star(x, uncertainty = T)
-mon_cp <- monitor_extra(split_data(x))
+mon_cp <- monitor_extra(x)
 
 # Noncentered
 x <- rstan::extract(fit_ncp, permuted=F)
 r_star_noncentered <- r_star(x, uncertainty = T)
-mon_ncp <- monitor_extra(split_data(x))
+mon_ncp <- monitor_extra(x)
 
 c_df <- tibble(centered=r_star_centered,
                non_centered=r_star_noncentered,
                metric="R*",
                simulations="split")
+
 c1_df <- tibble(centered=mon_cp$zfsRhat[1:10],
                 non_centered=mon_ncp$zfsRhat[c(1, 2, 11:18)],
                 metric="split-Rhat",

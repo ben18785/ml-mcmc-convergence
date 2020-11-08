@@ -28,8 +28,13 @@ x <- rstan::extract(fit_nom, permuted=F)
 r_star_nom_gbm <- r_star(x, method="gbm", uncertainty = T)
 r_star_nom_rf <- r_star(x, method="rf", uncertainty = T)
 
-mon <- monitor_extra(split_data(x))
-a_rhat_df <- tibble(nominal=mon$zfsRhat[1:50])
+mon <- monitor_extra(x)
+rhat <- mon$zfsRhat
+rhat1 <- mon$zsRhat
+rhat <- tibble(rhat, rhat1) %>% 
+  apply(1, max)
+
+a_rhat_df <- tibble(nominal=rhat[1:50])
 ```
 
 Generate split-R* distribution from alternative Cauchy parameterisation
@@ -41,9 +46,13 @@ full_data <- rstan::extract(fit_alt1, permuted=F)
 r_star_alt_gbm <- r_star(full_data, method="gbm", uncertainty = T)
 r_star_alt_rf <- r_star(full_data, method="rf", uncertainty = T)
 
-mon <- monitor_extra(split_data(full_data))
+mon <- monitor_extra(full_data)
+rhat <- mon$zfsRhat
+rhat1 <- mon$zsRhat
+rhat <- tibble(rhat, rhat1) %>% 
+  apply(1, max)
 a_rhat_df <-a_rhat_df %>% 
-  mutate(alt=mon$zfsRhat[101:150],
+  mutate(alt=rhat[101:150],
          source="r_hat")
 ```
 
@@ -82,7 +91,12 @@ full_data <- rstan::extract(fit, permuted=F)
 
 r_star_nom_gbm <- r_star(full_data, method="gbm", uncertainty = T)
 r_star_nom_rf <- r_star(full_data, method="rf", uncertainty = T)
-mon_nom <- monitor_extra(split_data(full_data))
+mon_nom <- monitor_extra(full_data)
+
+rhat <- mon_nom$zfsRhat
+rhat1 <- mon_nom$zsRhat
+rhat_nom <- tibble(rhat, rhat1) %>% 
+  apply(1, max)
 ```
 
 Alternative model with 50000 iterations
@@ -95,15 +109,19 @@ full_data <- rstan::extract(fit, permuted=F)
 
 r_star_alt_gbm <- r_star(full_data, method="gbm", uncertainty = T)
 r_star_alt_rf <- r_star(full_data, method="rf", uncertainty = T)
-mon_alt <- monitor_extra(split_data(full_data))
+mon_alt <- monitor_extra(full_data)
+rhat <- mon_alt$zfsRhat
+rhat1 <- mon_alt$zsRhat
+rhat_alt <- tibble(rhat, rhat1) %>% 
+  apply(1, max)
 
 b_df <- tibble(nominal_gbm=r_star_nom_gbm,
                nominal_rf=r_star_nom_rf,
                alt_gbm=r_star_alt_gbm,
                alt_rf=r_star_alt_rf,
                source="r_star") %>% 
-  bind_rows(tibble(nominal=mon_nom$zfsRhat[1:50],
-                alt=mon_alt$zfsRhat[101:150],
+  bind_rows(tibble(nominal=rhat_nom[1:50],
+                alt=rhat_alt[101:150],
                 source="r_hat")) %>% 
   mutate(iter="10,000")
  
@@ -133,7 +151,7 @@ c_df_rf <- c_df_rstar %>%
          alt=alt_rf) %>% 
   mutate(source="R*: RF")
 
-my_lims <- function(x) { if (max(x) < 1.2) c(0.985, 1.06) else c(0.9, 3)}
+my_lims <- function(x) { if (max(x) < 1.2) c(0.985, 1.04) else c(0.9, 3)}
 g <- c_df_rhat %>% 
   bind_rows(c_df_gbm) %>% 
   bind_rows(c_df_rf) %>% 
@@ -163,7 +181,7 @@ ggsave("../output/cauchy.pdf", g, width = 12, height = 8)
 Compare quantiles
 ```{r}
 fit <- readRDS("../output/fit_nominal_50000.rds")
-x <- rstan::extract(fit, permuted=F, pars="x", inc_warmup=T)
+x <- rstan::extract(fit, permuted=F, pars="x", inc_warmup=F)
 r_squared <- function(x, lower=0.001){
   qs <- seq(lower, 1-lower, lower)
   q_actual <- map_dbl(qs, ~qcauchy(.))
@@ -185,7 +203,7 @@ r_vals1_lower <- map_dbl(iter, ~quantile(r_squared(x[1:., , ]), 0.025))
 r_vals1_upper <- map_dbl(iter, ~quantile(r_squared(x[1:., , ]), 0.975))
 
 fit <- readRDS("../output/fit_alt_50000.rds")
-x <- rstan::extract(fit, permuted=F, pars="x", inc_warmup=T)
+x <- rstan::extract(fit, permuted=F, pars="x", inc_warmup=F)
 r_vals <- map_dbl(iter, ~median(r_squared(x[1:., , ])))
 r_vals_lower <- map_dbl(iter, ~quantile(r_squared(x[1:., , ]), 0.025))
 r_vals_upper <- map_dbl(iter, ~quantile(r_squared(x[1:., , ]), 0.975))
@@ -204,8 +222,8 @@ b_df <-
          lower=r_vals1_lower,
          upper=r_vals1_upper,
          variable="nom"))
-# saveRDS(b_df, "../output/cauchy_r_squared.rds")
-b_df <- readRDS("../output/cauchy_r_squared.rds")
+saveRDS(b_df, "../output/cauchy_r_squared.rds")
+# b_df <- readRDS("../output/cauchy_r_squared.rds")
 g1 <- b_df %>% 
   ggplot(aes(x=iteration)) +
   geom_point(aes(y=middle,colour=as.factor(variable))) +
@@ -220,50 +238,6 @@ g1 <- b_df %>%
         axis.title.y = element_blank()) +
   scale_x_log10() +
   ggtitle(TeX("A. Quantile-$R^2$"))
-```
-
-Cramer Von Mises -- seems very noisy
-```{r}
-library(goftest)
-f_cvm <- function(x){
-  temp <- cvm.test(x, null = "pcauchy")
-  return(temp$p.value)
-}
-
-f_cvm_all_dims <- function(x, max_iter){
-  vals <- map_dbl(seq(1, 50, 1), ~f_cvm(x[1:max_iter, , .]))
-  return(vals)
-}
-
-fit <- readRDS("../output/fit_nominal_50000.rds")
-x <- rstan::extract(fit, permuted=F, pars="x", inc_warmup=T)
-cvm_min <- map_dbl(iter, ~mean(f_cvm_all_dims(x, .)))
-
-fit <- readRDS("../output/fit_alt_50000.rds")
-x <- rstan::extract(fit, permuted=F, pars="x", inc_warmup=T)
-cvm_min <- map_dbl(iter, ~mean(f_cvm_all_dims(x, .)))
-```
-
-Anderson-Darling test -- again, noisy
-```{r}
-library(goftest)
-f_ad <- function(x){
-  temp <- ad.test(x, null = "pcauchy")
-  return(temp$p.value)
-}
-
-f_ad_all_dims <- function(x, max_iter){
-  vals <- map_dbl(seq(1, 50, 1), ~f_ad(x[1:max_iter, , .]))
-  return(vals)
-}
-
-fit <- readRDS("../output/fit_nominal_50000.rds")
-x <- rstan::extract(fit, permuted=F, pars="x", inc_warmup=T)
-cvm_min <- map_dbl(iter, ~mean(f_ad_all_dims(x, .)<0.05))
-
-fit <- readRDS("../output/fit_alt_50000.rds")
-x <- rstan::extract(fit, permuted=F, pars="x", inc_warmup=T)
-cvm_min <- map_dbl(iter, ~mean(f_ad_all_dims(x, .)<0.05))
 ```
 
 Progression of R*
@@ -334,63 +308,23 @@ g2 <- a_df %>%
 ```
 
 
-Progression of R* with ranked samples instead
-```{r}
-fit <- readRDS("../output/fit_nominal_50000.rds")
-x <- rstan::extract(fit, permuted=F, pars="x")
-future::plan(multiprocess)
-unranked <- future_map_dbl(iter, function(i) r_star(x[1:i, , ]))
-
-x <- z_scale(x)
-ranked <- future_map_dbl(iter, function(i) r_star(x[1:i, , ]))
-cc_df <- tibble(ranked, unranked, iter, source="nominal") 
-
-fit <- readRDS("../output/fit_alt_50000.rds")
-x <- rstan::extract(fit, permuted=F, pars="x")
-future::plan(multiprocess)
-unranked <- future_map_dbl(iter, function(i) r_star(x[1:i, , ]))
-
-x <- z_scale(x)
-ranked <- future_map_dbl(iter, function(i) r_star(x[1:i, , ]))
-
-cc_df <- cc_df %>% 
-  bind_rows(tibble(ranked, unranked, iter, source="alt"))
-saveRDS(cc_df, "../output/cauchy_ranked_unranked.rds")
-cc_df <- readRDS("../output/cauchy_ranked_unranked.rds")
-
-g <- cc_df %>% 
-  mutate(source=if_else(source=="alt", "alternative", "nominal")) %>% 
-  melt(id.vars=c("iter", "source")) %>% 
-  mutate(variable=as.factor(variable)) %>% 
-  ggplot(aes(x=iter, y=value, colour=variable)) +
-  geom_line() +
-  facet_wrap(~source) +
-  scale_x_log10() +
-  scale_color_grey("Method") +
-  xlab("Draws") +
-  ylab("R*")
-ggsave("../output/cauchy_ranked_unranked.pdf", g)
-```
-
-
 Rhat
 ```{r}
 r_hat_all_params <- function(x){
  nparams <- dim(x)[3] 
- rhat_vals <- map_dbl(seq(1, nparams, 1), ~rhat(split_chains(z_scale(x[ , , .]))))
+ rhat_vals <- map_dbl(seq(1, nparams, 1), ~posterior::rhat((x[ , , .])))
  return(rhat_vals)
 }
 
 fit <- readRDS("../output/fit_nominal_50000.rds")
-x <- rstan::extract(fit, permuted=F, pars="x")
+x <- rstan::extract(fit, permuted=F, pars="x", inc_warmup=F)
 future::plan(multiprocess)
-iter <- a_df$iteration %>% unique()
 r_hat <- future_map_dbl(iter, ~max(r_hat_all_params(x[1:., , ])))
 r_hat_lower <- future_map_dbl(iter, ~quantile(r_hat_all_params(x[1:., , ]), 0.025))
 r_hat_upper <- future_map_dbl(iter, ~quantile(r_hat_all_params(x[1:., , ]), 0.975))
 
 fit1 <- readRDS("../output/fit_alt_50000.rds")
-x <- rstan::extract(fit1, permuted=F, pars="x")
+x <- rstan::extract(fit1, permuted=F, pars="x", inc_warmup=F)
 r_hat1 <- future_map_dbl(iter, ~max(r_hat_all_params(x[1:., , ])))
 r_hat1_lower <- future_map_dbl(iter, ~quantile(r_hat_all_params(x[1:., , ]), 0.025))
 r_hat1_upper <- future_map_dbl(iter, ~quantile(r_hat_all_params(x[1:., , ]), 0.975))
@@ -431,15 +365,16 @@ g3
 Multivariate Rhat
 ```{r}
 fit1 <- readRDS("../output/fit_alt_50000.rds")
-x <- rstan::extract(fit1, permuted=F, pars="x")
+x <- rstan::extract(fit1, permuted=F, pars="x", inc_warmup=F)
 Rhat_alt <- map_dbl(iter, ~r_hat_multivariate(x[1:., , ]))
 
 fit1 <- readRDS("../output/fit_nominal_50000.rds")
-x <- rstan::extract(fit1, permuted=F, pars="x")
+x <- rstan::extract(fit1, permuted=F, pars="x", inc_warmup=F)
 Rhat_nom <- map_dbl(iter, ~r_hat_multivariate(x[1:., , ]))
 g_df <- tibble(iteration=iter,
        alt=Rhat_alt,
        nom=Rhat_nom) 
+saveRDS(g_df, "../output/cauchy_mvt_rhat.rds")
 g4 <- 
   tibble(iteration=iter,
        alt=Rhat_alt,
@@ -466,12 +401,12 @@ g4
 Tail ESS
 ```{r}
 fit1 <- readRDS("../output/fit_alt_50000.rds")
-x <- rstan::extract(fit1, permuted=F, pars="x")
+x <- rstan::extract(fit1, permuted=F, pars="x", inc_warmup=F)
 tail_ess_alt <- map_dbl(iter, function(i) min(map_dbl(seq(1, 50, 1), ~ess_tail(x[1:i, , .]))))
 bulk_ess_alt <- map_dbl(iter, function(i) min(map_dbl(seq(1, 50, 1), ~ess_bulk(x[1:i, , .]))))
 
 fit1 <- readRDS("../output/fit_nominal_50000.rds")
-x <- rstan::extract(fit1, permuted=F, pars="x")
+x <- rstan::extract(fit1, permuted=F, pars="x", inc_warmup=F)
 tail_ess_nom <- map_dbl(iter, function(i) min(map_dbl(seq(1, 50, 1), ~ess_tail(x[1:i, , .]))))
 bulk_ess_nom <- map_dbl(iter, function(i) min(map_dbl(seq(1, 50, 1), ~ess_bulk(x[1:i, , .]))))
 
