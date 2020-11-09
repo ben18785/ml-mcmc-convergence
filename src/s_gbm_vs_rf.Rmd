@@ -18,7 +18,7 @@ source("r_star_monitor.R")
 ```
 
 
-Generate a large correlation matrix
+# Different covariance matrices
 ```{r}
 rlkj <- function(n, nu, d){
   r_list <- vector(length = n, mode = 'list')
@@ -102,6 +102,7 @@ f_compare_iter <- function(nreplicate, d, A0, A1){
   return(m_res)
 }
 
+# Run replicates with one chain with a different cov matrix
 nreplicates <- 20
 ds <- c(1, 2, 4, 8, 16, 32)
 for(i in seq_along(ds)){
@@ -145,6 +146,8 @@ f_optimal_normals <- function(niter, A0, A1, d){
 r_star_opts <- map_dbl(ds[2:length(ds)], ~f_optimal_normals(10000, A0, A1, .))
 r_star_opts <- c(1, r_star_opts)
 r_star_opts <- tibble(d=ds, optimal=r_star_opts)
+
+# plot results
 temp_df <- 
   big_df %>%
   left_join(r_star_opts) %>% 
@@ -178,7 +181,7 @@ g <- ggplot(temp_df,
 ggsave("../output/gbm_vs_rf_normal.pdf", g, width = 10, height = 6)
 ```
 
-Same but increase fatness of tails
+# Tail fatness
 ```{r}
 library(LaplacesDemon)
 f_data_student_ts <- function(nu1, nu2, d, A0, niter=2000){
@@ -238,6 +241,7 @@ f_compare_iter_student_t <- function(nreplicate, nu1, nu2, d, A0){
   return(m_res)
 }
 
+# Run replicates
 nreplicates <- 20
 nu1 <- 3
 nu2 <- c(4, 8, 16, 32)
@@ -254,7 +258,7 @@ for(i in 1:nrow(m_parameters)){
 }
 saveRDS(big_df, "../data/gbm_vs_rf_studentts_results.rds")
 
-
+# calculate optimal classification rates
 f_optimal_studentts <- function(niter, nu1, nu2, d, A0){
   x <- f_data_student_ts(nu1, nu2, d, A0, niter = niter)
   sigma1 <- A0[1:d, 1:d] * (nu1 - 2) / nu1
@@ -284,6 +288,8 @@ f_optimal_studentts <- function(niter, nu1, nu2, d, A0){
 
 r_star_opts1 <- map_dbl(seq(1, nrow(m_parameters), 1), ~f_optimal_studentts(10000, nu1, m_parameters$nu2[.], m_parameters$ds[.], A0))
 
+
+# plot results
 r_star_opts <- tibble(d=m_parameters$ds, nu2=m_parameters$nu2, optimal=r_star_opts1)
 big_df <- readRDS("../data/gbm_vs_rf_studentts_results.rds")
 temp_df <- 

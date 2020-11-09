@@ -1,5 +1,5 @@
 ---
-title: "Examining the effect of a trend on R*"
+title: "Examining the effect of sampler trends on R*"
 output: html_notebook
 ---
 
@@ -124,6 +124,7 @@ res <- bind_rows(res)
 saveRDS(res, "../output/experiment_trends_all_dim.rds")
 ```
 
+Plot
 ```{r}
 res <- readRDS("../output/experiment_trends_all_dim.rds")
 g <-
@@ -226,7 +227,7 @@ res <- bind_rows(res)
 saveRDS(res, "../output/experiment_trends_one_dim.rds")
 ```
 
-
+Plot
 ```{r}
 g <- readRDS("../output/experiment_trends_one_dim.rds") %>%
   select(trend, iters, rep, dimension, Rstar_split, method) %>%
@@ -337,13 +338,16 @@ res1 <- do.call(rbind, res)
 saveRDS(res1, "../output/experiment_trends_joint_distribution.rds")
 ```
 
+Plot
 ```{r}
 # remove double iterates for rhat from rfs
 g <- readRDS("../output/experiment_trends_joint_distribution.rds") %>%
   as.data.frame() %>%
-  select(iters, rho, rep, zsRhat, Rstar_split, method) %>%
+  dplyr::select(iters, rho, rep, zsRhat, zfsRhat, Rstar_split, method) %>%
   unique() %>%
-  select(-rep) %>%
+  dplyr::select(-rep) %>%
+  mutate(zsRhat=max(as.numeric(as.character(zsRhat), as.numeric(as.character(zfsRhat))))) %>% 
+  dplyr::select(-zfsRhat) %>% 
   melt(c("rho", "iters", "method")) %>%
   filter(!((method=="rf")&(variable=="zsRhat"))) %>% 
   mutate(value=as.numeric(as.character(value))) %>% 
@@ -445,17 +449,11 @@ saveRDS(res, "../output/experiment_trends_rho_nearer1.rds")
 
 ```
 
+Plot
 ```{r}
 res <- readRDS("../output/experiment_trends_rho_nearer1.rds") %>%
   mutate(method=as.character(method)) %>% 
   mutate(method=if_else(method=="gbm", "GBM", "RF"))
-
-# ggplot(data = res, aes(x = rho, y = zsRhat)) +
-#   geom_jitter() +
-#   facet_grid(vars(iters)) +
-#   geom_hline(yintercept = 1) +
-#   ggtitle('R* without splitting') +
-#   ylim(0, 6)
 
 g <- ggplot(data = res, aes(x = rho, y = Rstar_split)) +
   geom_jitter(aes(colour=as.factor(method),

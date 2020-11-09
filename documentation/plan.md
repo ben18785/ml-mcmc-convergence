@@ -271,7 +271,7 @@
 * arXiv
 * BA
 
-# Andrew Gelman's suggestions
+# Other suggestions
 
 * [x] p.2, "Unfortunately, anyone who uses MCMC knows that it is full of false dawns: chains can easily become stuck in areas of parameter space, and observation over short intervals mean the sampling distribution appears converged." You can cite this paper from 1992: http://www.stat.columbia.edu/~gelman/research/published/false_sense.pdf
 * [x] p.2, "it should not be possible to predict the chain that caused a draw." I would change this to "it should not be possible to predict which draws come from which chain." I think it will just be confusing to introduce causal language here.
@@ -306,13 +306,29 @@
   * [x] base: text looks fine too
   * [x] objective convergence measure:
     * [x] Ensure all using inc_warmup=F
-* [ ] Eight schools
-* [ ] Wide models:
-  * [ ] 250D
-  * [ ] 10,000D
-* [ ] Trending correlation
-* [ ] Discrete:
-  * [ ] Low
-  * [ ] High
-* [ ] Ovarian
-* [ ] Prostate
+* [x] Eight schools
+* [x] Wide models:
+  * [x] 250D
+  * [x] 10,000D
+* [x] Trending correlation
+* [x] Discrete:
+  * [x] Low
+  * [x] High
+* [x] Ovarian
+* [x] Prostate
+* [ ] Change use of Rhat to be max of rank normalized split-Rhat and rank normalized folded-split-Rhat, throughout
+
+# Clean up repo
+
+* [x] 8 schools
+* [x] Wide
+* [x] Ovarian prostate
+* [x] s_gbm_vs_rf
+* [x] s_hyperparameters
+* [x] s_ml
+* [x] s_trends
+* [x] s_cauchy
+* [x] s_mvt_normal
+* [x] s_ar1
+* [ ] Readme 
+

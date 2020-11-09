@@ -1,5 +1,5 @@
 ---
-title: "R Notebook"
+title: "8 schools"
 output: html_notebook
 ---
 
@@ -40,12 +40,12 @@ fit_ncp <- sampling(
 ```{r}
 # Centered
 x <- rstan::extract(fit_cp, permuted=F)
-r_star_centered <- r_star(x, uncertainty = T)
+r_star_centered <- r_star(x, uncertainty = T, method = "gbm")
 mon_cp <- monitor_extra(x)
 
 # Noncentered
 x <- rstan::extract(fit_ncp, permuted=F)
-r_star_noncentered <- r_star(x, uncertainty = T)
+r_star_noncentered <- r_star(x, uncertainty = T, method = "gbm")
 mon_ncp <- monitor_extra(x)
 
 c_df <- tibble(centered=r_star_centered,
@@ -53,8 +53,17 @@ c_df <- tibble(centered=r_star_centered,
                metric="R*",
                simulations="split")
 
-c1_df <- tibble(centered=mon_cp$zfsRhat[1:10],
-                non_centered=mon_ncp$zfsRhat[c(1, 2, 11:18)],
+# calculate Rhat as max of zfs and zs Rhat
+f_rhat_max <- function(mon, ids) {
+  rhat <- mon$zfsRhat[ids]
+  rhat1 <- mon$zsRhat[ids]
+  rhat <- tibble(rhat, rhat1) %>% 
+    apply(1, max)
+  return(rhat)
+}
+
+c1_df <- tibble(centered=f_rhat_max(mon_cp, 1:10),
+                non_centered=f_rhat_max(mon_ncp, c(1, 2, 11:18)),
                 metric="split-Rhat",
                simulations="split")
 ```
@@ -100,18 +109,45 @@ varImp(fit)
 ```{r}
 x <- rstan::extract(fit_cp, permuted=F)
 r_star_centered <- r_star(x, split_chains = F, uncertainty = T, method="gbm")
-mon_cp <- monitor_extra(fit_cp)
+
+# do calculations using unsplit chains
+rhat_cp <- vector(length = 10)
+for(i in 1:10) {
+  sims_i <- x[, , i]
+  zsims_split <- z_scale(sims_i)
+  zsplit_rhat <- rhat_rfun(zsims_split)
+  sims_centered <- sims_i - median(sims_i)
+  sims_folded <- abs(sims_centered)
+  zsims_folded_split <- z_scale(sims_folded)
+  zfsplit_rhat <- rhat_rfun(zsims_folded_split)
+  rhat_cp[i] <- max(zsplit_rhat, zfsplit_rhat)
+}
+
 # noncentered
 x <- rstan::extract(fit_ncp, permuted=F)
 r_star_noncentered <- r_star(x, split_chains = F, uncertainty = T, method="gbm")
-mon_ncp <- monitor_extra(fit_ncp)
+
+ids <- c(1, 2, 11:18)
+rhat_ncp <- vector(length = 10)
+k <- 1
+for(i in ids) {
+  sims_i <- x[, , i]
+  zsims_split <- z_scale(sims_i)
+  zsplit_rhat <- rhat_rfun(zsims_split)
+  sims_centered <- sims_i - median(sims_i)
+  sims_folded <- abs(sims_centered)
+  zsims_folded_split <- z_scale(sims_folded)
+  zfsplit_rhat <- rhat_rfun(zsims_folded_split)
+  rhat_ncp[k] <- max(zsplit_rhat, zfsplit_rhat)
+  k <- k + 1
+}
 
 d_df <- tibble(centered=r_star_centered,
                non_centered=r_star_noncentered,
                metric="R*",
                simulations="unsplit")
-d1_df <- tibble(centered=mon_cp$zfsRhat[1:10],
-                non_centered=mon_ncp$zfsRhat[c(1, 2, 11:18)],
+d1_df <- tibble(centered=rhat_cp,
+                non_centered=rhat_ncp,
                 metric="split-Rhat",
                simulations="unsplit")
 ```
@@ -123,7 +159,7 @@ g1 <-
   melt(id.vars=c("metric", "simulations")) %>% 
   ggplot(aes(x=value, fill=as.factor(variable))) +
   geom_histogram(position="identity", alpha=0.8) +
-  xlim(0.78, 2) +
+  xlim(0.78, 1.7) +
   scale_fill_grey("Series", labels=c("centered", "non-centered")) +
   xlab(TeX("$R*$")) +
   ylab("Count") +
@@ -138,7 +174,7 @@ g2 <-
   ggplot(aes(x=value, fill=as.factor(variable))) +
   geom_histogram(position="identity", alpha=0.8) +
   scale_fill_grey("Series", labels=c("centered", "non-centered")) +
-  xlim(0.78, 2) +
+  xlim(0.78, 1.7) +
   xlab(TeX("$R*$")) +
   ylab("Count") +
   geom_vline(xintercept = 1, linetype=2) +
@@ -160,8 +196,8 @@ g3 <- e_df %>%
   pivot_wider(id_cols=c("variable", "var_num"), values_from = "value", names_from = "simulations") %>% 
   ggplot(aes(x=unsplit, y=split, colour=as.factor(variable))) +
   geom_point() +
-  scale_x_continuous(limits=c(NA, 1.035)) +
-  scale_y_continuous(limits=c(NA, 1.035)) +
+  scale_x_continuous(limits=c(NA, 1.02)) +
+  scale_y_continuous(limits=c(NA, 1.02)) +
   geom_vline(xintercept = 1.01, linetype=2) +
   geom_hline(yintercept = 1.01, linetype=2) +
   geom_abline(linetype=3) +
@@ -188,15 +224,10 @@ mon_cp <- monitor_extra(split_data(x))
 # Noncentered
 x <- rstan::extract(fit_ncp, permuted=F)
 r_star_noncentered <- r_star(x, uncertainty = T, method="rf")
-mon_ncp <- monitor_extra(split_data(x))
 
 c_df <- tibble(centered=r_star_centered,
                non_centered=r_star_noncentered,
                metric="R*",
-               simulations="split")
-c1_df <- tibble(centered=mon_cp$zfsRhat[1:10],
-                non_centered=mon_ncp$zfsRhat[c(1, 2, 11:18)],
-                metric="split-Rhat",
                simulations="split")
 ```
 
@@ -207,15 +238,10 @@ mon_cp <- monitor_extra(fit_cp)
 # noncentered
 x <- rstan::extract(fit_ncp, permuted=F)
 r_star_noncentered <- r_star(x, split_chains = F, uncertainty = T, method="rf")
-mon_ncp <- monitor_extra(fit_ncp)
 
 d_df <- tibble(centered=r_star_centered,
                non_centered=r_star_noncentered,
                metric="R*",
-               simulations="unsplit")
-d1_df <- tibble(centered=mon_cp$zfsRhat[1:10],
-                non_centered=mon_ncp$zfsRhat[c(1, 2, 11:18)],
-                metric="split-Rhat",
                simulations="unsplit")
 ```
 

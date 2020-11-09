@@ -30,22 +30,34 @@ Centered
 fit <- readRDS("../output/mvt_fit_500.rds")
 
 full_data <- rstan::extract(fit, permuted=F, inc_warmup=F)
+
+## R* calcs
 r_star_gbm <- r_star(full_data, uncertainty = T, method="gbm")
 r_star_rf <- r_star(full_data, uncertainty = T, method="rf")
 
 a_df <- tibble(samples_cp_gbm=r_star_gbm,
                samples_cp_rf=r_star_rf)
 
-mon <- monitor_extra(split_data(full_data))
-mean(mon$zfsRhat>1.01)
+## Rhat cals and ESSs
+mon <- monitor_extra(full_data)
+
+f_rhat_max <- function(mon) {
+  rhat <- mon$zfsRhat
+  rhat1 <- mon$zsRhat
+  rhat <- tibble(rhat, rhat1) %>% 
+    apply(1, max)
+  return(rhat)
+}
+
+rhats <- f_rhat_max(mon)
+mean(rhats>1.01)
 mean(mon$zsseff<400)
 mean(mon$tailseff<400)
 
-b_df <- tibble(samples_cp=mon$zfsRhat[1:250])
-
+## plot traditional
 ha <- tibble(bulk_ess=mon$zsseff,
        tail_ess=mon$tailseff,
-       rhat=mon$zfsRhat) %>% 
+       rhat=rhats) %>% 
   melt() %>% 
   mutate(variable=case_when(variable=="bulk_ess"~"Bulk ESS",
                             variable=="tail_ess"~"Tail ESS",
@@ -61,7 +73,7 @@ ha <- tibble(bulk_ess=mon$zsseff,
 ha
 aa_df <- tibble(bulk_ess=mon$zsseff,
        tail_ess=mon$tailseff,
-       rhat=mon$zfsRhat,
+       rhat=rhats,
        source="Centered")
 # ggsave("../output/wide_cp_diagnostics.pdf", ha, width = 12, height = 8)
 ```
@@ -109,14 +121,15 @@ g <-
   facet_wrap(~Classifier)
 # ggsave("../output/wide_data.pdf", g, width = 12, height = 8)
 
-mon <- monitor_extra(split_data(full_data))
-mean(mon$zfsRhat>1.01)
+mon <- monitor_extra(full_data)
+rhats <- f_rhat_max(mon)
+mean(rhats>1.01)
 mean(mon$zsseff<400)
 mean(mon$tailseff<400)
 
 h <- tibble(bulk_ess=mon$zsseff,
        tail_ess=mon$tailseff,
-       rhat=mon$zfsRhat) %>% 
+       rhat=rhats) %>% 
   melt() %>% 
   mutate(variable=case_when(variable=="bulk_ess"~"Bulk-ESS",
                             variable=="tail_ess"~"Tail-ESS",
@@ -131,10 +144,11 @@ h <- tibble(bulk_ess=mon$zsseff,
         axis.title.x = element_blank())
 # ggsave("../output/wide_ncp_diagnostics.pdf", h, width = 12, height = 8)
 
+## plot all traditional measures
 aa_df <- aa_df %>%
   bind_rows(tibble(bulk_ess=mon$zsseff,
        tail_ess=mon$tailseff,
-       rhat=mon$zfsRhat,
+       rhat=rhats,
        source="Non-centered"))
 
 h1 <- aa_df %>% 
@@ -168,8 +182,9 @@ r_star_rf <- r_star(full_data, uncertainty = T, method="rf")
 a_df <- tibble(samples_400_gbm=r_star_gbm,
                samples_400_rf=r_star_rf)
 saveRDS(a_df, "../output/mvt_wide_400_summary.rds")
-mon <- monitor_extra(split_data(full_data))
-mean(mon$zfsRhat>1.01)
+mon <- monitor_extra(full_data)
+rhats <- f_rhat_max(mon)
+mean(rhats>1.01)
 mean(mon$zsseff<400)
 mean(mon$tailseff<400)
 ```
@@ -192,8 +207,9 @@ a_df <- a_df %>%
     mutate(samples_1000_gbm=r_star_gbm,
            samples_1000_rf=r_star_rf)
 saveRDS(a_df, "../output/mvt_wide_summaries.rds")
-mon <- monitor_extra(split_data(full_data))
-mean(mon$zfsRhat>1.01)
+mon <- monitor_extra(full_data)
+rhats <- f_rhat_max(mon)
+mean(rhats>1.01)
 mean(mon$zsseff<400)
 mean(mon$tailseff<400)
 a_df <- readRDS("../output/mvt_wide_summaries.rds")

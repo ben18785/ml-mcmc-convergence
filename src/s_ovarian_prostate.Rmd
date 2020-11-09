@@ -49,10 +49,10 @@ fit <- readRDS("../data/ovarian_long.rds")
 
 x <- rstan::extract(fit, permuted=F)
 
-mon <- monitor_extra(split_data(x))
+mon <- monitor_extra(x)
 saveRDS(mon, "../data/ovarian_long_mon.rds")
 full_data <- rstan::extract(fit, permuted=F)
-r_star <- r_star_dist(full_data)
+r_star <- r_star(full_data, method = "gbm", uncertainty = T)
 saveRDS(r_star, "../data/ovarian_long_r_star.rds")
 ```
 
@@ -64,10 +64,10 @@ saveRDS(fit, "../data/ovarian_short.rds")
 fit <- readRDS("../data/ovarian_short.rds")
 
 x <- rstan::extract(fit, permuted=F)
-mon <- monitor_extra(split_data(x))
+mon <- monitor_extra(x)
 saveRDS(mon, "../data/ovarian_short_mon.rds")
 full_data <- rstan::extract(fit, permuted=F)
-r_star <- r_star_dist(full_data)
+r_star <- r_star(full_data, method = "gbm", uncertainty = T)
 saveRDS(r_star, "../data/ovarian_short_r_star.rds")
 ```
 
@@ -79,9 +79,18 @@ r_star_shorter <- readRDS("../data/ovarian_short_r_star.rds")
 mon_longer <- readRDS("../data/ovarian_long_mon.rds")
 mon_shorter <- readRDS("../data/ovarian_short_mon.rds")
 
+# find max of rank normalized split-Rhat and rank normalized folded-split-Rhat
+f_rhat_max <- function(mon) {
+  rhat <- mon$zsRhat
+  rhat1 <- mon$zfsRhat
+  rhat <- tibble(rhat, rhat1) %>% 
+    apply(1, max)
+  return(rhat)
+}
+
 
 g <- tibble(long=r_star_longer, short=r_star_shorter, metric="A. R*") %>% 
-  bind_rows(tibble(long=mon_longer$zsRhat, short=mon_shorter$zsRhat, metric="B. Split-Rhat")) %>% 
+  bind_rows(tibble(long=f_rhat_max(mon_longer), short=f_rhat_max(mon_shorter), metric="B. Split-Rhat"))%>% 
   bind_rows(tibble(long=mon_longer$zsseff, short=mon_shorter$zsseff, metric="C. Bulk-ESS")) %>% 
   bind_rows(tibble(long=mon_longer$tailseff, short=mon_shorter$tailseff, metric="D. Tail-ESS")) %>% 
   melt(id.vars="metric") %>% 
@@ -132,12 +141,12 @@ fit <- readRDS("../data/prostate_long.rds")
 
 x <- rstan::extract(fit, permuted=F)
 
-mon <- monitor_extra(split_data(x))
+mon <- monitor_extra(x)
 saveRDS(mon, "../data/prostate_long_mon.rds")
 full_data <- rstan::extract(fit, permuted=F)
 
 # Thin data again
-r_star <- r_star_dist(full_data[, , seq(1, 18106, 5)])
+r_star <- r_star(full_data[, , seq(1, 18106, 5)], method = "gbm", uncertainty = T)
 saveRDS(r_star, "../data/prostate_long_r_star.rds")
 ```
 
@@ -150,10 +159,10 @@ saveRDS(fit, "../data/prostate_short.rds")
 fit <- readRDS("../data/prostate_short.rds")
 
 x <- rstan::extract(fit, permuted=F)
-mon <- monitor_extra(split_data(x))
+mon <- monitor_extra(x)
 saveRDS(mon, "../data/prostate_short_mon.rds")
 full_data <- rstan::extract(fit, permuted=F)
-r_star <- r_star_dist(full_data[, , seq(1, 18106, 5)])
+r_star <- r_star(full_data[, , seq(1, 18106, 5)], method = "gbm", uncertainty = T)
 saveRDS(r_star, "../data/prostate_short_r_star.rds")
 ```
 
@@ -168,7 +177,7 @@ mon_shorter <- readRDS("../data/prostate_short_mon.rds")
 my_breaks <- function(x) { if (max(x) < 10) c(0.95, max(x)) else c(0, max(x)) }
 
 g <- tibble(long=r_star_longer, short=r_star_shorter, metric="A. R*") %>% 
-  bind_rows(tibble(long=mon_longer$zsRhat, short=mon_shorter$zsRhat, metric="B. Split-Rhat")) %>% 
+  bind_rows(tibble(long=f_rhat_max(mon_longer), short=f_rhat_max(mon_shorter), metric="B. Split-Rhat")) %>% 
   bind_rows(tibble(long=mon_longer$zsseff, short=mon_shorter$zsseff, metric="C. Bulk-ESS")) %>% 
   bind_rows(tibble(long=mon_longer$tailseff, short=mon_shorter$tailseff, metric="D. Tail-ESS")) %>% 
   melt(id.vars="metric") %>% 

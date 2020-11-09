@@ -81,9 +81,10 @@ f_replicate <- function(L, P0, P1, state_0){
   temp <- f_generate_four(L, P0, P1, state_0)
   a_array <- array(dim=c(L, 4, 1))
   a_array[,,1] <- temp
-  a_accuracy <- r_star(a_array)
-  mon <- monitor_extra(split_data(a_array))
-  return(list(r_star=a_accuracy, r_hat=mon$zfsRhat))
+  a_accuracy <- r_star(a_array, method = "gbm")
+  mon <- monitor_extra(a_array)
+  rhat <- max(mon$zsRhat, mon$zfsRhat)
+  return(list(r_star=a_accuracy, r_hat=rhat))
 }
 
 nreplicates <- 40
@@ -125,7 +126,7 @@ r_hat_vals <- as.data.frame(r_hat_vals) %>%
 r_star_vals <- as.data.frame(r_star_vals) %>% 
   mutate(type="R*")
 
-saveRDS(tibble(r_star=r_star_vals, r_hat=r_hat_vals), "../data/discrete_r_star_hat.rds")
+saveRDS(list(r_star=r_star_vals, r_hat=r_hat_vals), "../data/discrete_r_star_hat.rds")
 ```
 
 Plot
@@ -259,7 +260,7 @@ f_construct_random_matrix <- function(n_dim, alpha){
 # P0 <- f_construct_random_matrix(20, rep(1, 20))
 # P1 <- f_construct_random_matrix(20, rep(1, 20))
 
-saveRDS(list(P0=P0, P1=P1), "../data/discrete_higherd_matrices.rds")
+# saveRDS(list(P0=P0, P1=P1), "../data/discrete_higherd_matrices.rds")
 temp <- readRDS("../data/discrete_higherd_matrices.rds")
 P0 <- temp$P0
 P1 <- temp$P1
@@ -286,7 +287,7 @@ g <- f_generate_four(100000, P0, P1, 1) %>%
         strip.text.y = element_text(colour="black", size=16),
         title = element_text(colour="black", size=16),
         legend.text = element_text(colour="black", size=16))
-ggsave("../output/discrete_stationary_higherd.pdf", g, width = 10, height = 6)
+# ggsave("../output/discrete_stationary_higherd.pdf", g, width = 10, height = 6)
 ```
 
 Do same simulations as before but with this higher dimensional case
@@ -316,7 +317,7 @@ r_hat_vals <- as.data.frame(r_hat_vals) %>%
 r_star_vals <- as.data.frame(r_star_vals) %>% 
   mutate(type="R*")
 
-saveRDS(tibble(r_star=r_star_vals, r_hat=r_hat_vals), "../data/discrete_r_star_hat_higherd.rds")
+saveRDS(list(r_star=r_star_vals, r_hat=r_hat_vals), "../data/discrete_r_star_hat_higherd.rds")
 
 temp <- readRDS("../data/discrete_r_star_hat_higherd.rds")
 r_star_vals <- temp$r_star %>% 

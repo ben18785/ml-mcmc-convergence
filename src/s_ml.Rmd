@@ -3,6 +3,10 @@ title: ML comparison"
 output: html_notebook
 ---
 
+Note that, to generate the results in this section, we used the shell file 
+s_jobScheduler_ml_hypers_set.sh
+
+
 ```{r}
 rm(list=ls())
 library(tidyverse)
@@ -17,153 +21,8 @@ source("monitornew.R")
 source("r_star_monitor.R")
 ```
 
-Function to fit any ML model in Caret
-```{r}
-r_star_ml_variety <- function(x, method_, caretGrid){
-  
-  split_chains=T
-  training_percent=0.7
-  if(split_chains)
-    x <- split_data(x)
-  nparams <- dim(x)[3]
-  nchains <- dim(x)[2]
-  niter <- dim(x)[1]
-  m_flattened <- matrix(nrow = nrow(x) * nchains,
-                        ncol = (nparams + 1))
-  k <- 1
-  for(i in 1:nchains){
-    for(j in 1:nrow(x)){
-      m_flattened[k, 1:nparams] <- x[j, i, ]
-      m_flattened[k, (nparams + 1)] <- i
-      k <- k + 1
-    }
-  }
-  m_flattened <- m_flattened %>% 
-    as.data.frame()
-  colnames(m_flattened)[nparams + 1] <- "chain"
-  r <- m_flattened %>% 
-    mutate(chain=as.factor(chain))
-  # if only 1 param, add in a column of random noise since gbm requires >1 dims
-  if(nparams==1)
-    r <- r %>% 
-      mutate(V_new=rnorm(nrow(r)))
-  
-  rand_samples <- sample(1:nrow(r), training_percent * nrow(r))
-  training_data <- r[rand_samples, ]
-  testing_data <- r[-rand_samples, ]
-  
-  if(method_!="multinom")
-      gbmFit <- train(chain ~ ., data = training_data, 
-                   trControl = trainControl(method = 'none'),
-                   method=method_,
-                   tuneGrid = caretGrid)
-  else
-    gbmFit <- train(chain ~ ., data = training_data, 
-                 trControl = trainControl(method = 'none'),
-                 method=method_,
-                 tuneGrid = caretGrid,
-                 MaxNWts=10000
-                 )
-  plda <- predict(object=gbmFit, newdata=testing_data)
-  a_accuracy <- 
-    tibble(predicted=plda, actual=testing_data$chain) %>%
-    mutate(correct=if_else(predicted==actual, 1, 0)) %>% 
-    summarise(mean(correct)) %>% 
-    pull()
-  return(a_accuracy * n_distinct(training_data$chain))
-}
-
-f_replicate_gridded <- function(x, method_, caretGrids_){
-  r_stars <- vector(length = nrow(caretGrids_))
-  times <- vector(length = nrow(caretGrids_))
-  for(i in 1:nrow(caretGrids_)){
-    start.time <- Sys.time()
-    r_stars[i] <- r_star_ml_variety(x, method_, caretGrids_[i, ])
-    end.time <- Sys.time()
-    times[i] <- end.time - start.time
-  }
-  return(list(r_star=r_stars, time=times))
-}
-
-f_run_all <- function(methods, list_of_caret_grids, f_data_generator){
-  x <- f_data_generator()
-  r_stars <- vector(length = length(methods))
-  times <- vector(length = length(methods))
-  hypers <- vector(length = length(methods), mode="list")
-  for(i in seq_along(r_stars)){
-    print(methods[i])
-    a_grid <- list_of_caret_grids[[i]]
-    a <- f_replicate_gridded(x, methods[i], a_grid)
-    r_stars[i] <- max(a$r_star)
-    a_ind <- which.max(a$r_star)
-    times[i] <- a$time[a_ind]
-    hypers[[i]] <- a_grid[a_ind, ]
-  }
-  return(tibble(r_star=r_stars, method=methods, time=times, hyper=hypers))
-}
-
-f_run_all_replicates <- function(niterations, methods, list_of_caret_grids, f_data_generator){
-  for(i in 1:niterations){
-    print(i)
-    temp_df <- f_run_all(methods, list_of_caret_grids, f_data_generator) %>% mutate(iter=i)
-    if(i==1)
-      big_df <- temp_df
-    else
-      big_df <- big_df %>% bind_rows(temp_df)
-  }
-  return(big_df)
-}
-
-tunegrid_gbm <- expand.grid(interaction.depth=1, 
-                             n.trees = c(400),
-                             shrinkage=c(0.1),
-                             n.minobsinnode=c(1))
-tunegrid_rf <- tibble(mtry = c(1, 5, 15))
-tunegrid_knn <- tibble(k = c(5, 10, 15, 20, 40))
-tunegrid_svm <- tibble(C = c(0.25, 0.5, 0.75))
-tunegrid_multinom <- tibble(decay=c(0.1, 0.2, 0.5, 1))
-tunegrid_xgbtree <- expand_grid(nrounds = c(1, 10),
-                       max_depth = c(1, 4),
-                       eta = c(.1, .4),
-                       gamma = 0,
-                       colsample_bytree = .7,
-                       min_child_weight = 1,
-                       subsample = c(.8, 1))
-```
-
-
 # AR1
 ```{r}
-f_ar1 <- function(rho, sigma, L){
-  x <- vector(length = L)
-  x[1] <- rnorm(1, 0, sd=sigma)
-  for(i in 2:L)
-    x[i] = rho * x[i - 1] + rnorm(1, 0, sd=sigma)
-  return(x)
-}
-
-# Generates three chains with same var; one with a different var
-f_generate_lower_var_four <- function(var_ratio, rho, sigma, L){
-  x <- matrix(nrow = L, ncol = 4)
-  for(i in 1:3)
-    x[, i] <- f_ar1(rho, sigma, L)
-  z <- f_ar1(rho, sigma * sqrt(var_ratio), L)
-  x[, 4] <- z
-  return(x)
-}
-
-f_data_ar1 <- function(){
-  temp <- f_generate_lower_var_four(1/3, 0.3, 1, 1000)
-  a_array <- array(dim=c(1000, 4, 1))
-  a_array[,,1] <- temp
-  return(a_array)
-}
-
-# temp_df <- f_run_all_replicates(2, c("gbm", "rf", "knn", "svmLinear", "multinom"),
-#           list(tunegrid_gbm, tunegrid_rf, tunegrid_knn, tunegrid_svm, tunegrid_multinom),
-#           f_data_ar1)
-
-
 orders <- c("rf", "xgbTree", "gbm", "knn", "multinom", "svmLinear")
 lookup <- tibble(method=orders,
                  new=c("RF", "xgbTree", "GBM", "KNN", "GLM", "SVM"))
@@ -187,24 +46,6 @@ temp_df <- readRDS("../data/ml_comp_hypers_set_ar1.rds")  %>%
 
 # 8 schools
 ```{r}
-source("eight_schools.data.R")
-eight_schools <- list(J=J, y=y, sigma=sigma)
-model_cp <- stan_model("eight_schools_cp.stan")
-model_ncp <- stan_model("eight_schools_ncp.stan")
-
-f_data_8_schools <- function(){
-  fit_ncp <- sampling(
-    model_ncp, data = eight_schools,
-    iter = 2000, chains = 4, refresh = 0,
-    control = list(adapt_delta = 0.95)
-    )
-  x_ncp <- rstan::extract(fit_ncp, permuted=F)
-}
-
-# temp_df <- f_run_all_replicates(2, c("gbm", "rf", "knn", "svmLinear", "multinom"),
-#           list(tunegrid_gbm, tunegrid_rf, tunegrid_knn, tunegrid_svm, tunegrid_multinom),
-#           f_data_8_schools)
-
 temp_df1 <- readRDS("../data/ml_comp_hypers_set_8_schools.rds")  %>% 
   filter(method!="xgbTree") %>%
   select(method, iter, r_star, time) %>% 
@@ -224,16 +65,6 @@ temp_df1 <- readRDS("../data/ml_comp_hypers_set_8_schools.rds")  %>%
 
 # Cauchy
 ```{r}
-f_data_cauchy <- function(){
-  fit_nom <- stan(file = 'cauchy_alt_1.stan',
-                refresh = 0)
-  x <- rstan::extract(fit_nom, permuted=F)
-  return(x)
-}
-
-# temp_df <- f_run_all_replicates(2, c("gbm", "rf", "knn", "svmLinear", "multinom"),
-#           list(tunegrid_gbm, tunegrid_rf, tunegrid_knn, tunegrid_svm, tunegrid_multinom),
-#           f_data_cauchy)
 temp_df2 <- readRDS("../data/ml_comp_hypers_set_cauchy.rds") %>% 
   filter(method!="xgbTree") %>%
   select(method, iter, r_star, time) %>% 
@@ -253,17 +84,6 @@ temp_df2 <- readRDS("../data/ml_comp_hypers_set_cauchy.rds") %>%
 
 # Multivariate normal
 ```{r}
-f_data_normal <- function(){
-  N <- 250
-  A <- rWishart(1, 250, diag(N))[,,1]
-  model <- stan_model("mvt_250_ncp.stan")
-  fit <- sampling(model, data=list(N=N, A=A), iter=1000, chains=4)
-  x <- rstan::extract(fit, permuted=F)
-  return(x)
-}
-
-# temp_df <- f_replicate_gridded(x, "rf", tunegrid_rf)
-
 temp_df3 <- readRDS("../data/ml_comp_hypers_set_normal_250.rds") %>% 
   filter(method!="xgbTree") %>%
   select(method, iter, r_star, time) %>% 
@@ -297,31 +117,3 @@ g1 <- temp_df %>%
   facet_grid(vars(variable), vars(model), scales="free")
 ggsave("../output/ml_comparison_all.pdf", g1, width = 12, height = 6)
 ```
-
-# Check for false positives with random forests
-```{r}
-f_data_converged <- function(){
-  d <- 10
-  n <- 2000
-  nchain <- 4
-  
-  x <- rnorm(d * n * nchain)
-  x <- array(x, dim=c(n, nchain, d))
-  return(x)
-}
-
-temp_df <- f_run_all_replicates(10, c("gbm", "rf"),
-          list(tunegrid_gbm, tunegrid_rf),
-          f_data_converged)
-temp_df %>% 
-  ggplot(aes(x=as.factor(method), y=r_star)) +
-  geom_boxplot()
-```
-
-# Setting hyperparameters for random forest:
-"Influence of Hyperparameters on Random Forest Accuracy"
-Simon Bernard, Laurent Heutte, Sebastien Adam, 2009
-Use mtry=sqrt(number features)
-
-whereas for gbms / xgboost, performance depends on lots of things
-

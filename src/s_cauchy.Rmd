@@ -29,6 +29,8 @@ r_star_nom_gbm <- r_star(x, method="gbm", uncertainty = T)
 r_star_nom_rf <- r_star(x, method="rf", uncertainty = T)
 
 mon <- monitor_extra(x)
+
+# calculate rhat as in posterior package
 rhat <- mon$zfsRhat
 rhat1 <- mon$zsRhat
 rhat <- tibble(rhat, rhat1) %>% 
@@ -46,6 +48,7 @@ full_data <- rstan::extract(fit_alt1, permuted=F)
 r_star_alt_gbm <- r_star(full_data, method="gbm", uncertainty = T)
 r_star_alt_rf <- r_star(full_data, method="rf", uncertainty = T)
 
+# calculate rhat as in posterior package
 mon <- monitor_extra(full_data)
 rhat <- mon$zfsRhat
 rhat1 <- mon$zsRhat
@@ -89,10 +92,12 @@ Nominal model with 50000 iterations
 fit <- readRDS("../output/fit_nominal_50000.rds")
 full_data <- rstan::extract(fit, permuted=F)
 
+# calculate R*
 r_star_nom_gbm <- r_star(full_data, method="gbm", uncertainty = T)
 r_star_nom_rf <- r_star(full_data, method="rf", uncertainty = T)
-mon_nom <- monitor_extra(full_data)
 
+# calculate rhat as in posterior package
+mon_nom <- monitor_extra(full_data)
 rhat <- mon_nom$zfsRhat
 rhat1 <- mon_nom$zsRhat
 rhat_nom <- tibble(rhat, rhat1) %>% 
@@ -107,8 +112,11 @@ Alternative model with 50000 iterations
 fit <- readRDS("../output/fit_alt_50000.rds")
 full_data <- rstan::extract(fit, permuted=F)
 
+# calculate R*
 r_star_alt_gbm <- r_star(full_data, method="gbm", uncertainty = T)
 r_star_alt_rf <- r_star(full_data, method="rf", uncertainty = T)
+
+# calculate rhat as in posterior package
 mon_alt <- monitor_extra(full_data)
 rhat <- mon_alt$zfsRhat
 rhat1 <- mon_alt$zsRhat
