@@ -316,7 +316,7 @@
   * [x] High
 * [x] Ovarian
 * [x] Prostate
-* [ ] Change use of Rhat to be max of rank normalized split-Rhat and rank normalized folded-split-Rhat, throughout
+* [x] Change use of Rhat to be max of rank normalized split-Rhat and rank normalized folded-split-Rhat, throughout
 
 # Clean up repo
 
@@ -330,5 +330,5 @@
 * [x] s_cauchy
 * [x] s_mvt_normal
 * [x] s_ar1
-* [ ] Readme 
+* [x] Readme 
 
